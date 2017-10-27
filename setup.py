@@ -16,7 +16,7 @@ def read(fname):
 setup(
     name='BestAvailablePixel',
     version="0.1",
-    description='Generate a "Best Available Pixel" image in Google Earth Engine',
+    description='Generate a "Best Available Pixel" composite in Google Earth Engine',
     # long_description=read('README'),
     url='',
     author='Rodrigo E. Principe',
