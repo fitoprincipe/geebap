@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import expgen
-from funciones import drange, replace
+from functions import drange, replace
 import math
 import simpleeval as sval
 import numpy as np

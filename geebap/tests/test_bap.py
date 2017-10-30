@@ -1,19 +1,23 @@
 import unittest
 import ee
-from .. import colecciones, puntajes, bap, temporada, mascaras, filtros, sitios
+from .. import satcol, scores, bap, season, masks, filters
 
 ee.Initialize()
 
 class TestBAP(unittest.TestCase):
 
     def setUp(self):
-        self.filtro = filtros.NubesPor()
-        self.nubes = mascaras.Nubes()
-        self.temporada = temporada.Temporada.Crecimiento_patagonia()
-        self.coleccion = colecciones.ColGroup.Landsat()
-        self.pmascpor = puntajes.Pmascpor()
-        self.pindice = puntajes.Pindice()
-        self.sitio = sitios.LugaresFT("continente")
+        self.filtro = filters.NubesPor()
+        self.nubes = masks.Nubes()
+        self.temporada = season.Temporada.Crecimiento_patagonia()
+        self.coleccion = satcol.ColGroup.Landsat()
+        self.pmascpor = scores.Pmascpor()
+        self.pindice = scores.Pindice()
+        self.sitio = ee.Geometry.Polygon(
+        [[[-71.78, -42.79],
+          [-71.78, -42.89],
+          [-71.57, -42.89],
+          [-71.57, -42.79]]])
 
     def test_bap2016_0(self):
         objbap = bap.Bap(anio=2016, colgroup=self.coleccion,
@@ -21,7 +25,7 @@ class TestBAP(unittest.TestCase):
                          puntajes=(self.pindice, self.pmascpor),
                          mascaras=(self.nubes,), filtros=(self.filtro,))
 
-        sitio, region = self.sitio.filtroID(1)
+        sitio = self.sitio
 
         unpix = objbap.calcUnpixLegacy(sitio, indices=("ndvi",))
         img = unpix.image
@@ -34,6 +38,3 @@ class TestBAP(unittest.TestCase):
         cdict = col.getInfo()
         self.assertIsInstance(idict, dict)
         self.assertIsInstance(cdict, dict)
-
-if __name__ == '__main__':
-    unittest.main()

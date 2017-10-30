@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import colecciones
+import satcol
 import ee
 from datetime import date
 

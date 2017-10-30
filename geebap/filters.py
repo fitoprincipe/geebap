@@ -5,7 +5,7 @@ se filtran colecciones, asi que no hay funciones map()
 la funcion en comun va a ser apply()
 """
 
-import colecciones
+import satcol
 import ee
 
 
@@ -34,7 +34,7 @@ class NubesPor(Filtro):
         :param colEE:
         :type colEE: ee.ImageCollection
         :param col:
-        :type col: colecciones.Coleccion
+        :type col: satcol.Coleccion
         :param kwargs:
         :return:
         """
@@ -62,7 +62,7 @@ class MascPor(Filtro):
         :param colEE:
         :type colEE: ee.ImageCollection
         :param col:
-        :type col: colecciones.Coleccion
+        :type col: satcol.Coleccion
         :param kwargs:
         :return:
         """

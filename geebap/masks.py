@@ -2,7 +2,7 @@
 """ Modulo que contiene las clases para las mascaras a aplicar en la generacion
 del compuesto BAP """
 
-import colecciones
+import satcol
 import ee
 from abc import ABCMeta, abstractmethod
 
@@ -28,7 +28,7 @@ class Nubes(Mascara):
     def map(self, col, **kwargs):
         """
         :param col: Coleccion
-        :type col: colecciones.Coleccion
+        :type col: satcol.Coleccion
         :param kwargs:
         :return: la funcion para enmascarar la/s imagen/es con la mascara de
             nubes que indica el objeto Coleccion
@@ -68,7 +68,7 @@ class Equivalente(Mascara):
         Objetivo: enmascara en cada imagen de la coleccion la sombra de la nube
         Devuelve: la propia imagen enmascarada
         :param col: Coleccion
-        :type col: colecciones.Coleccion
+        :type col: satcol.Coleccion
         """
         fam = col.familia
         tipo = col.proceso
@@ -76,7 +76,7 @@ class Equivalente(Mascara):
 
         # if fam == "Landsat" and tipo == "SR" and (colequiv is not None):
         if equivID:
-            colequiv = colecciones.Coleccion.from_id(equivID)
+            colequiv = satcol.Coleccion.from_id(equivID)
             mask = colequiv.nubesBand
             def wrap(img):
                 path = img.get("WRS_PATH")

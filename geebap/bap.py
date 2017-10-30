@@ -33,14 +33,14 @@ metodos de generacion de 1 compuesto:
 """
 
 import ee
-import colecciones
-import temporada as temp
-import funciones
+import satcol
+import season as temp
+import functions
 import datetime
-import fecha
-import puntajes
-import mascaras
-import filtros
+import date
+import scores
+import masks
+import filters
 import time
 import sys
 from collections import namedtuple
@@ -69,7 +69,7 @@ class Bap(object):
         :param rango:
         :type rango: tuple
         :param colgroup:
-        :type colgroup: colecciones.ColGroup
+        :type colgroup: satcol.ColGroup
         :param puntajes:
         :type puntajes: tuple
         :param mascaras:
@@ -80,7 +80,7 @@ class Bap(object):
         :param temporada:
         :type temporada: temporada.Temporada
         """
-        check_type("colecciones", colgroup, colecciones.ColGroup)
+        check_type("colecciones", colgroup, satcol.ColGroup)
         # check_type("puntajes", puntajes, tuple)
         # check_type("mascaras", mascaras, tuple)
         # check_type("filtros", filtros, tuple)
@@ -138,7 +138,7 @@ class Bap(object):
     def nombre_puntajes(self):
         if self.punt:
             punt = [p.nombre for p in self.punt]
-            return funciones.replace_duplicate(punt)
+            return functions.replace_duplicate(punt)
         else:
             return []
 
@@ -168,7 +168,7 @@ class Bap(object):
                 print "cols del grupo:", s1
                 print "cols prioridad:", s2
                 print "inteseccion de colecciones:", intersect
-            return [colecciones.Coleccion.from_id(ID) for ID in intersect]
+            return [satcol.Coleccion.from_id(ID) for ID in intersect]
 
     def coleccion(self, sitio, indices=None, normalizar=True, **kwargs):
         """
@@ -191,7 +191,12 @@ class Bap(object):
         colfinal = ee.List([])
 
         # Obtengo la region del sitio
-        region = sitio.geometry().bounds().getInfo()['coordinates'][0]
+        try:
+            region = sitio.geometry().bounds().getInfo()['coordinates'][0]
+        except AttributeError:
+            region = sitio.getInfo()['coordinates'][0]
+        except:
+            raise AttributeError
 
         # lista de nombres de los puntajes para sumarlos al final
         puntajes = self.nombre_puntajes
@@ -236,7 +241,7 @@ class Bap(object):
             # Filtro por los años
             for anio in self.anios_range:
                 # Creo un nuevo objeto de coleccion con el id
-                col = colecciones.Coleccion.from_id(cid)
+                col = satcol.Coleccion.from_id(cid)
                 # puntajes = []
 
                 ini = self.temporada.add_anio(anio)[0]
@@ -273,7 +278,7 @@ class Bap(object):
                                 ee.Image(c.first()).bandNames().getInfo()
 
                 # Transformo los valores enmascarados a cero
-                c = c.map(funciones.antiMask)
+                c = c.map(functions.antiMask)
 
                 # Renombra las bandas con los datos de la coleccion
                 c = c.map(col.rename(drop=True))
@@ -320,7 +325,7 @@ class Bap(object):
                         if self.debug and n > 0:
                             geom = sitio if isinstance(sitio, ee.Geometry)\
                                          else sitio.geometry()
-                            print "puntaje:", funciones.get_value(
+                            print "puntaje:", functions.get_value(
                                 ee.Image(c.first()), geom.centroid())
 
                 # Filtros
@@ -355,10 +360,10 @@ class Bap(object):
                             ee.Image(c.first()).bandNames().getInfo()
 
                 # Convierto los valores de las mascaras a 0
-                c = c.map(funciones.antiMask)
+                c = c.map(functions.antiMask)
 
                 # Agrego la banda de fecha a la imagen
-                c = c.map(fecha.FechaEE.map())
+                c = c.map(date.FechaEE.map())
 
                 # Agrego la banda bandID de la coleccion
                 def addBandID(img):
@@ -374,11 +379,11 @@ class Bap(object):
 
                 # Agrego col id y anio al diccionario para propiedades
                 cant_imgs = "nro_imgs_{cid}_{a}".format(cid=short, a=anio)
-                toMetadata[cant_imgs] = funciones.get_size(c)
+                toMetadata[cant_imgs] = functions.get_size(c)
 
         # comprueba que la lista final tenga al menos un elemento
         # s_fin = colfinal.size().getInfo()  # 2
-        s_fin = funciones.get_size(colfinal)
+        s_fin = functions.get_size(colfinal)
 
         # DEBUG
         if self.verbose: print "tamanio col final:", s_fin
@@ -387,18 +392,18 @@ class Bap(object):
             newcol = ee.ImageCollection(colfinal)
 
             # Selecciono las bandas en comun de todas las imagenes
-            newcol = funciones.select_match(newcol)
+            newcol = functions.select_match(newcol)
 
             if self.debug: print " ANTES DE CALC ptotal:", \
                 ee.Image(newcol.first()).bandNames().getInfo()
 
             # Calcula el puntaje total sumando los puntajes
-            ftotal = funciones.sumBands("ptotal", puntajes)
+            ftotal = functions.sumBands("ptotal", puntajes)
             newcol = newcol.map(ftotal)
 
             if normalizar:
                 newcol = newcol.map(
-                    funciones.parametrizar((0, maxpunt), (0, 1), ("ptotal",)))
+                    functions.parametrizar((0, maxpunt), (0, 1), ("ptotal",)))
 
             if self.debug:
                 print " DESP DE CALC ptotal:", \
@@ -422,7 +427,7 @@ class Bap(object):
             print " DESP DE qualityMosaic:", img.bandNames().getInfo()
 
         # CONVIERTO LOS VALORES ENMASCARADOS EN 0
-        img = funciones.antiMask(img)
+        img = functions.antiMask(img)
 
         return img
 
@@ -475,7 +480,7 @@ class Bap(object):
             # ALTERNATIVA PARA OBTENER LA LISTA DE BANDAS
             primera = ee.Image(imgCol.first())
             listaband = primera.bandNames()
-            cantBandas = funciones.execli(listaband.size().getInfo)()
+            cantBandas = functions.execli(listaband.size().getInfo)()
 
             lista = []
 
@@ -532,8 +537,8 @@ class Bap(object):
         """ Setea las propiedades que provienen del objeto Bap a una imagen
         :return:
         """
-        d = {"fecha_ini": fecha.FechaEE.local(self.fecha_ini),
-             "fecha_fin": fecha.FechaEE.local(self.fecha_fin),
+        d = {"fecha_ini": date.FechaEE.local(self.fecha_ini),
+             "fecha_fin": date.FechaEE.local(self.fecha_fin),
              }
 
         # Agrega los argumentos como propiedades
@@ -543,13 +548,13 @@ class Bap(object):
 
     @classmethod
     def White(cls, anio, rango, temporada):
-        psat = puntajes.Psat()
-        pdist = puntajes.Pdist()
-        pdoy = puntajes.Pdoy(temporada=temporada)
-        pop = puntajes.Pop()
-        colG = colecciones.ColGroup.SR()
-        masc = mascaras.Nubes()
-        filt = filtros.NubesPor()
+        psat = scores.Psat()
+        pdist = scores.Pdist()
+        pdoy = scores.Pdoy(temporada=temporada)
+        pop = scores.Pop()
+        colG = satcol.ColGroup.SR()
+        masc = masks.Nubes()
+        filt = filters.NubesPor()
 
         pjes = (psat, pdist, pdoy, pop)
         mascs = (masc,)
@@ -568,27 +573,27 @@ class Bap(object):
         :return:
         """
         # Puntajes
-        pdist = puntajes.Pdist()
-        pdoy = puntajes.Pdoy(temporada=temporada)
-        pmasc = puntajes.Pmascpor()
-        pout = puntajes.Poutlier(("nirXred",))
+        pdist = scores.Pdist()
+        pdoy = scores.Pdoy(temporada=temporada)
+        pmasc = scores.Pmascpor()
+        pout = scores.Poutlier(("nirXred",))
 
-        colG = colecciones.ColGroup.Modis()
-        masc = mascaras.Nubes()
-        filt = filtros.MascPor(0.3)
+        colG = satcol.ColGroup.Modis()
+        masc = masks.Nubes()
+        filt = filters.MascPor(0.3)
 
         pjes = [pdist, pdoy, pmasc, pout]
 
         if indice:
-            pindice = puntajes.PIndice(indice)
-            pout2 = puntajes.Poutlier((indice,))
+            pindice = scores.PIndice(indice)
+            pout2 = scores.Poutlier((indice,))
             pjes.append(pindice)
             pjes.append(pout2)
 
         mascs = (masc,)
         filts = (filt,)
 
-        nirxred = funciones.nirXred()
+        nirxred = functions.nirXred()
 
         '''
         return cls(anio, rango, puntajes=pjes, mascaras=mascs, filtros=filts,

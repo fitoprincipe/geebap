@@ -2,7 +2,7 @@
 
 import os
 from setuptools import setup, find_packages
-from BestAvailablePixel import __version__
+from geebap import __version__
 
 
 # Utility function to read the README file.
@@ -14,7 +14,7 @@ def read(fname):
 
 # the setup
 setup(
-    name='BestAvailablePixel',
+    name='geebap',
     version="0.1",
     description='Generate a "Best Available Pixel" composite in Google Earth Engine',
     # long_description=read('README'),

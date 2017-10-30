@@ -3,7 +3,7 @@ La fecha esta expresada en la cantidad de dias que hay a partir de 1970-01-01
 Ademas agrega a la imagen una propiedad con el id de la imagen llamada 'id_img'
 """
 
-import funciones
+import functions
 import ee
 
 
@@ -35,7 +35,7 @@ class FechaEE(object):
             fechadq = ee.Date(dateadq).millis().divide(FechaEE.undia)
             imgfecha = ee.Image(fechadq).select([0], [nombre]).toUint16()
             final = img.addBands(imgfecha).set(nombre, fechadq.toInt())
-            return funciones.pass_date(img, final)
+            return functions.pass_date(img, final)
         return wrap
 
     @staticmethod

@@ -3,11 +3,11 @@
 """ Modulo para implementacion de los puntajes para BAP"""
 
 import ee
-import colecciones
-import funciones
-import temporada
-from funciones import execli
-from expresiones import Expresion
+import satcol
+import functions
+import season
+from functions import execli
+from expressions import Expresion
 from abc import ABCMeta, abstractmethod
 
 ee.Initialize()
@@ -116,7 +116,7 @@ class Puntaje(object):
 
     def ajuste(self):
         if self.rango_out != (0, 1):
-            return funciones.parametrizar((0, 1), self.rango_out, [self.nombre])
+            return functions.parametrizar((0, 1), self.rango_out, [self.nombre])
         else:
             return lambda x: x
 
@@ -224,7 +224,7 @@ class Pdist(Puntaje):
         """
 
         :param col:
-        :type col: colecciones.Coleccion
+        :type col: satcol.Coleccion
         :param kwargs:
         :return:
         """
@@ -341,7 +341,7 @@ class Pdoy(Puntaje):
 
     """
     def __init__(self, factor=-0.5, formula=Expresion.Gauss,
-                 temporada=temporada.Temporada.Crecimiento_patagonia(),
+                 temporada=season.Temporada.Crecimiento_patagonia(),
                  **kwargs):
         super(Pdoy, self).__init__(**kwargs)
         # PARAMETROS
@@ -610,7 +610,7 @@ class Psat(Puntaje):
 
             # LISTA DE SATELITES PRIORITARIOS PARA ESE AÑO
             # lista = temporada.PriorTempLandEE(ee.Number(a)).listaEE
-            lista = temporada.PrioridadTemporada.relacionEE.get(a.format())
+            lista = season.PrioridadTemporada.relacionEE.get(a.format())
             # UBICA AL SATELITE EN CUESTION EN LA LISTA DE SATELITES
             # PRIORITARIOS, Y OBTIENE LA POSICION EN LA LISTA
             index = ee.List(lista).indexOf(ee.String(theid))
@@ -757,13 +757,13 @@ class Poutlier(Puntaje):
             condicion_adentro = (img_proc.gte(mmin)
                                  .And(img_proc.lte(mmax)))
 
-            pout = funciones.renombrar(condicion_adentro, sufijo="pout")
+            pout = functions.renombrar(condicion_adentro, sufijo="pout")
 
-            suma = funciones.sumBands(nombre)(pout)
+            suma = functions.sumBands(nombre)(pout)
 
             final = suma.select(nombre).multiply(ee.Image(incremento))
 
-            parametrizada = funciones.parametrizar(rango_orig,
+            parametrizada = functions.parametrizar(rango_orig,
                                                    rango_fin)(final)
 
             return img_orig.addBands(parametrizada).updateMask(ceros)
@@ -781,7 +781,7 @@ class Pindice(Puntaje):
         ajuste = self.ajuste()
         def wrap(img):
             ind = img.select([self.indice])
-            p = funciones.parametrizar(self.rango_in, self.rango_out)(ind)
+            p = functions.parametrizar(self.rango_in, self.rango_out)(ind)
             p = p.select([0], [self.nombre])
             return ajuste(img.addBands(p))
         return wrap

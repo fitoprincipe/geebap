@@ -7,7 +7,7 @@ import indices
 import cloud_mask as cld
 import ee
 from copy import deepcopy
-import funciones
+import functions
 from datetime import date
 
 try:
@@ -252,7 +252,7 @@ class Coleccion(object):
         self.bandmask = self.bandasrel[self.bandmask]
 
         # obtiene la funcion para renombrar las bandas antes de inveritrlas
-        frename = funciones.rename_bands(self.bandasrel, drop)
+        frename = functions.rename_bands(self.bandasrel, drop)
 
         # Invierte la relacion entre las bandas
         self.invert_bandasrel()
@@ -269,10 +269,10 @@ class Coleccion(object):
         if self.max:
             rango_orig = (self.min, self.max)
             def wrap(img):
-                escalables = funciones.list_intersection(
+                escalables = functions.list_intersection(
                     img.bandNames(), ee.List(self.escalables))
 
-                return funciones.parametrizar(
+                return functions.parametrizar(
                     rango_orig, rango_final, escalables)(img)
             return wrap
         else:
