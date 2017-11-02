@@ -20,60 +20,60 @@ ID8TOA = "LANDSAT/LC8_L1T_TOA_FMASK"
 S2 = "COPERNICUS/S2"
 
 
-class Temporada(object):
+class Season(object):
     """ PROTOTIPO """
     #
-    dias_mes = {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30,
-                10:31, 11:30, 12:31}
+    month_day = {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30,
+                 10:31, 11:30, 12:31}
 
     @staticmethod
-    def check_valid_date(fecha):
+    def check_valid_date(date):
         """ Verifica que la fecha tenga el formato correcto
 
-        :param fecha:
+        :param date:
         :return: año, mes, dia
         :rtype: tuple
         """
-        if not isinstance(fecha, str):
-            # raise ValueError("La fecha no es del tipo string")
+        if not isinstance(date, str):
+            # raise ValueError("La date no es del tipo string")
             return False
 
-        split = fecha.split("-")
+        split = date.split("-")
         m = int(split[0])
         d = int(split[1])
 
         if m < 1 or m > 12:
             raise ValueError(
-                "Error en {}: El mes debe ser mayor a 1 y menor a 12".format(fecha))
+                "Error en {}: El mes debe ser mayor a 1 y menor a 12".format(date))
             # return False
-        maxday = Temporada.dias_mes[m]
+        maxday = Season.month_day[m]
         if d < 1 or d > maxday:
             raise ValueError(
-                "Error en {}: En el mes {} el dia debe ser menor a {}".format(fecha, m, maxday))
+                "Error en {}: En el mes {} el dia debe ser menor a {}".format(date, m, maxday))
             # return False
 
         return m , d
 
     @staticmethod
-    def check_between(fecha, ini, fin, raiseE=True):
+    def check_between(date, ini, end, raiseE=True):
         """ Verifica que la fecha dada este entre la inicial y la final
 
-        :param fecha:
+        :param date:
         :param ini:
-        :param fin:
+        :param end:
         :param raiseE:
         :return:
         """
         retorno = False
         def rerror():
             if raiseE:
-                raise ValueError("La fecha {} debe estar entre {} y {}".format(fecha, ini, fin))
+                raise ValueError("La date {} debe estar entre {} y {}".format(date, ini, end))
             else:
                 return
 
-        m, d = Temporada.check_valid_date(fecha)
-        mi, di = Temporada.check_valid_date(ini)
-        mf, df = Temporada.check_valid_date(fin)
+        m, d = Season.check_valid_date(date)
+        mi, di = Season.check_valid_date(ini)
+        mf, df = Season.check_valid_date(end)
         # valores relativos de mes
         # varia entre 0 y 12
         if mi > mf:
@@ -106,110 +106,110 @@ class Temporada(object):
 
         return retorno
 
-    def __init__(self, ini=None, fin=None, doy=None, **kwargs):
-        """ Temporada de crecimiento
+    def __init__(self, ini=None, end=None, doy=None, **kwargs):
+        """ Season de crecimiento
 
         :param ini: mes y dia de inicio de la season
-        :param fin: mes y dia de fin de la season
+        :param end: mes y dia de end de la season
         :param doy: mes y dia del dia mas representativo del año
         :param kwargs:
         """
 
         self.ini = ini
-        self.fin = fin
+        self.end = end
 
         self.doy = doy
 
-        if ini is not None and fin is not None:
-            # Temporada.check_dif_date(ini, fin)
-            self._mes_ini = int(self.ini.split("-")[0])
-            self._mes_fin = int(self.fin.split("-")[0])
-            self._dia_ini = int(self.ini.split("-")[1])
-            self._dia_fin = int(self.fin.split("-")[1])
-        elif (ini and not fin) or (fin and not ini):
+        if ini is not None and end is not None:
+            # Season.check_dif_date(ini, end)
+            self._ini_month = int(self.ini.split("-")[0])
+            self._end_month = int(self.end.split("-")[0])
+            self._ini_day = int(self.ini.split("-")[1])
+            self._end_day = int(self.end.split("-")[1])
+        elif (ini and not end) or (end and not ini):
             raise ValueError("si se especifica una fecha de inicio "
-                             "debe especificarse la fecha de fin, y viceversa")
+                             "debe especificarse la fecha de end, y viceversa")
         else:
-            self._mes_ini = None
-            self._mes_fin = None
-            self._dia_ini = None
-            self._dia_fin = None
+            self._ini_month = None
+            self._end_month = None
+            self._ini_day = None
+            self._end_day = None
 
     @property
-    def factor_anio(self):
-        rel_mi = 12 - self.mes_ini
-        rel_mf = 12 - self.mes_fin
+    def year_factor(self):
+        rel_mi = 12 - self.ini_month
+        rel_mf = 12 - self.end_month
         if rel_mi < rel_mf:
             return 1
         else:
             return 0
 
-    def dif_anios(self, fecha, anio, raiseE=True):
+    def year_diff(self, date, year, raiseE=True):
         """ Metodo para calcular la diferencia de 'anios' o mas bien
         numero de temporadas, desde la fecha dada, hasta la season que
         tiene como año el de la fecha final.
 
-        :param fecha: fecha de la cual se quiere saber la diferencia, tiene
+        :param date: fecha de la cual se quiere saber la diferencia, tiene
             que incluir el año. Ej: "1999-01-05"
-        :type fecha: str
-        :param anio: año del final de la season
-        :type anio: int
+        :type date: str
+        :param year: año del final de la season
+        :type year: int
         """
         try:
-            s = fecha.split("-")
+            s = date.split("-")
         except:
-            fecha = fecha.format("yyyy-MM-dd").getInfo()
-            s = fecha.split("-")
+            date = date.format("yyyy-MM-dd").getInfo()
+            s = date.split("-")
 
-        a = int(s[0])  # a es el año de la fecha dada
+        a = int(s[0])  # a es el año de la date dada
         desc = "{}-{}".format(s[1], s[2])
-        m, d = Temporada.check_valid_date(desc)
+        m, d = Season.check_valid_date(desc)
 
-        if self.factor_anio == 0:
-            return abs(anio-a)
+        if self.year_factor == 0:
+            return abs(year - a)
         else:
-            dentro = Temporada.check_between(desc, self.ini, self.fin, raiseE=False)
+            dentro = Season.check_between(desc, self.ini, self.end, raiseE=False)
             if not dentro:
                 if raiseE:
-                    raise ValueError("La fecha {} no esta dentro de la season".format(fecha))
+                    raise ValueError("La date {} no esta dentro de la season".format(date))
                 else:
-                    return abs(anio-a)
+                    return abs(year - a)
             else:
-                if m > self.mes_ini:
-                    return abs(anio - (a+1))
-                elif m == self.mes_ini and d >= self.dia_ini:
-                    return abs(anio - (a+1))
+                if m > self.ini_month:
+                    return abs(year - (a + 1))
+                elif m == self.ini_month and d >= self.ini_day:
+                    return abs(year - (a + 1))
                 else:
-                    return abs(anio - a)
+                    return abs(year - a)
 
-    def dif_anios_ee(self, fechaEE, anio):
-        a = fechaEE.get("year")
-        m = fechaEE.get("month")
-        d = fechaEE.get("day")
-        anio = ee.Number(anio)
-        # factor = ee.Number(self.factor_anio)
-        mes_ini = ee.Number(self.mes_ini)
-        dia_ini = ee.Number(self.dia_ini)
+    def year_diff_ee(self, eedate, year):
+        a = eedate.get("year")
+        m = eedate.get("month")
+        d = eedate.get("day")
+        year = ee.Number(year)
+        # factor = ee.Number(self.year_factor)
+        mes_ini = ee.Number(self.ini_month)
+        dia_ini = ee.Number(self.ini_day)
 
         cond = m.gt(mes_ini).Or(m.eq(mes_ini).And(d.gte(dia_ini)))
 
-        diff = ee.Algorithms.If(cond, anio.subtract(a).add(1), anio.subtract(a))
+        diff = ee.Algorithms.If(cond, year.subtract(a).add(1), year.subtract(a))
 
         return ee.Number(diff).abs()
 
 
-    def add_anio(self, anio):
-        """ Crea el inicio y fin de la season con el año dado
+    def add_year(self, year):
+        """ Crea el inicio y end de la season con el año dado
 
-        :param anio: año de la season
-        :return: inicio y fin de la season
+        :param year: año de la season
+        :return: inicio y end de la season
         :rtype: tuple
         """
-        a = int(anio)
-        ini = str(a-self.factor_anio)+"-"+self.ini
-        fin = str(a)+"-"+self.fin
-        # print "add_anio", ini, fin
-        return ini, fin
+        a = int(year)
+        ini = str(a - self.year_factor) + "-" + self.ini
+        end = str(a)+"-"+self.end
+        # print "add_year", ini, end
+        return ini, end
 
     # INICIO
     @property
@@ -219,24 +219,24 @@ class Temporada(object):
     @ini.setter
     def ini(self, value):
         if value is not None:
-            m, d = Temporada.check_valid_date(value)
+            m, d = Season.check_valid_date(value)
             self._ini = value
-            self._ini_mes = m
-            self._ini_dia = d
+            self._ini_month = m
+            self._ini_day = d
         else:
             self._ini = None
-            self._ini_mes = None
-            self._ini_dia = None
+            self._ini_month = None
+            self._ini_day = None
 
     # FIN
     @property
-    def fin(self):
+    def end(self):
         return self._fin
 
-    @fin.setter
-    def fin(self, value):
+    @end.setter
+    def end(self, value):
         if value is not None:
-            m, d = Temporada.check_valid_date(value)
+            m, d = Season.check_valid_date(value)
             self._fin = value
             self._fin_mes = m
             self._fin_dia = d
@@ -248,7 +248,7 @@ class Temporada(object):
     # DOY
     @property
     def doy(self):
-        # Temporada.check_between(self.doy, self.ini, self.fin)
+        # Season.check_between(self.doy, self.ini, self.end)
         return self._doy
 
     @doy.setter
@@ -256,85 +256,85 @@ class Temporada(object):
         if value is None:
             self._doy = None
         else:
-            m, d = Temporada.check_valid_date(value)
-            Temporada.check_between(value, self.ini, self.fin)
+            m, d = Season.check_valid_date(value)
+            Season.check_between(value, self.ini, self.end)
             self._doy = value
-            self._doy_mes = m
-            self._doy_dia = d
+            self._doy_month = m
+            self._doy_day = d
 
     @property
-    def doy_dia(self):
-        return self._doy_dia
+    def doy_day(self):
+        return self._doy_day
 
     @property
-    def doy_mes(self):
-        return self._doy_mes
+    def doy_month(self):
+        return self._doy_month
 
-    @doy_dia.setter
-    def doy_dia(self, dia):
-        newdoy = "{}-{}".format(self._doy_mes, dia)
-        Temporada.check_valid_date(newdoy)
-        Temporada.check_between(newdoy, self.ini, self.fin)
+    @doy_day.setter
+    def doy_day(self, day):
+        newdoy = "{}-{}".format(self._doy_month, day)
+        Season.check_valid_date(newdoy)
+        Season.check_between(newdoy, self.ini, self.end)
         self._doy = newdoy
-        self._doy_dia = dia
+        self._doy_day = day
 
-    @doy_mes.setter
-    def doy_mes(self, mes):
-        newdoy = "{}-{}".format(mes, self._doy_dia)
-        Temporada.check_between(newdoy, self.ini, self.fin)
+    @doy_month.setter
+    def doy_month(self, month):
+        newdoy = "{}-{}".format(month, self._doy_day)
+        Season.check_between(newdoy, self.ini, self.end)
         self._doy = newdoy
-        self._doy_mes = mes
+        self._doy_month = month
 
     @property
-    def mes_ini(self):
-        return self._mes_ini
+    def ini_month(self):
+        return self._ini_month
 
-    @mes_ini.setter
-    def mes_ini(self, mes):
-        newini = "{}-{}".format(mes, self.dia_ini)
-        # Temporada.check_dif_date(newini, self.fin)
-        self._mes_ini = mes
+    @ini_month.setter
+    def ini_month(self, month):
+        newini = "{}-{}".format(month, self.ini_day)
+        # Season.check_dif_date(newini, self.end)
+        self._ini_month = month
         self.ini = newini
 
     @property
-    def mes_fin(self):
-        return self._mes_fin
+    def end_month(self):
+        return self._end_month
 
-    @mes_fin.setter
-    def mes_fin(self, mes):
-        newfin = "{}-{}".format(mes, self.dia_fin)
-        # Temporada.check_dif_date(self.ini, newfin)
-        self._mes_fin = mes
-        self.fin = newfin
+    @end_month.setter
+    def end_month(self, month):
+        newfin = "{}-{}".format(month, self.end_day)
+        # Season.check_dif_date(self.ini, newfin)
+        self._end_month = month
+        self.end = newfin
 
     @property
-    def dia_ini(self):
-        return self._dia_ini
+    def ini_day(self):
+        return self._ini_day
 
-    @dia_ini.setter
-    def dia_ini(self, dia):
-        newini = "{}-{}".format(self.mes_ini, dia)
-        # Temporada.check_dif_date(newini, self.fin)
-        self._dia_ini = dia
+    @ini_day.setter
+    def ini_day(self, day):
+        newini = "{}-{}".format(self.ini_month, day)
+        # Season.check_dif_date(newini, self.end)
+        self._ini_day = day
         self.ini = newini
 
     @property
-    def dia_fin(self):
-        return self._dia_fin
+    def end_day(self):
+        return self._end_day
 
-    @dia_fin.setter
-    def dia_fin(self, dia):
-        newfin = "{}-{}".format(self.mes_fin, dia)
-        # Temporada.check_dif_date(self.ini, newfin)
-        self._dia_fin = dia
-        self.fin = newfin
+    @end_day.setter
+    def end_day(self, day):
+        newfin = "{}-{}".format(self.end_month, day)
+        # Season.check_dif_date(self.ini, newfin)
+        self._end_day = day
+        self.end = newfin
 
     @classmethod
     def Crecimiento_patagonia(cls):
-        return cls(ini="11-15", fin="03-15", doy="01-15")
+        return cls(ini="11-15", end="03-15", doy="01-15")
 
 
-class PrioridadTemporada(object):
+class SeasonPriority(object):
     """ Determina las prioridades de los satelites segun la season dada
     El año de inicio es el dado, y el año final es el siguiente
 
@@ -362,13 +362,13 @@ class PrioridadTemporada(object):
     relacionEE = ee.Dictionary(relacion)
 
 if __name__ == "__main__":
-    # print ee.List(PrioridadTemporada.relacionEE.get(ee.String(2014))).getInfo()
+    # print ee.List(SeasonPriority.relacionEE.get(ee.String(2014))).getInfo()
 
-    t = Temporada.Crecimiento_patagonia()
+    t = Season.Crecimiento_patagonia()
     f = ee.Date("2013-03-12")
 
     for a in range(2014, 2015):
-        d = t.dif_anios_ee(f, a)
+        d = t.year_diff_ee(f, a)
         # print d.getInfo()
 
     print ee.Date("2014-"+t.doy).millis().getInfo()

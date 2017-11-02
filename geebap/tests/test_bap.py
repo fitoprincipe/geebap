@@ -9,7 +9,7 @@ class TestBAP(unittest.TestCase):
     def setUp(self):
         self.filtro = filters.NubesPor()
         self.nubes = masks.Nubes()
-        self.temporada = season.Temporada.Crecimiento_patagonia()
+        self.temporada = season.Season.Crecimiento_patagonia()
         self.coleccion = satcol.ColGroup.Landsat()
         self.pmascpor = scores.Pmascpor()
         self.pindice = scores.Pindice()

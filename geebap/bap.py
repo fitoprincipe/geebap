@@ -48,7 +48,7 @@ class Bap(object):
         :type filters: tuple
         :param bbox:
         :param season:
-        :type season: season.Temporada
+        :type season: season.Season
         """
         check_type("colgroup", colgroup, satcol.ColGroup)
         # check_type("scores", scores, tuple)
@@ -57,7 +57,7 @@ class Bap(object):
         check_type("year", year, int)
         # check_type("range", range, tuple)
         check_type("bbox", bbox, int)
-        check_type("season", season, temp.Temporada)
+        check_type("season", season, temp.Season)
 
         if year < MIN_YEAR or year > MAX_YEAR:
             raise ValueError(
@@ -81,19 +81,19 @@ class Bap(object):
 
     @property
     def ini_date(self):
-        return self.season.add_anio(self.year - self.range[0])[0]
+        return self.season.add_year(self.year - self.range[0])[0]
 
     @property
     def end_date(self):
-        return self.season.add_anio(self.year + self.range[1])[1]
+        return self.season.add_year(self.year + self.range[1])[1]
 
     @property
     def ini_season(self):
-        return self.season.add_anio(self.year)[0]
+        return self.season.add_year(self.year)[0]
 
     @property
     def end_season(self):
-        return self.season.add_anio(self.year)[1]
+        return self.season.add_year(self.year)[1]
 
     @property
     def date_range(self):
@@ -131,7 +131,7 @@ class Bap(object):
             s2 = set()
             for a in self.date_range:
                 s2 = s2.union(
-                    set([col for col in temp.PrioridadTemporada.relacion[a]]))
+                    set([col for col in temp.SeasonPriority.relacion[a]]))
 
             intersect = s1.intersection(s2)
             if Bap.debug:
@@ -216,8 +216,8 @@ class Bap(object):
                 col = satcol.Coleccion.from_id(cid)
                 # puntajes = []
 
-                ini = self.season.add_anio(anio)[0]
-                end = self.season.add_anio(anio)[1]
+                ini = self.season.add_year(anio)[0]
+                end = self.season.add_year(anio)[1]
 
                 if self.verbose: print "ini:", ini, ",end:", end
 

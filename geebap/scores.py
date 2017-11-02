@@ -342,15 +342,15 @@ class Pdoy(Puntaje):
 
     """
     def __init__(self, factor=-0.5, formula=Expression.Normal,
-                 temporada=season.Temporada.Crecimiento_patagonia(),
+                 temporada=season.Season.Crecimiento_patagonia(),
                  **kwargs):
         super(Pdoy, self).__init__(**kwargs)
         # PARAMETROS
-        self.mes_doy = temporada.doy_mes
-        self.dia_doy = temporada.doy_dia
+        self.mes_doy = temporada.doy_month
+        self.dia_doy = temporada.doy_day
 
-        self.mes_ini = temporada.mes_ini
-        self.dia_ini = temporada.dia_ini
+        self.mes_ini = temporada.ini_month
+        self.dia_ini = temporada.ini_day
 
         # FACTOR DE AGUSADO DE LA CURVA GAUSSIANA
         self.factor = float(factor)
@@ -611,7 +611,7 @@ class Psat(Puntaje):
 
             # LISTA DE SATELITES PRIORITARIOS PARA ESE AÑO
             # lista = season.PriorTempLandEE(ee.Number(a)).listaEE
-            lista = season.PrioridadTemporada.relacionEE.get(a.format())
+            lista = season.SeasonPriority.relacionEE.get(a.format())
             # UBICA AL SATELITE EN CUESTION EN LA LISTA DE SATELITES
             # PRIORITARIOS, Y OBTIENE LA POSICION EN LA LISTA
             index = ee.List(lista).indexOf(ee.String(theid))
@@ -828,7 +828,7 @@ class Pmulti(Puntaje):
             # FECHA DE LA IMAGEN
             imgdate = ee.Date(img.date())
 
-            diff = ee.Number(self.temporada.dif_anios_ee(imgdate, a))
+            diff = ee.Number(self.temporada.year_diff_ee(imgdate, a))
 
             pje1 = ee.Number(diff).multiply(ee.Number(self.factor))
             pje = ee.Number(1).subtract(pje1)
