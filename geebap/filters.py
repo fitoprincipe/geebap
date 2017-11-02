@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-""" El funcionamiento de los filtros puede ser distinto..
+""" El funcionamiento de los filters puede ser distinto..
 se filtran colecciones, asi que no hay funciones map()
 la funcion en comun va a ser apply()
 """
@@ -11,7 +11,7 @@ import ee
 
 class Filtro(object):
     def __init__(self, **kwargs):
-        """ Clase base para los filtros """
+        """ Clase base para los filters """
         pass
 
     def apply(self, colEE, **kwargs):

@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 class Mascara(object):
     __metaclass__ = ABCMeta
     """ Clase base para las mascaras """
-    def __init__(self, nombre="masc", **kwargs):
+    def __init__(self, nombre="masks", **kwargs):
         self.nombre = nombre
 
     @abstractmethod

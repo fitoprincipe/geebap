@@ -109,8 +109,8 @@ class Temporada(object):
     def __init__(self, ini=None, fin=None, doy=None, **kwargs):
         """ Temporada de crecimiento
 
-        :param ini: mes y dia de inicio de la temporada
-        :param fin: mes y dia de fin de la temporada
+        :param ini: mes y dia de inicio de la season
+        :param fin: mes y dia de fin de la season
         :param doy: mes y dia del dia mas representativo del año
         :param kwargs:
         """
@@ -146,13 +146,13 @@ class Temporada(object):
 
     def dif_anios(self, fecha, anio, raiseE=True):
         """ Metodo para calcular la diferencia de 'anios' o mas bien
-        numero de temporadas, desde la fecha dada, hasta la temporada que
+        numero de temporadas, desde la fecha dada, hasta la season que
         tiene como año el de la fecha final.
 
         :param fecha: fecha de la cual se quiere saber la diferencia, tiene
             que incluir el año. Ej: "1999-01-05"
         :type fecha: str
-        :param anio: año del final de la temporada
+        :param anio: año del final de la season
         :type anio: int
         """
         try:
@@ -171,7 +171,7 @@ class Temporada(object):
             dentro = Temporada.check_between(desc, self.ini, self.fin, raiseE=False)
             if not dentro:
                 if raiseE:
-                    raise ValueError("La fecha {} no esta dentro de la temporada".format(fecha))
+                    raise ValueError("La fecha {} no esta dentro de la season".format(fecha))
                 else:
                     return abs(anio-a)
             else:
@@ -199,10 +199,10 @@ class Temporada(object):
 
 
     def add_anio(self, anio):
-        """ Crea el inicio y fin de la temporada con el año dado
+        """ Crea el inicio y fin de la season con el año dado
 
-        :param anio: año de la temporada
-        :return: inicio y fin de la temporada
+        :param anio: año de la season
+        :return: inicio y fin de la season
         :rtype: tuple
         """
         a = int(anio)
@@ -335,7 +335,7 @@ class Temporada(object):
 
 
 class PrioridadTemporada(object):
-    """ Determina las prioridades de los satelites segun la temporada dada
+    """ Determina las prioridades de los satelites segun la season dada
     El año de inicio es el dado, y el año final es el siguiente
 
     :param breaks: años donde hay un cambio en la lista de satelites

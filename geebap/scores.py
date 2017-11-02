@@ -82,7 +82,7 @@ class Puntaje(object):
         """ Clase Base para los puntajes
         :param nombre: nombre del puntaje
         :type nombre: str
-        :param rango: rango de valores entre los que variará el puntaje
+        :param rango: range de valores entre los que variará el puntaje
         :type rango: tuple
         :param normalizar: indica si se debe normalizar, es decir, hacer que
             los valores varien entre 0 y 1
@@ -93,8 +93,8 @@ class Puntaje(object):
         :type formula:
 
         :Propiedades estáticas:
-        :param max: valor maximo del rango
-        :param min: valor minimo del rango
+        :param max: valor maximo del range
+        :param min: valor minimo del range
         """
         self.nombre = nombre
         self.rango_in = rango_in
@@ -143,10 +143,10 @@ class PnubeEs(Puntaje):
 
         :param a: valor **a** de la funcion EXPONENCIAL
         :type a: float
-        :param rango: rango de valores entre los que puede oscilar la variable
+        :param rango: range de valores entre los que puede oscilar la variable
         :type rango: tuple
         :param normalizar: Hacer que el resultado varie entre 0 y 1
-            independientemente del rango
+            independientemente del range
         :type normalizar: bool
         """
         super(PnubeEs, self).__init__(**kwargs)
@@ -330,11 +330,11 @@ class Pdoy(Puntaje):
     :type ajuste: int
     :param mes_doy: mes del año en el que se da el mejor Dia del Año. Default: 1
     :type mes_doy: int
-    :param dia_doy: dia del mes mas representativo de la temporada. Default: 15
+    :param dia_doy: dia del mes mas representativo de la season. Default: 15
     :type dia_doy: int
-    :param mes_ini: mes de inicio de la temporada. Default: 11
+    :param mes_ini: mes de inicio de la season. Default: 11
     :type mes_ini: int
-    :param dia_ini: dia de inicio de la temporada. Default: 15
+    :param dia_ini: dia de inicio de la season. Default: 15
     :type dia_ini: int
     :param formula: Formula que se usara en el calculo del puntaje
     :type formula: Expresion
@@ -361,11 +361,11 @@ class Pdoy(Puntaje):
 
     # DOY
     def doy(self, anio):
-        """ Dia mas representativo del año (de la temporada)
+        """ Dia mas representativo del año (de la season)
 
         :param anio: Año
         :type anio: int
-        :return: el dia mas representativo de la temporada
+        :return: el dia mas representativo de la season
         :rtype: ee.Date
         """
         d = "{}-{}-{}".format(anio, self.mes_doy, self.dia_doy)
@@ -422,7 +422,7 @@ class Pdoy(Puntaje):
         :param fecha: fecha para la cual se quiere calcular el dia al cual
             pertence segun el objeto creado
         :type fecha: ee.Date
-        :param anio: año (temporada) a la cual pertenece la imagen
+        :param anio: año (season) a la cual pertenece la imagen
         :return: el dia del año al que pretenece la imagen segun el objeto actual
         :rtype: int
         """
@@ -573,7 +573,7 @@ class Psat(Puntaje):
 
     :METODOS:
 
-    :map(col, anio, nombre): funcion que mapea en una coleccion el puntaje
+    :map(col, year, nombre): funcion que mapea en una coleccion el puntaje
         del satelite segun la funcion de prioridades creada en -objetos-
         del modulo CIEFAP
     """
@@ -584,8 +584,8 @@ class Psat(Puntaje):
         self.factor = factor
     '''
     @staticmethod
-    def listado(anio):
-        obj = temporada.PriorTempLandEE(ee.Number(anio))
+    def listado(year):
+        obj = season.PriorTempLandEE(ee.Number(year))
         return obj.listaEE
     '''
     def map(self, col, **kwargs):
@@ -609,7 +609,7 @@ class Psat(Puntaje):
             a = img.date().get("year")
 
             # LISTA DE SATELITES PRIORITARIOS PARA ESE AÑO
-            # lista = temporada.PriorTempLandEE(ee.Number(a)).listaEE
+            # lista = season.PriorTempLandEE(ee.Number(a)).listaEE
             lista = season.PrioridadTemporada.relacionEE.get(a.format())
             # UBICA AL SATELITE EN CUESTION EN LA LISTA DE SATELITES
             # PRIORITARIOS, Y OBTIENE LA POSICION EN LA LISTA

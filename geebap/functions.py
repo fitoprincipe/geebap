@@ -89,14 +89,14 @@ def pass_date(imgcon, imgsin):
 
 
 def drange(ini, fin, step=1, places=0):
-    """ Funcion para crear un rango con numeros decimales
+    """ Funcion para crear un range con numeros decimales
 
     :param ini: valor inicial (igual que range)
     :param fin: valor final (igual que range)
     :param step: paso. Similar a range, excepto que si se especifican los
         lugares decimales, el paso lo hace entre decimales.
     :param places: lugares decimales
-    :return: rango con numeros decimales
+    :return: range con numeros decimales
     :rtype: list
     """
     factor = 10**places if places>0 else 1
@@ -329,9 +329,9 @@ def parametrizar(rango_orig, rango_final, bandas=None):
     """ Funcion para parametrizar una imagen según los rangos dados
 
     :Argumentos:
-    :param rango_orig: min y max rango de la imagen original. ejemplo: (0,1)
+    :param rango_orig: min y max range de la imagen original. ejemplo: (0,1)
     :type rango_orig: tuple
-    :param rango_final: min y max rango de la imagen resultante. ej: (0.5,2)
+    :param rango_final: min y max range de la imagen resultante. ej: (0.5,2)
     :type rango_final: tuple
     :param bandas: bandas a parametrizar. Si es None se parametrizan todas.
     :type bandas: list

@@ -1,36 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Modulo principal para la creacion de un compuesto Best Available Pixel
-
-Premisas:
-
-El objeto BAP debería ser independiente del sitio (o area) y ¿el año?, estos se
-definirian en los metodos del objeto..
-
-objetoBAP = Bap(año_central, rango_años, colecciones, puntajes, mascaras,
-                filtros, indices?)
-
-los argumentos serían tuples de objetos.
-Si las colecciones son None, entonces usa el año para determinar qué satelites
-habia en esa temporada
-
-metodo coleccion(sitio)
-
-    toma las colecciones del objetoBAP, las filtra, enmascara y calcula puntaje
-    en el sitio dado. Cada objeto de puntajes, mascaras y filtros debe tener
-    un metodo map(**kwargs)
-    Devuelve una coleccion
-
-metodos de generacion de 1 compuesto:
-
-    reduccion
-    Aplica el metodo coleccion() y sobre la coleccion resultante aplica un
-    metodo de reduccion
-
-    unpix
-    Aplica el metodo coleccion() y de la coleccion resultante elige el pixel
-    con mejor puntaje total
-"""
+""" Main module holding the Bap Class and its methods """
 
 import ee
 import satcol
@@ -45,13 +15,13 @@ import time
 import sys
 from collections import namedtuple
 
-MIN_ANIO = 1970
-MAX_ANIO = datetime.date.today().year
+MIN_YEAR = 1970
+MAX_YEAR = datetime.date.today().year
 
 def check_type(name, param, type):
     if param and not isinstance(param, type):
         raise ValueError(
-            "el param '{}' debe ser una {}".format(name, type.__name__))
+            "argument '{}' must be {}".format(name, type.__name__))
     else:
         return
 
@@ -59,95 +29,95 @@ def check_type(name, param, type):
 class Bap(object):
     debug = False
     verbose = True
-    def __init__(self, anio=None, rango=(0, 0), colgroup=None, puntajes=None,
-                 mascaras=None, filtros=None, bbox=0, temporada=None,
+    def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
+                 masks=None, filters=None, bbox=0, season=None,
                  fmap=None):
         """
 
-        :param anio:
-        :type anio: int
-        :param rango:
-        :type rango: tuple
+        :param year:
+        :type year: int
+        :param range:
+        :type range: tuple
         :param colgroup:
         :type colgroup: satcol.ColGroup
-        :param puntajes:
-        :type puntajes: tuple
-        :param mascaras:
-        :type mascaras: tuple
-        :param filtros:
-        :type filtros: tuple
+        :param scores:
+        :type scores: tuple
+        :param masks:
+        :type masks: tuple
+        :param filters:
+        :type filters: tuple
         :param bbox:
-        :param temporada:
-        :type temporada: temporada.Temporada
+        :param season:
+        :type season: season.Temporada
         """
-        check_type("colecciones", colgroup, satcol.ColGroup)
-        # check_type("puntajes", puntajes, tuple)
-        # check_type("mascaras", mascaras, tuple)
-        # check_type("filtros", filtros, tuple)
-        check_type("anio", anio, int)
-        # check_type("rango", rango, tuple)
+        check_type("colgroup", colgroup, satcol.ColGroup)
+        # check_type("scores", scores, tuple)
+        # check_type("masks", masks, tuple)
+        # check_type("filters", filters, tuple)
+        check_type("year", year, int)
+        # check_type("range", range, tuple)
         check_type("bbox", bbox, int)
-        check_type("temporada", temporada, temp.Temporada)
+        check_type("season", season, temp.Temporada)
 
-        if anio < MIN_ANIO or anio > MAX_ANIO:
+        if year < MIN_YEAR or year > MAX_YEAR:
             raise ValueError(
-        "El año debe ser mayor a {} y menor a {}".format(MIN_ANIO, MAX_ANIO))
+        "The year must be greatre than {} and less than {}".format(
+            MIN_YEAR, MAX_YEAR))
 
-        self.anio = anio
-        self.rango = rango
+        self.year = year
+        self.range = range
         self.col = colgroup
-        self.punt = puntajes
-        self.masc = mascaras
-        self.filtros = filtros
+        self.scores = scores
+        self.masks = masks
+        self.filters = filters
         self.bbox = bbox
-        self.temporada = temporada
+        self.season = season
         self.fmap = fmap
 
     @property
     def date_to_set(self):
         return ee.Date(
-            str(self.anio)+"-"+self.temporada.doy).millis().getInfo()
+            str(self.year) + "-" + self.season.doy).millis().getInfo()
 
     @property
-    def fecha_ini(self):
-        return self.temporada.add_anio(self.anio-self.rango[0])[0]
+    def ini_date(self):
+        return self.season.add_anio(self.year - self.range[0])[0]
 
     @property
-    def fecha_fin(self):
-        return self.temporada.add_anio(self.anio+self.rango[1])[1]
+    def end_date(self):
+        return self.season.add_anio(self.year + self.range[1])[1]
 
     @property
-    def ini_temporada(self):
-        return self.temporada.add_anio(self.anio)[0]
+    def ini_season(self):
+        return self.season.add_anio(self.year)[0]
 
     @property
-    def fin_temporada(self):
-        return self.temporada.add_anio(self.anio)[1]
+    def end_season(self):
+        return self.season.add_anio(self.year)[1]
 
     @property
-    def anios_range(self):
+    def date_range(self):
         try:
-            i = self.anio - abs(self.rango[0])
-            f = self.anio + abs(self.rango[1]) + 1
+            i = self.year - abs(self.range[0])
+            f = self.year + abs(self.range[1]) + 1
 
             return range(i, f)
         except:
             return None
 
     @property
-    def nombre_puntajes(self):
-        if self.punt:
-            punt = [p.nombre for p in self.punt]
+    def score_names(self):
+        if self.scores:
+            punt = [p.nombre for p in self.scores]
             return functions.replace_duplicate(punt)
         else:
             return []
 
 
     def collist(self):
-        """ Lista de Colecciones. Si no se definen las colecciones en la
-        creacion del objeto, se utiliza la lista priorizada segun la temporada
-        :return: lista de colecciones que se usara segun los parametros
-            que se usaron para la creacion del objeto
+        """ List of Collections. If the list is not defined in the creation of
+        the Bap object, a prioritized list is used according to the season.
+        :return: list of collections that will be used
         :rtype: tuple
         """
         if self.col.familia() != "Landsat":
@@ -156,28 +126,30 @@ class Bap(object):
             # Ids de las colecciones dadas
             s1 = set([col.ID for col in self.col.colecciones])
 
-            # Ids de la lista de colecciones presentes en el rango de
+            # Ids de la lista de colecciones presentes en el range de
             # temporadas
             s2 = set()
-            for a in self.anios_range:
+            for a in self.date_range:
                 s2 = s2.union(
                     set([col for col in temp.PrioridadTemporada.relacion[a]]))
 
             intersect = s1.intersection(s2)
             if Bap.debug:
-                print "cols del grupo:", s1
-                print "cols prioridad:", s2
-                print "inteseccion de colecciones:", intersect
+                print "Collections inside ColGroup:", s1
+                print "Prior Collections:", s2
+                print "Intersection:", intersect
             return [satcol.Coleccion.from_id(ID) for ID in intersect]
 
-    def coleccion(self, sitio, indices=None, normalizar=True, **kwargs):
+    def coleccion(self, site, indices=None, normalize=True, **kwargs):
         """
-        :param indices: indices de vegetacion que se quieren calcular. Si es
-            *None* no se calcula ningun indice
+        :param indices: vegetation indices to include in the final image. If
+            None, no index is calculated
         :type indices: tuple
-        :param sitio: La geometría del sitio, que puede provenir de distintos
-            lugares. Usando este paquete: LugaresFT("sitio").filtro(id=id)
-        :type sitio: ee.Geometry
+        :param site: Site geometry
+        :type site: ee.Geometry
+        :param normalize: Whether to normalize the final score from 0 to 1
+            or not
+        :type normalize: bool
         :return:
         """
         # Si no se pasa una funcion para aplicar antes de los puntajes, se
@@ -190,23 +162,23 @@ class Bap(object):
         # colfinal = ee.ImageCollection()
         colfinal = ee.List([])
 
-        # Obtengo la region del sitio
+        # Obtengo la region del site
         try:
-            region = sitio.geometry().bounds().getInfo()['coordinates'][0]
+            region = site.geometry().bounds().getInfo()['coordinates'][0]
         except AttributeError:
-            region = sitio.getInfo()['coordinates'][0]
+            region = site.getInfo()['coordinates'][0]
         except:
             raise AttributeError
 
         # lista de nombres de los puntajes para sumarlos al final
-        puntajes = self.nombre_puntajes
+        scores = self.score_names
         maxpunt = reduce(
-            lambda i, punt: i+punt.max, self.punt, 0) if self.punt else 1
+            lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
 
         # Diccionario de cant de imagenes para incluir en las propiedades
         toMetadata = dict()
 
-        if self.verbose: print "puntajes:", puntajes
+        if self.verbose: print "scores:", scores
 
         for colobj in self.collist():
 
@@ -227,54 +199,54 @@ class Bap(object):
             # Coleccion completa de EE
             c = colobj.colEE
 
-            # Filtro por el sitio
-            # TODO: usar el bbox si está seteado
-            if isinstance(sitio, ee.Feature): sitio = sitio.geometry()
-            c2 = c.filterBounds(sitio)
+            # Filtro por el site
+            # TODO: Use bbox parameter
+            if isinstance(site, ee.Feature): site = site.geometry()
+            c2 = c.filterBounds(site)
 
             # Renombra las bandas aca?
             # c2 = c2.map(col.rename())
 
-            if self.verbose: print "\nSatelite:", colobj.ID
-            if self.debug: print " TAM DESP FILTRO SITIO:", c2.size().getInfo()
+            if self.verbose: print "\nSatellite:", colobj.ID
+            if self.debug: print " SIZE AFTER FILTER SITE:", c2.size().getInfo()
 
             # Filtro por los años
-            for anio in self.anios_range:
+            for anio in self.date_range:
                 # Creo un nuevo objeto de coleccion con el id
                 col = satcol.Coleccion.from_id(cid)
                 # puntajes = []
 
-                ini = self.temporada.add_anio(anio)[0]
-                fin = self.temporada.add_anio(anio)[1]
+                ini = self.season.add_anio(anio)[0]
+                end = self.season.add_anio(anio)[1]
 
-                if self.verbose: print "ini:", ini, ",fin:", fin
+                if self.verbose: print "ini:", ini, ",end:", end
 
                 # Filtro por fecha
-                c = c2.filterDate(ini, fin)
+                c = c2.filterDate(ini, end)
 
                 if self.debug:
                     n = c.size().getInfo()
-                    print "    TAM DESP DE FILTRO DATE:", n
+                    print "    SIZE AFTER FILTER DATE:", n
 
                 ## FILTROS ESTABAN ACA
 
-                # Si despues de los filtros no quedan imgs, saltea..
+                # Si despues de los filters no quedan imgs, saltea..
                 size = c.size().getInfo()
-                if self.verbose: print "tam desp de filtros:", size
+                if self.verbose: print "size after filters:", size
                 if size == 0: continue  # 1
 
                 # corto la imagen con la region para minimizar los calculos
                 def cut(img):
-                    return img.clip(sitio)
+                    return img.clip(site)
                 c = c.map(cut)
 
                 # Mascaras
-                if self.masc:
-                    for m in self.masc:
+                if self.masks:
+                    for m in self.masks:
                         c = c.map(
                             m.map(col=col, anio=anio, colEE=c))
                         if self.debug:
-                            print " DESP DE LA MASCARA "+m.nombre, \
+                            print " SIZE AFTER THE MASK "+m.nombre, \
                                 ee.Image(c.first()).bandNames().getInfo()
 
                 # Transformo los valores enmascarados a cero
@@ -287,14 +259,14 @@ class Bap(object):
                 bandasrel = []
 
                 if self.debug:
-                    print " DESP DE RENOMBRAR LAS BANDAS:", \
+                    print " AFTER RENAMING BANDS:", \
                         ee.Image(c.first()).bandNames().getInfo()
 
                 # Escalo a 0-1
                 c = c.map(col.escalar())
                 if self.debug:
                     if c.size().getInfo() > 0:
-                        print " DESP DE ESCALAR:", \
+                        print " AFTER SCALING:", \
                             ee.Image(c.first()).bandNames().getInfo()
 
                 # Indices
@@ -308,30 +280,28 @@ class Bap(object):
                 # el usuario
                 c = c.map(fmap)
 
-
-
                 # Puntajes
-                if self.punt:
-                    for p in self.punt:
+                if self.scores:
+                    for p in self.scores:
                         if self.verbose: print "** "+p.nombre+" **"
                         # Espero el tiempo seteado en cada puntaje
                         sleep = p.sleep
                         for t in range(sleep):
                             sys.stdout.write(str(t+1)+".")
                             time.sleep(1)
-                        c = c.map(p.map(col=col, anio=anio, colEE=c, geom=sitio))
+                        c = c.map(p.map(col=col, anio=anio, colEE=c, geom=site))
 
                         # DEBUG
                         if self.debug and n > 0:
-                            geom = sitio if isinstance(sitio, ee.Geometry)\
-                                         else sitio.geometry()
-                            print "puntaje:", functions.get_value(
+                            geom = site if isinstance(site, ee.Geometry)\
+                                         else site.geometry()
+                            print "value:", functions.get_value(
                                 ee.Image(c.first()), geom.centroid())
 
                 # Filtros
-                if self.filtros:
-                    for filtro in self.filtros:
-                        c = filtro.apply(c, col=col, anio=self.anio)
+                if self.filters:
+                    for filtro in self.filters:
+                        c = filtro.apply(c, col=col, anio=self.year)
 
                 ## INDICES ESTABA ACA
 
@@ -344,7 +314,7 @@ class Bap(object):
                 # con fmap, no se seleccionaba
                 '''
                 def sel(img):
-                    puntajes_ = puntajes if self.punt else []
+                    puntajes_ = puntajes if self.scores else []
                     indices_ = list(indices) if indices else []
                     relaciones = self.col.bandasrel()
                     return img.select(relaciones+puntajes_+indices_)
@@ -356,29 +326,29 @@ class Bap(object):
 
                 if self.debug:
                     if c.size().getInfo() > 0:
-                        print " DESP DE SELECCIONAR BANDAS EN COMUN:",\
+                        print " AFTER SELECTING COMMON BANDS:",\
                             ee.Image(c.first()).bandNames().getInfo()
 
                 # Convierto los valores de las mascaras a 0
                 c = c.map(functions.antiMask)
 
                 # Agrego la banda de fecha a la imagen
-                c = c.map(date.FechaEE.map())
+                c = c.map(date.Date.map())
 
                 # Agrego la banda bandID de la coleccion
                 def addBandID(img):
                     return img.addBands(bid)
                 c = c.map(addBandID)
 
-                if self.debug: print " DESP DE AGREGAR BANDA bandID:", \
+                if self.debug: print " AFTER ADDING bandID BAND:", \
                     ee.Image(c.first()).bandNames().getInfo()
 
                 # Convierto a lista para agregar a la coleccion anterior
                 c_list = c.toList(2500)
                 colfinal = colfinal.cat(c_list)
 
-                # Agrego col id y anio al diccionario para propiedades
-                cant_imgs = "nro_imgs_{cid}_{a}".format(cid=short, a=anio)
+                # Agrego col id y year al diccionario para propiedades
+                cant_imgs = "n_imgs_{cid}_{a}".format(cid=short, a=anio)
                 toMetadata[cant_imgs] = functions.get_size(c)
 
         # comprueba que la lista final tenga al menos un elemento
@@ -386,7 +356,7 @@ class Bap(object):
         s_fin = functions.get_size(colfinal)
 
         # DEBUG
-        if self.verbose: print "tamanio col final:", s_fin
+        if self.verbose: print "final collection size:", s_fin
 
         if s_fin > 0:
             newcol = ee.ImageCollection(colfinal)
@@ -394,19 +364,19 @@ class Bap(object):
             # Selecciono las bandas en comun de todas las imagenes
             newcol = functions.select_match(newcol)
 
-            if self.debug: print " ANTES DE CALC ptotal:", \
+            if self.debug: print " BEFORE score:", \
                 ee.Image(newcol.first()).bandNames().getInfo()
 
             # Calcula el puntaje total sumando los puntajes
-            ftotal = functions.sumBands("ptotal", puntajes)
+            ftotal = functions.sumBands("score", scores)
             newcol = newcol.map(ftotal)
 
-            if normalizar:
+            if normalize:
                 newcol = newcol.map(
-                    functions.parametrizar((0, maxpunt), (0, 1), ("ptotal",)))
+                    functions.parametrizar((0, maxpunt), (0, 1), ("score",)))
 
             if self.debug:
-                print " DESP DE CALC ptotal:", \
+                print " AFTER score:", \
                     ee.Image(newcol.first()).bandNames().getInfo()
 
             output = namedtuple("ColBap", ("col", "dictprop"))
@@ -415,60 +385,60 @@ class Bap(object):
             return None
 
     @staticmethod
-    def calcUnpix_generic(col, puntaje):
+    def calcUnpix_generic(col, score):
         """
         """
         imgCol = col
         # tamcol = funciones.execli(imgCol.size().getInfo)()
 
-        img = imgCol.qualityMosaic(puntaje)
+        img = imgCol.qualityMosaic(score)
 
         if Bap.debug:
-            print " DESP DE qualityMosaic:", img.bandNames().getInfo()
+            print " AFTER qualityMosaic:", img.bandNames().getInfo()
 
         # CONVIERTO LOS VALORES ENMASCARADOS EN 0
         img = functions.antiMask(img)
 
         return img
 
-    def calcUnpix(self, sitio, nombre="ptotal", bandas=None, **kwargs):
+    def calcUnpix(self, site, name="score", bands=None, **kwargs):
         """
-        :param bandas: Nombre de las bandas a incluir en la img final. Si es
+        :param bands: Nombre de las bands a incluir en la img final. Si es
             *None* se incluyen todas
-        :type bandas: tuple
-        :param nombre:
-        :type nombre: str
-        :param sitio:
-        :type sitio: ee.Geometry
+        :type bands: tuple
+        :param name:
+        :type name: str
+        :param site:
+        :type site: ee.Geometry
         :param indices:
         :type indices: tuple
         :param normalizar:
         :type normalizar: bool
         :return:
         """
-        colbap = self.coleccion(sitio=sitio, **kwargs)
+        colbap = self.coleccion(site=site, **kwargs)
 
         col = colbap.col
         prop = colbap.dictprop
 
-        img = Bap.calcUnpix_generic(col, nombre)
+        img = Bap.calcUnpix_generic(col, name)
 
-        img = img if bandas is None else img.select(*bandas)
+        img = img if bands is None else img.select(*bands)
 
         fechaprop = {"system:time_start": self.date_to_set}
         prop.update(fechaprop)
         return img.set(prop)
 
-    def calcUnpixLegacy(self, sitio, nombre="ptotal", bandas=None, **kwargs):
+    def calcUnpixLegacy(self, site, name="score", bands=None, **kwargs):
         """
 
-        :param sitio:
-        :param nombre:
-        :param bandas:
+        :param site:
+        :param name:
+        :param bands:
         :param kwargs:
         :return:
         """
-        colbap = self.coleccion(sitio=sitio, **kwargs)
+        colbap = self.coleccion(site=site, **kwargs)
 
         imgCol = colbap.col
         prop = colbap.dictprop
@@ -478,25 +448,25 @@ class Bap(object):
             img0 = ee.Image(0)
 
             # ALTERNATIVA PARA OBTENER LA LISTA DE BANDAS
-            primera = ee.Image(imgCol.first())
-            listaband = primera.bandNames()
-            cantBandas = functions.execli(listaband.size().getInfo)()
+            first = ee.Image(imgCol.first())
+            listbands = first.bandNames()
+            nbands = functions.execli(listbands.size().getInfo)()
 
-            lista = []
+            thelist = []
 
             # CREO LA IMAGEN INICIAL img0 CON LAS BANDAS NECESARIAS EN 0
-            for r in range(0, cantBandas):
+            for r in range(0, nbands):
                 img0 = ee.Image(0).addBands(img0)
-                lista.append(r)
+                thelist.append(r)
 
-            img0 = img0.select(lista, listaband)
+            img0 = img0.select(thelist, listbands)
 
             def final(img, maxx):
                 maxx = ee.Image(maxx)
-                ptotal0 = maxx.select(nombre)
+                ptotal0 = maxx.select(name)
                 ptotal0 = ptotal0.mask().where(1, ptotal0)
 
-                ptotal1 = img.select(nombre)
+                ptotal1 = img.select(name)
                 ptotal1 = ptotal1.mask().where(1, ptotal1)
 
                 masc0 = ptotal0.gt(ptotal1)
@@ -515,30 +485,30 @@ class Bap(object):
             img = ee.Image(imgCol.iterate(final, img0))
 
             # SETEO LAS PROPIEDADES
-            fechaprop = {"system:time_start": self.date_to_set}
-            # img = img.set(fechaprop)
-            prop.update(fechaprop)
+            dateprop = {"system:time_start": self.date_to_set}
+            # img = img.set(dateprop)
+            prop.update(dateprop)
 
             # Elimino las barras invertidas
             prop = {k.replace("/","_"):v for k, v in prop.iteritems()}
 
-            img = img if bandas is None else img.select(*bandas)
+            img = img if bands is None else img.select(*bands)
 
             output = namedtuple("calcUnpixLegacy", ("image", "col"))
 
             return output(self.setprop(img, **prop), imgCol)
         # SI NO HAY IMAGENES
         else:
-            print "No se puede realizar el proceso porque las colecciones " \
-                  "\n" + "no poseen imagenes. Devuelve: None"
+            print "The process can not be done because the Collections have " \
+                  "no images. Returns None"
             return None
 
     def setprop(self, img, **kwargs):
-        """ Setea las propiedades que provienen del objeto Bap a una imagen
+        """ Sets properties to the composite
         :return:
         """
-        d = {"fecha_ini": date.FechaEE.local(self.fecha_ini),
-             "fecha_fin": date.FechaEE.local(self.fecha_fin),
+        d = {"ini_date": date.Date.local(self.ini_date),
+             "end_date": date.Date.local(self.end_date),
              }
 
         # Agrega los argumentos como propiedades
@@ -547,10 +517,10 @@ class Bap(object):
         return img.set(d)
 
     @classmethod
-    def White(cls, anio, rango, temporada):
+    def White(cls, year, range, season):
         psat = scores.Psat()
         pdist = scores.Pdist()
-        pdoy = scores.Pdoy(temporada=temporada)
+        pdoy = scores.Pdoy(temporada=season)
         pop = scores.Pop()
         colG = satcol.ColGroup.SR()
         masc = masks.Nubes()
@@ -560,13 +530,13 @@ class Bap(object):
         mascs = (masc,)
         filts = (filt,)
 
-        return cls(anio, rango, puntajes=pjes, mascaras=mascs, filtros=filts,
-                   colgroup=colG, temporada=temporada)
+        return cls(year, range, scores=pjes, masks=mascs, filters=filts,
+                   colgroup=colG, season=season)
 
     @classmethod
-    def Modis(cls, anio, rango, temporada, indice=None):
+    def Modis(cls, year, range, season, index=None):
         """
-        :param indice: Indice de vegetacion para el cual se va a calcular
+        :param index: Indice de vegetacion para el cual se va a calcular
             el puntaje. Debe coincidir con el que se usará en el metodo de
             generacion del Bap (ej: CalcUnpix). Si es None se omite el calculo
             del puntaje por indice, lo que puede genera malos resultados
@@ -574,7 +544,7 @@ class Bap(object):
         """
         # Puntajes
         pdist = scores.Pdist()
-        pdoy = scores.Pdoy(temporada=temporada)
+        pdoy = scores.Pdoy(temporada=season)
         pmasc = scores.Pmascpor()
         pout = scores.Poutlier(("nirXred",))
 
@@ -584,9 +554,9 @@ class Bap(object):
 
         pjes = [pdist, pdoy, pmasc, pout]
 
-        if indice:
-            pindice = scores.PIndice(indice)
-            pout2 = scores.Poutlier((indice,))
+        if index:
+            pindice = scores.PIndice(index)
+            pout2 = scores.Poutlier((index,))
             pjes.append(pindice)
             pjes.append(pout2)
 
@@ -595,9 +565,5 @@ class Bap(object):
 
         nirxred = functions.nirXred()
 
-        '''
-        return cls(anio, rango, puntajes=pjes, mascaras=mascs, filtros=filts,
-                   colgroup=colG, temporada=temporada, fmap=nirxred)
-        '''
-        return cls(anio, rango, colgroup=colG, temporada=temporada,
-                   mascaras=mascs, puntajes=pjes, fmap=nirxred, filtros=filts)
+        return cls(year, range, colgroup=colG, season=season,
+                   masks=mascs, scores=pjes, fmap=nirxred, filters=filts)

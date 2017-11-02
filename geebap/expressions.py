@@ -28,10 +28,10 @@ class Expresion(object):
     :param expresion: Expresion en formato texto. Se pueden usar algunas
         variables calculadas de la siguiente forma:
 
-        - {max}: maximo valor del rango
-        - {min}: minimo valor del rango
-        - {media}: media del rango
-        - {std}: desvío estandar del rango
+        - {max}: maximo valor del range
+        - {min}: minimo valor del range
+        - {media}: media del range
+        - {std}: desvío estandar del range
         - {maximo}: maximo valor de los resultados
 
         La variable puede ser solo una, que al momento de aplicar el método
@@ -41,7 +41,7 @@ class Expresion(object):
         |
         `expr = "{var}*{media}/{std}+40"`
 
-        `e = Expresion(expresion=expr, rango=(0, 100))`
+        `e = Expresion(expresion=expr, range=(0, 100))`
 
         `print e.format_local()`
 
@@ -52,14 +52,14 @@ class Expresion(object):
     :type rango: tuple
     :param normalizar: Hacer que los valores (resultado) oscilen entre
         0 y 1 dividiendo los valores por el maximo. Si se quiere
-        normalizar se debe proveer un rango.
+        normalizar se debe proveer un range.
     :type normalizar: bool
     :param kargs: argumentos 'keywords', ej: a=1, b=2
 
     :Propiedades fijas:
-    :param media: Si se provee un rango, es la media aritmetica, sino None
+    :param media: Si se provee un range, es la media aritmetica, sino None
     :type media: float
-    :param std: Si se provee un rango es el desvío estandar, sino None
+    :param std: Si se provee un range es el desvío estandar, sino None
     :type std: float
     :param maximo: Determinar el maximo resultado posible. Aplicando la
         expresion localmente con la funcion eval()
@@ -70,8 +70,8 @@ class Expresion(object):
     .. code:: python
 
         # Defino las expresiones con sus rangos
-        exp = Expresion.Exponencial(rango=(0, 100))
-        exp2 = Expresion.Exponencial(rango=(0, 5000), normalizar=True)
+        exp = Expresion.Exponencial(range=(0, 100))
+        exp2 = Expresion.Exponencial(range=(0, 5000), normalizar=True)
 
         # Defino las funciones, indicando el nombre de la banda resultante
         # y la variable que se usará para el cálculo
@@ -169,7 +169,7 @@ class Expresion(object):
             self._normalizar = value
         else:
             self._normalizar = False
-            print "Si se desea normalizar la funcion, el rango debe ser una " \
+            print "Si se desea normalizar la funcion, el range debe ser una " \
                   "tupla"
 
     # ESTADISTICAS DEL RANGO
@@ -181,7 +181,7 @@ class Expresion(object):
         elif self._media:
             return self._media
         else:
-            raise ValueError("Para determinar la media el parametro 'rango'"
+            raise ValueError("Para determinar la media el parametro 'range'"
                              " debe ser del tipo tuple")
 
     @property
@@ -192,7 +192,7 @@ class Expresion(object):
         elif self._std:
             return self._std
         else:
-            raise ValueError("Para determinar el desvio el parametro 'rango'"
+            raise ValueError("Para determinar el desvio el parametro 'range'"
                              " debe ser del tipo tuple")
 
     @property
@@ -207,7 +207,7 @@ class Expresion(object):
         elif self._max and self._min:
             rango = (self._min, self._max)
         else:
-            raise ValueError("Para determinar el maximo el parametro 'rango'"
+            raise ValueError("Para determinar el maximo el parametro 'range'"
                              " debe ser del tipo tuple")
 
         r = drange(rango[0], rango[1]+1, places=1)
@@ -217,13 +217,13 @@ class Expresion(object):
 
     @property
     def max(self):
-        """ Maximo valor del rango """
+        """ Maximo valor del range """
         val = self.rango[1] if self.rango else self.parametros.get("max", None)
         return val
 
     @property
     def min(self):
-        """ Minimo valor del rango """
+        """ Minimo valor del range """
         val = self.rango[0] if self.rango else self.parametros.get("min", None)
         return val
 
@@ -389,7 +389,7 @@ class Expresion(object):
             print "el factor de la curva gaussiana debe ser menor a cero, convirtiendo.."
             factor *= -1
         if not isinstance(rango, tuple):
-            raise ValueError("el rango debe ser una tupla")
+            raise ValueError("el range debe ser una tupla")
 
         exp = "exp(((({var}-{media})/{std})**2)*{factor})/(sqrt(2*pi)*{std})"
         return cls(expresion=exp, rango=rango, factor=factor,
