@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Modulo para implementacion de los puntajes para BAP"""
+""" Module to implement scores in the Bap Image Composition """
 
 import ee
 import satcol
 import functions
 import season
 from functions import execli
-from expressions import Expresion
+from expressions import Expression
 from abc import ABCMeta, abstractmethod
 
 ee.Initialize()
@@ -84,7 +84,7 @@ class Puntaje(object):
         :type nombre: str
         :param rango: range de valores entre los que variará el puntaje
         :type rango: tuple
-        :param normalizar: indica si se debe normalizar, es decir, hacer que
+        :param normalizar: indica si se debe normalize, es decir, hacer que
             los valores varien entre 0 y 1
         :type normalizar: bool
         :param ajuste: factor de ajuste o ponderacion del puntaje
@@ -150,18 +150,18 @@ class PnubeEs(Puntaje):
         :type normalizar: bool
         """
         super(PnubeEs, self).__init__(**kwargs)
-        # self.normalizar = normalizar  # heredado
+        # self.normalize = normalize  # heredado
         # self.ajuste = ajuste  # heredado
         self.rango_in = (0, 100)
         self.nombre = kwargs.get("nombre", "pnube_es")
 
-        self.formula = Expresion.Exponencial(rango=self.rango_in,
-                                             normalizar=self.normalizar,
-                                             **kwargs)
+        self.formula = Expression.Exponential(rango=self.rango_in,
+                                              normalizar=self.normalizar,
+                                              **kwargs)
 
     def map(self, col, **kwargs):
         if col.nubesFld:
-            # fmap = Expresion.ajustar(self.nombre, self.ajuste)
+            # fmap = Expression.adjust(self.nombre, self.ajuste)
             fmap = self.ajuste()
             return self.formula.map(self.nombre,
                                     prop=col.nubesFld,
@@ -328,7 +328,8 @@ class Pdoy(Puntaje):
     :param ajuste: factor para dar mas o menos prioridad al DOY, multiplicando
         la curva de priorización (gaussiana). Default: 1
     :type ajuste: int
-    :param mes_doy: mes del año en el que se da el mejor Dia del Año. Default: 1
+    :param mes_doy: mes del año en el que se da el mejor Dia del Año.
+    Default: 1
     :type mes_doy: int
     :param dia_doy: dia del mes mas representativo de la season. Default: 15
     :type dia_doy: int
@@ -337,10 +338,10 @@ class Pdoy(Puntaje):
     :param dia_ini: dia de inicio de la season. Default: 15
     :type dia_ini: int
     :param formula: Formula que se usara en el calculo del puntaje
-    :type formula: Expresion
+    :type formula: Expression
 
     """
-    def __init__(self, factor=-0.5, formula=Expresion.Gauss,
+    def __init__(self, factor=-0.5, formula=Expression.Normal,
                  temporada=season.Temporada.Crecimiento_patagonia(),
                  **kwargs):
         super(Pdoy, self).__init__(**kwargs)
@@ -404,14 +405,14 @@ class Pdoy(Puntaje):
 
     def media(self, anio):
         """
-        :return: Valor de la media en un objeto de Earth Engine
+        :return: Valor de la mean en un objeto de Earth Engine
         :rtype: ee.Number
         """
         return ee.Number(self.secuencia(anio).reduce(ee.Reducer.mean()))
 
     def std(self, anio):
         """
-        :return: Valor de la media en un objeto de Earth Engine
+        :return: Valor de la mean en un objeto de Earth Engine
         :rtype: ee.Number
         """
         return ee.Number(self.secuencia(anio).reduce(ee.Reducer.stdDev()))
@@ -443,7 +444,7 @@ class Pdoy(Puntaje):
         ran = execli(self.rango_doy(anio).getInfo)()
         self.rango_in = (1, ran)
 
-        # exp = Expresion.Gauss(media=media, std=std)
+        # exp = Expression.Normal(mean=mean, std=std)
         expr = self.exp(media=media, std=std,
                        rango=self.rango_in, normalizar=self.normalizar, **kwargs)
 
@@ -457,7 +458,7 @@ class Pdoy(Puntaje):
 
 
 class Pop(Puntaje):
-    def __init__(self, rango_in=(100, 300), formula=Expresion.Exponencial,
+    def __init__(self, rango_in=(100, 300), formula=Expression.Exponential,
                  **kwargs):
         """ Puntaje por opacidad de la atmosfera
 
@@ -465,10 +466,10 @@ class Pop(Puntaje):
         :type rango: tuple
         :param formula: Formula de distribucion que se usara. Debe ser un
             unbounded object
-        :type formula: Expresion
+        :type formula: Expression
 
         :Propiedades estaticas:
-        :param expr: Objeto expresion, con todas sus propiedades
+        :param expr: Objeto expression, con todas sus propiedades
         """
         super(Pop, self).__init__(**kwargs)
         self.rango_in = rango_in
@@ -482,8 +483,8 @@ class Pop(Puntaje):
 
     def map(self, col, **kwargs):
         if col.ATM_OP:
-            return self.expr.map(nombre=self.nombre,
-                                 banda=col.ATM_OP,
+            return self.expr.map(name=self.nombre,
+                                 band=col.ATM_OP,
                                  map=self.ajuste(),
                                  **kwargs)
         else:
@@ -643,10 +644,10 @@ class Poutlier(Puntaje):
     :type banda: str
 
     :Opcionales:
-    :param proceso: nombre del proceso que se usará ("media" / "mediana")
+    :param proceso: nombre del proceso que se usará ("mean" / "mediana")
     :type proceso: str
     :param dist: distancia al valor medio que se usará. Por ejemplo, si es
-        1, se considerará outlier si cae por fuera de +-1 desvío de la media
+        1, se considerará outlier si cae por fuera de +-1 desvío de la mean
     :type dist: int
     :param min: puntaje mínimo que se le asignará a un outlier
     :type min: int
@@ -658,12 +659,12 @@ class Poutlier(Puntaje):
     :type distribucion: str
     """
 
-    def __init__(self, bandas, proceso="media", **kwargs):
+    def __init__(self, bandas, proceso="mean", **kwargs):
         """
         :param bandas: Lista o tuple de bandas. Las bandas deben estar en la
             imagen.
         :type bandas: tuple
-        :param proceso: Opciones: 'media' o 'mediana'
+        :param proceso: Opciones: 'mean' o 'mediana'
         :type proceso: str
         """
         super(Poutlier, self).__init__(**kwargs)
@@ -726,7 +727,7 @@ class Poutlier(Puntaje):
             return img.updateMask(m)
         coltemp = col.map(masktemp)
 
-        if proceso == "media":
+        if proceso == "mean":
             media = ee.Image(coltemp.mean())
             std = ee.Image(col.reduce(ee.Reducer.stdDev()))
             stdXdesvio = std.multiply(self.dist)

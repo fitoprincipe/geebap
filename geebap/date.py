@@ -23,7 +23,7 @@ class Date(object):
     def map(name="date"):
         """
         :PARAMETROS:
-        :param name: nombre que se le dara a la banda
+        :param name: name que se le dara a la banda
         :type name: str
         """
         def wrap(img):

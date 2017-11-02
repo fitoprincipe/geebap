@@ -107,7 +107,7 @@ if __name__ == "__main__":
     # print ExpGen.parse(expr)
     '''
     expr = "sqrt(2*4)+min(b('B1'), 3)*2*b('B2')"
-    expr2 = "1.0-(1.0/(exp((({var}-'media')*(1/'max'*'a')))+1.0))"
+    expr2 = "1.0-(1.0/(exp((({var}-'mean')*(1/'max'*'a')))+1.0))"
     expr3 = "(3+2)*5"
     #s = SvalEE()
     #print s.eval(expr)

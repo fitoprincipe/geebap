@@ -20,28 +20,28 @@ sval.DEFAULT_FUNCTIONS.update(CUSTOM_FUNCTIONS)
 sval.DEFAULT_NAMES.update(CUSTOM_NAMES)
 
 
-class Expresion(object):
+class Expression(object):
     # TODO: Limitante: si hay mas de una variable
     """ El método principal de Expresiones() es map(**kwargs), el cual define
     la funcion que se usará en ImageCollection.map()
 
-    :param expresion: Expresion en formato texto. Se pueden usar algunas
+    :param expresion: Expression en formato texto. Se pueden usar algunas
         variables calculadas de la siguiente forma:
 
-        - {max}: maximo valor del range
+        - {max}: max_result valor del range
         - {min}: minimo valor del range
-        - {media}: media del range
+        - {mean}: mean del range
         - {std}: desvío estandar del range
-        - {maximo}: maximo valor de los resultados
+        - {max_result}: max_result valor de los resultados
 
         La variable puede ser solo una, que al momento de aplicar el método
         map() se definirá de donde proviene, y debe incluirse en la expresión
         de la siguiente forma: {var}. Ejemplo:
 
         |
-        `expr = "{var}*{media}/{std}+40"`
+        `expr = "{var}*{mean}/{std}+40"`
 
-        `e = Expresion(expresion=expr, range=(0, 100))`
+        `e = Expression(expression=expr, range=(0, 100))`
 
         `print e.format_local()`
 
@@ -51,18 +51,18 @@ class Expresion(object):
     :param rango: Rango de valores entre los que varía la variable
     :type rango: tuple
     :param normalizar: Hacer que los valores (resultado) oscilen entre
-        0 y 1 dividiendo los valores por el maximo. Si se quiere
-        normalizar se debe proveer un range.
+        0 y 1 dividiendo los valores por el max_result. Si se quiere
+        normalize se debe proveer un range.
     :type normalizar: bool
     :param kargs: argumentos 'keywords', ej: a=1, b=2
 
     :Propiedades fijas:
-    :param media: Si se provee un range, es la media aritmetica, sino None
+    :param media: Si se provee un range, es la mean aritmetica, sino None
     :type media: float
     :param std: Si se provee un range es el desvío estandar, sino None
     :type std: float
-    :param maximo: Determinar el maximo resultado posible. Aplicando la
-        expresion localmente con la funcion eval()
+    :param maximo: Determinar el max_result resultado posible. Aplicando la
+        expression localmente con la funcion eval()
     :type maximo: float
 
     :Uso:
@@ -70,8 +70,8 @@ class Expresion(object):
     .. code:: python
 
         # Defino las expresiones con sus rangos
-        exp = Expresion.Exponencial(range=(0, 100))
-        exp2 = Expresion.Exponencial(range=(0, 5000), normalizar=True)
+        exp = Expression.Exponential(range=(0, 100))
+        exp2 = Expression.Exponential(range=(0, 5000), normalize=True)
 
         # Defino las funciones, indicando el nombre de la banda resultante
         # y la variable que se usará para el cálculo
@@ -91,124 +91,124 @@ class Expresion(object):
     :e: euler (2.71)
 
     :Funciones admitidas:
-    :max: maximo valor entre dos argumentos
+    :max: max_result valor entre dos argumentos
     :min: minimo valor entre dos argumentos
     :exp: exponencial de e: e^argumento
     :sqrt: raiz cuadrada del argumento
     """
-    def __init__(self, expresion="{var}", normalizar=False, rango=None,
-                 nombre=None, **kwargs):
-        self.expresion = expresion
-        self.rango = rango
-        self._normalizar = normalizar
-        self.parametros = kwargs
+    def __init__(self, expression="{var}", normalize=False, range=None,
+                 name=None, **kwargs):
+        self.expression = expression
+        self.range = range
+        self._normalize = normalize
+        self.params = kwargs
         self._max = kwargs.get("max")
         self._min = kwargs.get("min")
         self._std = kwargs.get("std")
-        self._media = kwargs.get("media")
-        self.nombre = nombre
+        self._mean = kwargs.get("mean")
+        self.name = name
 
     def format_local(self):
-        """ Reemplaza las variables de la expresion por los valores asignados
+        """ Reemplaza las variables de la expression por los valores asignados
         al objeto, excepto la variable 'var' que la deja como está porque es
-        la que variará en la expresion de EE"""
-        # print self.expresion
+        la que variará en la expression de EE"""
+        # print self.expression
         # reemplaza las variables estadisticas
-        params = copy.deepcopy(self.parametros)
+        params = copy.deepcopy(self.params)
         params["max"] = self.max
         params["min"] = self.min
-        params["media"] = self.media
+        params["mean"] = self.mean
         params["std"] = self.std
 
-        return self.expresion.format(var="{var}", **params)
+        return self.expression.format(var="{var}", **params)
 
     def format_ee(self):
-        """ Reemplaza las variables de la expresion por los valores asignados
-        al objeto y genera la expresion lista para usar en Earth Engine """
+        """ Reemplaza las variables de la expression por los valores asignados
+        al objeto y genera la expression lista para usar en Earth Engine """
         # reemplaza las variables estadisticas
-        params = copy.deepcopy(self.parametros)
+        params = copy.deepcopy(self.params)
         params["max"] = self.max
         params["min"] = self.min
-        params["media"] = self.media
+        params["mean"] = self.mean
         params["std"] = self.std
 
-        expr = self.expresion.format(var="'var'", **params)
+        expr = self.expression.format(var="'var'", **params)
 
         return expgen.ExpGen.parse(expr)
 
         # return sval.simple_eval("")
 
     @staticmethod
-    def ajustar(nombre, valor):
+    def adjust(name, valor):
         """ Ajusta el valor de la banda resultante multipliandolo por 'valor'
 
         :param valor: Valor de ajuste
         :type valor: float
-        :param nombre: nombre de la banda que contiene el valor a ajustar
-        :type nombre: str
+        :param name: name de la banda que contiene el valor a ajustar
+        :type name: str
         :return: La funcion para map()
         :rtype: function
         """
         def wrap(img):
-            band = img.select(nombre).multiply(valor)
-            return replace(nombre, band)(img)
+            band = img.select(name).multiply(valor)
+            return replace(name, band)(img)
 
         return wrap
 
     @property
-    def normalizar(self):
+    def normalize(self):
         """
         :rtype: bool
         """
-        return self._normalizar
+        return self._normalize
 
-    @normalizar.setter
-    def normalizar(self, value):
-        """ Metodo para setear el valor de la propiedad 'normalizar' """
-        if type(value) is bool and type(self.rango) is tuple:
-            self._normalizar = value
+    @normalize.setter
+    def normalize(self, value):
+        """ Metodo para setear el valor de la propiedad 'normalize' """
+        if type(value) is bool and type(self.range) is tuple:
+            self._normalize = value
         else:
-            self._normalizar = False
-            print "Si se desea normalizar la funcion, el range debe ser una " \
-                  "tupla"
+            self._normalize = False
+            print "If you want to normalize the function, the range must be" \
+                  " a tuple"
 
     # ESTADISTICAS DEL RANGO
     @property
-    def media(self):
-        if type(self.rango) is tuple:
-            r = drange(self.rango[0], self.rango[1]+1, places=1)
+    def mean(self):
+        if type(self.range) is tuple:
+            r = drange(self.range[0], self.range[1] + 1, places=1)
             return np.mean(r)
-        elif self._media:
-            return self._media
+        elif self._mean:
+            return self._mean
         else:
-            raise ValueError("Para determinar la media el parametro 'range'"
-                             " debe ser del tipo tuple")
+            raise ValueError("To determine the mean the 'range' param must be "
+                             "a tuple")
 
     @property
     def std(self):
-        if type(self.rango) is tuple:
-            r = drange(self.rango[0], self.rango[1]+1, places=1)
+        if type(self.range) is tuple:
+            r = drange(self.range[0], self.range[1] + 1, places=1)
             return np.std(r)
         elif self._std:
             return self._std
         else:
-            raise ValueError("Para determinar el desvio el parametro 'range'"
-                             " debe ser del tipo tuple")
+            raise ValueError("To determine the std the 'range' param must be "
+                             "a tuple")
 
     @property
-    def maximo(self):
-        """ Determinar el maximo resultado posible. Aplicando la expresion
+    def max_result(self):
+        """ Determinar el max_result resultado posible. Aplicando la expression
         localmente con la funcion eval()
 
         :return:
         """
-        if type(self.rango) is tuple:
-            rango = self.rango
+        if type(self.range) is tuple:
+            rango = self.range
         elif self._max and self._min:
             rango = (self._min, self._max)
         else:
-            raise ValueError("Para determinar el maximo el parametro 'range'"
-                             " debe ser del tipo tuple")
+            raise ValueError("To determine the max result the 'range' param "
+                             "must be a tuple")
 
         r = drange(rango[0], rango[1]+1, places=1)
         lista_result = [self.eval(var) for var in r]
@@ -218,20 +218,20 @@ class Expresion(object):
     @property
     def max(self):
         """ Maximo valor del range """
-        val = self.rango[1] if self.rango else self.parametros.get("max", None)
+        val = self.range[1] if self.range else self.params.get("max", None)
         return val
 
     @property
     def min(self):
         """ Minimo valor del range """
-        val = self.rango[0] if self.rango else self.parametros.get("min", None)
+        val = self.range[0] if self.range else self.params.get("min", None)
         return val
 
     def eval(self, var):
         """ Metodo para aplicar la funcion localmente con un valor dado
 
         :param var: Valor que se usara como variable
-        :return: el resultado de evaluar la expresion con un valor dado
+        :return: el resultado de evaluar la expression con un valor dado
         :rtype: float
         """
         expr = self.format_local()
@@ -239,38 +239,38 @@ class Expresion(object):
         result = sval.simple_eval(expr)
         return result
 
-    def eval_normalizado(self, var):
+    def eval_normalized(self, var):
         """ Metodo para aplicar la funcion normalizada (resultado entre 0 y 1)
-        localmente con un valor dado. No influye el parametro 'normalizar'
+        localmente con un valor dado. No influye el parametro 'normalize'
 
         :param var: Valor que se usara como variable
-        :return: el resultado de evaluar la expresion con un valor dado
+        :return: el resultado de evaluar la expression con un valor dado
         :rtype: float
         """
         e = self.format_local()
-        expr = "({e})/{maximo}".format(e=e, maximo=self.maximo)
+        expr = "({e})/{maximo}".format(e=e, maximo=self.max_result)
         expr = expr.format(var=var)
         result = sval.simple_eval(expr)
         return result
 
-    def map(self, nombre="expresion", banda=None, prop=None, eval=None,
+    def map(self, name="expression", band=None, prop=None, eval=None,
             map=None, **kwargs):
-        """ Funcion para mapear el resultado de la expresion
+        """ Funcion para mapear el resultado de la expression
 
-        :param nombre: nombre que se le dara a la banda de la imagen una vez
-            calculada la expresion
-        :type nombre: str
-        :param banda: nombre de la banda que se usara como valor variable
-        :type banda: str
-        :param prop: nombre de la propiedad que se usara como valor variable
+        :param name: name que se le dara a la band de la imagen una vez
+            calculada la expression
+        :type name: str
+        :param band: name de la band que se usara como valor variable
+        :type band: str
+        :param prop: name de la propiedad que se usara como valor variable
         :type prop: str
         :param eval: funcion para aplicar a la variable. Si la variable es el
-            valor de una banda, entonces el argumento de la funcion será
-            esa banda, y si es una propiedad, el argumento será la propiedad.
+            valor de una band, entonces el argumento de la funcion será
+            esa band, y si es una propiedad, el argumento será la propiedad.
         :type eval: function
         :param map: funcion para aplicarle al valor final. Puede usarse para
             hacer un ajuste o ponderacion. El argumento de la funcion debe ser
-            la imagen con la banda agregada
+            la imagen con la band agregada
         :type map: function
         :return: la funcion para map()
         :rtype: function
@@ -293,89 +293,89 @@ class Expresion(object):
         else:
             raise ValueError("el parametro 'map' debe ser una funcion")
 
-        # reemplazo las variables de la expresion
+        # reemplazo las variables de la expression
         expr = self.format_ee()
 
         # Normalizar
-        if self.normalizar:
-            expr = "({e})/{maximo}".format(e=expr, maximo=self.maximo)
+        if self.normalize:
+            expr = "({e})/{maximo}".format(e=expr, maximo=self.max_result)
         else:
             expr = expr
 
-        # print "nombre", nombre
+        # print "name", name
         # print "propiedad", prop
-        # print "expresion", expr
-        # Define la funcion de retorno según si se eligio una propiedad o una banda
-        if prop is None and banda is not None:  # BANDA
+        # print "expression", expr
+        # Define la funcion de retorno según si se eligio una propiedad o una band
+        if prop is None and band is not None:  # BANDA
             def wrap(img):
                 # Selecciono los pixeles con valor distinto de cero
                 ceros = img.select([0]).eq(0).Not()
 
-                # aplico la funcion 'eval' a la banda
-                variable = func(img.select(banda))
-                # aplico la expresion
+                # aplico la funcion 'eval' a la band
+                variable = func(img.select(band))
+                # aplico la expression
                 '''
                 calculo = img.expression(expr,
-                                         dict(var=variable, **self.parametros))
+                                         dict(var=variable, **self.params))
                 '''
 
                 calculo = img.expression(expr, dict(var=variable))
 
                 # renombro
-                calculo = calculo.select([0], [nombre])
+                calculo = calculo.select([0], [name])
                 # aplico la funcion final sobre la imagen completa
                 imgfinal = finalf(img.addBands(calculo))
-                # retorno la imagen con la banda agregada
+                # retorno la imagen con la band agregada
                 return imgfinal.updateMask(ceros)
-        elif banda is None and prop is not None:  # PROPIEDAD
+        elif band is None and prop is not None:  # PROPIEDAD
             def wrap(img):
                 # Selecciono los pixeles con valor distinto de cero
                 ceros = img.select([0]).eq(0).Not()
                 # aplico la funcion 'eval' a la propiedad
                 propval = func(ee.Number(img.get(prop)))
-                # aplico la expresion
+                # aplico la expression
                 '''
                 calculo = img.expression(expr,
-                                         dict(var=propval, **self.parametros))
+                                         dict(var=propval, **self.params))
                 '''
                 calculo = img.expression(expr, dict(var=propval))
 
                 # renombro
-                calculo = calculo.select([0], [nombre])
+                calculo = calculo.select([0], [name])
                 # aplico la funcion final sobre la imagen completa
                 imgfinal = finalf(img.addBands(calculo))
                 # imgfinal = img.addBands(calculo)
-                # retorno la imagen con la banda agregada
+                # retorno la imagen con la band agregada
                 return imgfinal.updateMask(ceros)
         else:
             raise ValueError("la funcion map debe ser llamada con \
-                             'banda' o 'prop'")
+                             'band' o 'prop'")
 
         return wrap
 
     @classmethod
-    def Exponencial(cls, a=-10, rango=(0, 100), **kwargs):
-        """ Funcion Exponencial
+    def Exponential(cls, a=-10, range=(0, 100), **kwargs):
+        """ Funcion Exponential
 
         :USO:
 
         :param var: valor variable
-        :param media: valor de la media aritmetica de la variable
-        :param a: constante a. El signo determina si el maximo está al final
+        :param media: valor de la mean aritmetica de la variable
+        :param a: constante a. El signo determina si el max_result está al final
             de la serie (positivo) o al principio (negativo)
         :param b: constante b. Determina el punto de quiebre de de la curva.
-            Cuando es cero, el punto esta en la media de la serie. Cuando es
+            Cuando es cero, el punto esta en la mean de la serie. Cuando es
             positivo se acerca al principio de la serie, y cuando es negativo
             al final de la serie.
         """
         # DETERMINO LOS PARAMETROS SEGUN EL RANGO DADO SI EXISTIERA
-        exp = "1.0-(1.0/(exp(((min({var}, {max})-{media})*(1/{max}*{a})))+1.0))"
-        return cls(expresion=exp, a=a, rango=rango, nombre="Exponencial",
+        exp = "1.0-(1.0/(exp(((min({var}, {max})-{mean})*(1/{max}*{a})))+1.0))"
+        return cls(expression=exp, a=a, range=range, name="Exponential",
                    **kwargs)
 
     @classmethod
-    def Gauss(cls, rango=(0, 100), factor=-0.5, **kwargs):
-        """ Campana de Gauss
+    def Normal(cls, range=(0, 100), factor=-0.5, **kwargs):
+        """ Campana de Normal
 
         :param rango: Rango entre los que oscilan los valores de entrada
         :type rango: tuple
@@ -388,9 +388,9 @@ class Expresion(object):
         if factor > 0:
             print "el factor de la curva gaussiana debe ser menor a cero, convirtiendo.."
             factor *= -1
-        if not isinstance(rango, tuple):
+        if not isinstance(range, tuple):
             raise ValueError("el range debe ser una tupla")
 
-        exp = "exp(((({var}-{media})/{std})**2)*{factor})/(sqrt(2*pi)*{std})"
-        return cls(expresion=exp, rango=rango, factor=factor,
-                   nombre="Gauss", **kwargs)
+        exp = "exp(((({var}-{mean})/{std})**2)*{factor})/(sqrt(2*pi)*{std})"
+        return cls(expression=exp, range=range, factor=factor,
+                   name="Normal", **kwargs)
