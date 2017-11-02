@@ -16,7 +16,8 @@ def read(fname):
 setup(
     name='geebap',
     version="0.1",
-    description='Generate a "Best Available Pixel" composite in Google Earth Engine',
+    description='Generate a "Best Available Pixel (BAP)" composite in Google '\
+                'Earth Engine (GEE)',
     # long_description=read('README'),
     url='',
     author='Rodrigo E. Principe',

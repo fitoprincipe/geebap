@@ -58,3 +58,5 @@ bap_env/
 
 # DATA
 data/
+
+crear_BAP_manual.py
