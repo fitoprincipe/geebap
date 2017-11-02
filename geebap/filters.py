@@ -34,13 +34,13 @@ class NubesPor(Filtro):
         :param colEE:
         :type colEE: ee.ImageCollection
         :param col:
-        :type col: satcol.Coleccion
+        :type col: satcol.Collection
         :param kwargs:
         :return:
         """
         col = kwargs.get("col")
-        if col.nubesFld:
-            return colEE.filterMetadata(col.nubesFld, "less_than", self.percent)
+        if col.clouds_fld:
+            return colEE.filterMetadata(col.clouds_fld, "less_than", self.percent)
         else:
             return colEE
 
@@ -62,7 +62,7 @@ class MascPor(Filtro):
         :param colEE:
         :type colEE: ee.ImageCollection
         :param col:
-        :type col: satcol.Coleccion
+        :type col: satcol.Collection
         :param kwargs:
         :return:
         """

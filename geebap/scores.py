@@ -183,7 +183,7 @@ class Pdist(Puntaje):
         resultante de cualquiera de los metodos tendrá como nombre 'pdist'
 
         :param bandmask: Nombre de la banda enmascarada que se usara para el
-            proceso
+            process
         :type bandmask: str
         :param kernel: Kernel que se usara. Opciones: euclidean, manhattan,
             chebyshev
@@ -224,7 +224,7 @@ class Pdist(Puntaje):
         """
 
         :param col:
-        :type col: satcol.Coleccion
+        :type col: satcol.Collection
         :param kwargs:
         :return:
         """
@@ -644,7 +644,7 @@ class Poutlier(Puntaje):
     :type banda: str
 
     :Opcionales:
-    :param proceso: nombre del proceso que se usará ("mean" / "mediana")
+    :param proceso: nombre del process que se usará ("mean" / "mediana")
     :type proceso: str
     :param dist: distancia al valor medio que se usará. Por ejemplo, si es
         1, se considerará outlier si cae por fuera de +-1 desvío de la mean

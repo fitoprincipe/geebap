@@ -28,14 +28,14 @@ class Nubes(Mascara):
     def map(self, col, **kwargs):
         """
         :param col: Coleccion
-        :type col: satcol.Coleccion
+        :type col: satcol.Collection
         :param kwargs:
         :return: la funcion para enmascarar la/s imagen/es con la mascara de
             nubes que indica el objeto Coleccion
         :rtype: function
         """
-        if col.fnubes:
-            return col.fnubes
+        if col.fclouds:
+            return col.fclouds
         else:
             return lambda x: x
 
@@ -68,16 +68,16 @@ class Equivalente(Mascara):
         Objetivo: enmascara en cada imagen de la coleccion la sombra de la nube
         Devuelve: la propia imagen enmascarada
         :param col: Coleccion
-        :type col: satcol.Coleccion
+        :type col: satcol.Collection
         """
-        fam = col.familia
-        tipo = col.proceso
+        fam = col.family
+        tipo = col.process
         equivID = col.equiv
 
         # if fam == "Landsat" and tipo == "SR" and (colequiv is not None):
         if equivID:
-            colequiv = satcol.Coleccion.from_id(equivID)
-            mask = colequiv.nubesBand
+            colequiv = satcol.Collection.from_id(equivID)
+            mask = colequiv.clouds_band
             def wrap(img):
                 path = img.get("WRS_PATH")
                 row = img.get("WRS_ROW")

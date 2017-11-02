@@ -120,13 +120,13 @@ class Bap(object):
         :return: list of collections that will be used
         :rtype: tuple
         """
-        if self.col.familia() != "Landsat":
-            return self.col.colecciones
+        if self.col.family() != "Landsat":
+            return self.col.collections
         else:
-            # Ids de las colecciones dadas
-            s1 = set([col.ID for col in self.col.colecciones])
+            # Ids de las collections dadas
+            s1 = set([col.ID for col in self.col.collections])
 
-            # Ids de la lista de colecciones presentes en el range de
+            # Ids de la lista de collections presentes en el range de
             # temporadas
             s2 = set()
             for a in self.date_range:
@@ -138,7 +138,7 @@ class Bap(object):
                 print "Collections inside ColGroup:", s1
                 print "Prior Collections:", s2
                 print "Intersection:", intersect
-            return [satcol.Coleccion.from_id(ID) for ID in intersect]
+            return [satcol.Collection.from_id(ID) for ID in intersect]
 
     def coleccion(self, site, indices=None, normalize=True, **kwargs):
         """
@@ -196,7 +196,7 @@ class Bap(object):
             # prop_codsat = {colobj.ID: colobj.bandID}
             toMetadata["codsat_"+short] = colobj.bandID
 
-            # Coleccion completa de EE
+            # Collection completa de EE
             c = colobj.colEE
 
             # Filtro por el site
@@ -213,7 +213,7 @@ class Bap(object):
             # Filtro por los años
             for anio in self.date_range:
                 # Creo un nuevo objeto de coleccion con el id
-                col = satcol.Coleccion.from_id(cid)
+                col = satcol.Collection.from_id(cid)
                 # puntajes = []
 
                 ini = self.season.add_year(anio)[0]
@@ -255,7 +255,7 @@ class Bap(object):
                 # Renombra las bandas con los datos de la coleccion
                 c = c.map(col.rename(drop=True))
 
-                # Cambio las bandas en comun de las colecciones
+                # Cambio las bandas en comun de las collections
                 bandasrel = []
 
                 if self.debug:
@@ -263,7 +263,7 @@ class Bap(object):
                         ee.Image(c.first()).bandNames().getInfo()
 
                 # Escalo a 0-1
-                c = c.map(col.escalar())
+                c = c.map(col.do_scale())
                 if self.debug:
                     if c.size().getInfo() > 0:
                         print " AFTER SCALING:", \
@@ -316,13 +316,13 @@ class Bap(object):
                 def sel(img):
                     puntajes_ = puntajes if self.scores else []
                     indices_ = list(indices) if indices else []
-                    relaciones = self.col.bandasrel()
+                    relaciones = self.col.bandsrel()
                     return img.select(relaciones+puntajes_+indices_)
                 c = c.map(sel)
                 '''
 
                 # METODO NUEVO: selecciono las bandas en comun desp de unir
-                # todas las colecciones usando un metodo distinto
+                # todas las collections usando un metodo distinto
 
                 if self.debug:
                     if c.size().getInfo() > 0:
