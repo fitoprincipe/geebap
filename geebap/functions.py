@@ -88,61 +88,56 @@ def pass_date(imgcon, imgsin):
     return pass_prop(imgcon, imgsin, "system:time_start")
 
 
-def drange(ini, fin, step=1, places=0):
-    """ Funcion para crear un range con numeros decimales
+def drange(ini, end, step=1, places=0):
+    """ Create a range of floats
 
-    :param ini: valor inicial (igual que range)
-    :param fin: valor final (igual que range)
-    :param step: paso. Similar a range, excepto que si se especifican los
-        lugares decimales, el paso lo hace entre decimales.
-    :param places: lugares decimales
-    :return: range con numeros decimales
+    :param ini: initial value (as in range)
+    :param end: final value (as in range)
+    :param step: Similar to range, except that if decimal places are specified
+        the step is done between decimal places.
+    :param places: decimal places
+    :return: range
     :rtype: list
     """
     factor = 10**places if places>0 else 1
     ini *= factor
-    fin = fin*factor-factor+1
-    result = [float(val)/factor for val in range(int(ini), int(fin), step)]
+    end = end * factor - factor + 1
+    result = [float(val) / factor for val in range(int(ini), int(end), step)]
     return result
 
 
-def antiMask(imagen):
-    """ TRANSFORMA LOS PIXELES ENMASCARADOS EN 0
+def antiMask(img):
+    """ Converts masked pixels into zeros
 
-    ARGUMENTO: UNA IMAGEN
-
-    SE USA PARA REALIZAR ARITMETICA ENTRE IMAGENES
-    EJ: SI QUIERO SUMAR LOS VALORES DE LOS PIXELES
-    DE DOS IMAGENES USANDO img1.add(img2) CUANDO EL
-    PIXEL ESTA ENMASCARADO, EL RESULTADO ES mask Y
-    NO LA SUMA ( 1,234 + mask = mask ) """
-    theMask = imagen.mask()
-    return pass_date(imagen, theMask.where(1, imagen))
+    :param img: Image contained in the Collection
+    :type img: ee.Image
+    """
+    theMask = img.mask()
+    return pass_date(img, theMask.where(1, img))
 
 
-def renombrar(img, sufijo="", prefijo="", separador="_"):
-    """ Renombra las bandas de una imagen con un prefijo, un sufijo y/o
-    un separador dado.
+def simple_rename(img, suffix="", prefix="", separator="_"):
+    """ Rename an image band using a given prefix and/or suffix
 
-    :param sufijo: despues del nombre
-    :type sufijo: str
+    :param suffix: after the name
+    :type suffix: str
+    :param prefix: before the name
+    :type prefix: str
+    :param separator: separator character. Defults to '_'
+    :type separator: str
 
-    :param prefijo: antes del nombre
-    :type prefijo: str
-
-    :param separador: caracter que se usará como separador. Defult: '_'
-    :type separador: str
-
-    :return: La imagen con las bandas renombradas
+    :return: Image with bands renamed
     :rtype: ee.Image
     """
     bandas = img.bandNames()
-    suf = ee.String(sufijo)
-    pref = ee.String(prefijo)
-    sep = ee.String(separador)
+    suf = ee.String(suffix)
+    pref = ee.String(prefix)
+    sep = ee.String(separator)
 
     def ren(banda):
-        return suf.cat(sep).cat(ee.String(banda)).cat(sep).cat(suf)
+        p = ee.Algorithms.If(pref, pref.cat(sep), "")
+        s = ee.Algorithms.If(suf, sep.cat(suf), "")
+        return ee.String(p).cat(ee.String(banda)).cat(ee.String(s))
 
     newbandas = bandas.map(ren)
     newimg = img.select(bandas, newbandas)
@@ -150,14 +145,12 @@ def renombrar(img, sufijo="", prefijo="", separador="_"):
 
 
 def sumBands(name="sum", bands=None):
-    """ funcion para sumar los valores de todas las bandas
-    Argumetos
+    """ Add all bands values together and put the result in a new band
 
-    :param imagen: la imagen sobre la cual se quieren sumar las bandas
-    :type imagen: ee.Image
-    :param nombre: nombre para la nueva banda que contiene los valores
-        sumados
-    :type nombre: str
+    :param name: name of the new band holding the added value
+    :type name: str
+    :return: a function to use in a mapping or iteration
+    :rtype: function
     """
     def wrap(image):
         if bands is None:
@@ -202,17 +195,15 @@ def replace(to_replace, to_add):
     return wrap
 
 # FUNCIONES PARA ee.List
-def listSubtract(lista1, lista2):
-    """
-    Funcion que resta dos listas de GEE. lista1 - lista2
-    """
+def listSubtract(list1, list2):
+    """ Subtract two Earth Engine List Objects """
 
     def dif(ele, prim):
         prim = ee.List(prim)
-        cond = lista2.contains(ele)
+        cond = list2.contains(ele)
         return ee.Algorithms.If(cond, prim, prim.add(ele))
 
-    nl = ee.List(lista1.iterate(dif, ee.List([])))
+    nl = ee.List(list1.iterate(dif, ee.List([])))
     return nl
 
 
@@ -325,45 +316,45 @@ def rename_bands(names, drop=False):
     return wrap
 
 
-def parametrizar(rango_orig, rango_final, bandas=None):
-    """ Funcion para parametrizar una imagen según los rangos dados
+def parameterize(original_range, final_range, bands=None):
+    """ Parameterize from an original range (has to be a known range) to a
+    final range in the elected bands.
 
-    :Argumentos:
-    :param rango_orig: min y max range de la imagen original. ejemplo: (0,1)
-    :type rango_orig: tuple
-    :param rango_final: min y max range de la imagen resultante. ej: (0.5,2)
-    :type rango_final: tuple
-    :param bandas: bandas a parametrizar. Si es None se parametrizan todas.
-    :type bandas: list
-
-    :return: funcion para mapear una coleccion
+    :param original_range: min and max range of the original image. Ej: (0, 1)
+    :type original_range: tuple
+    :param final_range: min and max range of the final image. Ej: (0.5, 2)
+    :type final_range: tuple
+    :param bands: bands to parameterize. If None, all bands will be
+        parameterized.
+    :type bands: list
+    :return: function to use in a mapping or iteration
     :rtype: function
     """
 
-    rango_orig = rango_orig if isinstance(rango_orig, ee.List) else ee.List(rango_orig)
-    rango_final = rango_final if isinstance(rango_final, ee.List) else ee.List(rango_final)
+    original_range = original_range if isinstance(original_range, ee.List) else ee.List(original_range)
+    final_range = final_range if isinstance(final_range, ee.List) else ee.List(final_range)
 
     # Imagenes del min y max originales
-    min0 = ee.Image.constant(rango_orig.get(0))
-    max0 = ee.Image.constant(rango_orig.get(1))
+    min0 = ee.Image.constant(original_range.get(0))
+    max0 = ee.Image.constant(original_range.get(1))
 
     # Rango de min a max
     rango0 = max0.subtract(min0)
 
     # Imagenes del min y max final
-    min1 = ee.Image.constant(rango_final.get(0))
-    max1 = ee.Image.constant(rango_final.get(1))
+    min1 = ee.Image.constant(final_range.get(0))
+    max1 = ee.Image.constant(final_range.get(1))
 
     # Rango final
     rango1 = max1.subtract(min1)
 
     def wrap(img):
-        # todas las bandas
+        # todas las bands
         todas = img.bandNames()
 
-        # bandas a parametrizar. Si no se especifica se usan todas
-        if bandas:
-            bandasEE = ee.List(bandas)
+        # bands a parameterize. Si no se especifica se usan todas
+        if bands:
+            bandasEE = ee.List(bands)
         else:
             bandasEE = img.bandNames()
 
@@ -380,10 +371,10 @@ def parametrizar(rango_orig, rango_final, bandas=None):
 
         final = porcent.multiply(rango1).add(min1)
 
-        # Agrego el resto de las bandas que no se parametrizaron
+        # Agrego el resto de las bands que no se parametrizaron
         # final = final.addBands(img.select(diff))
 
-        # VALE LA PENA ACLARAR QUE: siempre se le deben agregar las bandas a la
+        # VALE LA PENA ACLARAR QUE: siempre se le deben agregar las bands a la
         # imagen original y no al reves, para que mantenga las propiedades
         final = img.select(diff).addBands(final)
 
@@ -391,12 +382,13 @@ def parametrizar(rango_orig, rango_final, bandas=None):
     return wrap
 
 
-def replace_duplicate(lista):
-    """ reemplaza los valores duplicados de una lista agregandole el sufijo
-    _n, siendo n la cantidad de veces que se repite
+def replace_duplicate(list):
+    """ replace duplicated values from a list adding a suffix with a number
 
-    :param lista:
-    :return:
+    :param list: list to be processed
+    :type list: ee.List
+    :return: new list with renamed values
+    :rtype: ee.List
     """
     def wrap(a):
         newlist = [a[0]]
@@ -416,20 +408,27 @@ def replace_duplicate(lista):
                 newlist.append(v)
         return newlist
 
-    new = wrap(lista)
-    while(new != lista):
-        lista = new[:]
+    new = wrap(list)
+    while(new != list):
+        list = new[:]
         new = wrap(new)
     return(new)
 
 
 def get_size(col, sleep=0, step=5, limit=100):
-    """ Funcion para obtener localmente el tamaño de una coleccion, de tal
-    forma que si lanza un error de 'too many concurrent aggregations'
-    incremente el tiempo de espera gradualmente
+    """ Obtain locally the size of a collection. If an error of 'too many
+    concurrent aggregations' occurs, it will retry adding a step of time each
+    time
 
-    :param col: coleccion de la cual se quiere calcular el tamaño
-    :return: tamaño de la coleccion
+    :param col: collection to get the size of
+    :type col: ee.ImageCollection
+    :param sleep: time to sleep each time (seconds)
+    :type sleep: int
+    :param step: time to add each new iteration (seconds)
+    :type step: int
+    :param limit: limit of time in wich it will raise the error
+    :type limit: int
+    :return: size of the collection
     :rtype: int
     """
     try:
@@ -449,11 +448,12 @@ def get_size(col, sleep=0, step=5, limit=100):
 
 
 def select_match(col):
-    """ Dejar las imagenes de una coleccion solo con las bandas que coincidan
-    en todas las imagenes
+    """ Check the bands of all images and leave only the ones that are in all
+    images of the collection.
 
-    :param col:
-    :return: la coleccion con las imagenes 'filtradas'
+    :param col: collection holding all images
+    :type col: ee.ImageCollection
+    :return: new collection
     :rtype: ee.ImageCollection
     """
     imglist = col.toList(100)

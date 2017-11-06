@@ -272,7 +272,7 @@ class Collection(object):
                 escalables = functions.list_intersection(
                     img.bandNames(), ee.List(self.to_scale))
 
-                return functions.parametrizar(
+                return functions.parameterize(
                     rango_orig, final_range, escalables)(img)
             return wrap
         else:

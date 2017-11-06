@@ -116,7 +116,7 @@ class Puntaje(object):
 
     def ajuste(self):
         if self.rango_out != (0, 1):
-            return functions.parametrizar((0, 1), self.rango_out, [self.nombre])
+            return functions.parameterize((0, 1), self.rango_out, [self.nombre])
         else:
             return lambda x: x
 
@@ -758,13 +758,13 @@ class Poutlier(Puntaje):
             condicion_adentro = (img_proc.gte(mmin)
                                  .And(img_proc.lte(mmax)))
 
-            pout = functions.renombrar(condicion_adentro, sufijo="pout")
+            pout = functions.simple_rename(condicion_adentro, suffix="pout")
 
             suma = functions.sumBands(nombre)(pout)
 
             final = suma.select(nombre).multiply(ee.Image(incremento))
 
-            parametrizada = functions.parametrizar(rango_orig,
+            parametrizada = functions.parameterize(rango_orig,
                                                    rango_fin)(final)
 
             return img_orig.addBands(parametrizada).updateMask(ceros)
@@ -782,7 +782,7 @@ class Pindice(Puntaje):
         ajuste = self.ajuste()
         def wrap(img):
             ind = img.select([self.indice])
-            p = functions.parametrizar(self.rango_in, self.rango_out)(ind)
+            p = functions.parameterize(self.rango_in, self.rango_out)(ind)
             p = p.select([0], [self.nombre])
             return ajuste(img.addBands(p))
         return wrap

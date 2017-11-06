@@ -140,7 +140,7 @@ class Bap(object):
                 print "Intersection:", intersect
             return [satcol.Collection.from_id(ID) for ID in intersect]
 
-    def coleccion(self, site, indices=None, normalize=True, **kwargs):
+    def collection(self, site, indices=None, normalize=True, **kwargs):
         """
         :param indices: vegetation indices to include in the final image. If
             None, no index is calculated
@@ -373,7 +373,7 @@ class Bap(object):
 
             if normalize:
                 newcol = newcol.map(
-                    functions.parametrizar((0, maxpunt), (0, 1), ("score",)))
+                    functions.parameterize((0, maxpunt), (0, 1), ("score",)))
 
             if self.debug:
                 print " AFTER score:", \
@@ -402,21 +402,23 @@ class Bap(object):
         return img
 
     def calcUnpix(self, site, name="score", bands=None, **kwargs):
-        """
-        :param bands: Nombre de las bands a incluir en la img final. Si es
-            *None* se incluyen todas
-        :type bands: tuple
-        :param name:
-        :type name: str
-        :param site:
+        """ Generate the BAP composite using the pixels that have higher
+        final score. This version uses GEE function 'qualiatyMosaic"
+
+        :param site: Site geometry
         :type site: ee.Geometry
-        :param indices:
-        :type indices: tuple
-        :param normalizar:
-        :type normalizar: bool
-        :return:
+        :param name: name of the band that has the final score
+        :type name: str
+        :param bands: name of the bands to include in the final image
+        :type bands: list
+        :param kwargs:
+        :return: A namedtuple:
+            .image = the Best Available Pixel Composite (ee.Image)
+            .col = the collection of images used to generate the BAP
+                (ee.ImageCollection)
+        :rtype: namedtuple
         """
-        colbap = self.coleccion(site=site, **kwargs)
+        colbap = self.collection(site=site, **kwargs)
 
         col = colbap.col
         prop = colbap.dictprop
@@ -430,18 +432,28 @@ class Bap(object):
         return img.set(prop)
 
     def calcUnpixLegacy(self, site, name="score", bands=None, **kwargs):
-        """
+        """ Generate the BAP composite using the pixels that have higher
+        final score. This is a custom method
 
-        :param site:
-        :param name:
-        :param bands:
+        :param site: Site geometry
+        :type site: ee.Geometry
+        :param name: name of the band that has the final score
+        :type name: str
+        :param bands: name of the bands to include in the final image
+        :type bands: list
         :param kwargs:
-        :return:
+        :return: A namedtuple:
+            .image = the Best Available Pixel Composite (ee.Image)
+            .col = the collection of images used to generate the BAP
+                (ee.ImageCollection)
+        :rtype: namedtuple
         """
-        colbap = self.coleccion(site=site, **kwargs)
+        colbap = self.collection(site=site, **kwargs)
 
         imgCol = colbap.col
         prop = colbap.dictprop
+
+        output = namedtuple("calcUnpixLegacy", ("image", "col"))
 
         # SI HAY ALGUNA IMAGEN
         if imgCol is not None:
@@ -494,14 +506,12 @@ class Bap(object):
 
             img = img if bands is None else img.select(*bands)
 
-            output = namedtuple("calcUnpixLegacy", ("image", "col"))
-
             return output(self.setprop(img, **prop), imgCol)
         # SI NO HAY IMAGENES
         else:
             print "The process can not be done because the Collections have " \
                   "no images. Returns None"
-            return None
+            return output(None, None)
 
     def setprop(self, img, **kwargs):
         """ Sets properties to the composite
