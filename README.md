@@ -3,7 +3,8 @@ Gee Bap
 Best Available Pixel (Bap) Composite using the Python API of Google Earth Engine (Gee)
 -
 
-This code is based on *Pixel-Based Image Compositing for Large-Area Dense Time Series Applications and Science. (White et al., 2014)* link_
+This code is based on *Pixel-Based Image Compositing for Large-Area Dense Time Series Applications and Science. (White et al., 2014)* 
+http://www.tandfonline.com/doi/full/10.1080/07038992.2014.945827
 
 It uses a series of pixel based scores to generate a composite with the *Best Available Pixel*, assuming it is the one that has better score.
 
@@ -52,6 +53,3 @@ Available Indices
 - NDVI
 - EVI
 - NBR
-
-
-.. _link: http://www.tandfonline.com/doi/full/10.1080/07038992.2014.945827
