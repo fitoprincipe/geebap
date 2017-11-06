@@ -44,7 +44,7 @@ class TestBAP(unittest.TestCase):
 
         sitio = self.sitio
 
-        unpix = objbap.calcUnpixLegacy(sitio, indices=("ndvi",))
+        unpix = objbap.bestpixel(sitio, indices=("ndvi",))
         img = unpix.image
         col = unpix.col
 

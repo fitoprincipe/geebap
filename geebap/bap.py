@@ -431,7 +431,7 @@ class Bap(object):
         prop.update(fechaprop)
         return img.set(prop)
 
-    def calcUnpixLegacy(self, site, name="score", bands=None, **kwargs):
+    def bestpixel(self, site, name="score", bands=None, **kwargs):
         """ Generate the BAP composite using the pixels that have higher
         final score. This is a custom method
 
@@ -453,7 +453,7 @@ class Bap(object):
         imgCol = colbap.col
         prop = colbap.dictprop
 
-        output = namedtuple("calcUnpixLegacy", ("image", "col"))
+        output = namedtuple("bestpixel", ("image", "col"))
 
         # SI HAY ALGUNA IMAGEN
         if imgCol is not None:
