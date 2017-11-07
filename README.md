@@ -62,6 +62,9 @@ Basic Usage
     from geebap import bap, season, filters, masks, \
                        scores, satcol, functions
     
+    import ee
+    ee.Initialize()
+    
     # COLLECTION
     col_group = satcol.ColGroup.Landsat()
     
