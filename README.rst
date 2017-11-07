@@ -1,7 +1,5 @@
-Best Available Pixel (Bap) Composite using
-------------------------------------------
-the Python API of Google Earth Engine (Gee)
--------------------------------------------
+Best Available Pixel (Bap) Composite using the Python API of Google Earth Engine (Gee)
+--------------------------------------------------------------------------------------
 
 This code is based on *Pixel-Based Image Compositing for Large-Area Dense Time
 Series Applications and Science. (White et al., 2014)*
@@ -10,15 +8,17 @@ http://www.tandfonline.com/doi/full/10.1080/07038992.2014.945827
 It uses a series of pixel based scores to generate a composite with the
 *Best Available Pixel*, assuming it is the one that has better score.
 
-Instalation
------------
+Installation
+------------
 
 To use this package you must have installed and running Google Earth Engine
 Python API: https://developers.google.com/earth-engine/python_install
 
 Once you have that, proceed 
 
-> pip install geebap
+::
+
+  pip install geebap
 
 
 Available Collections
@@ -133,20 +133,22 @@ Basic Usage
 
 *Prints:*
 
-> {u'BLUE': 0.018400000408291817, 
-   u'bandID': 10.0, 
-   u'date': 14592.0, 
-   u'score': 0.4800287335965901, 
-   u'psat': 0.8500000238418579, 
-   u'poutlier': 1.0, 
-   u'pdoy': 0.010760011453995735, 
-   u'pop': 0.01338691782766488, 
-   u'NIR': 0.365200012922287, 
-   u'pindice': 0.934493362903595, 
-   u'GREEN': 0.041200000792741776, 
-   u'pdist': 5.749522023787777e-19, 
-   u'pmascpor': 0.5515608191490173, 
-   u'ATM_OP': 93.0, 
-   u'ndvi': 0.8689867258071899, 
-   u'RED': 0.025599999353289604, 
-   u'SWIR': 0.13779999315738678}
+::
+
+   {u'BLUE': 0.018400000408291817, 
+    u'bandID': 10.0, 
+    u'date': 14592.0, 
+    u'score': 0.4800287335965901, 
+    u'psat': 0.8500000238418579, 
+    u'poutlier': 1.0, 
+    u'pdoy': 0.010760011453995735, 
+    u'pop': 0.01338691782766488, 
+    u'NIR': 0.365200012922287, 
+    u'pindice': 0.934493362903595, 
+    u'GREEN': 0.041200000792741776, 
+    u'pdist': 5.749522023787777e-19, 
+    u'pmascpor': 0.5515608191490173, 
+    u'ATM_OP': 93.0, 
+    u'ndvi': 0.8689867258071899, 
+    u'RED': 0.025599999353289604, 
+    u'SWIR': 0.13779999315738678}
