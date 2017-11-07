@@ -254,7 +254,7 @@ class Collection(object):
         # obtiene la funcion para renombrar las bands antes de inveritrlas
         frename = functions.rename_bands(self.bandsrel, drop)
 
-        # Invierte la relacion entre las bands
+        # Invierte la relation entre las bands
         self.invert_bandsrel()
 
         # resetea los diccionarios

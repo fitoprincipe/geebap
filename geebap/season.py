@@ -330,8 +330,16 @@ class Season(object):
         self.end = newfin
 
     @classmethod
-    def Crecimiento_patagonia(cls):
+    def Growing_South(cls):
+        """ Growing season for Southern latitudes. Begins on November 15th
+        and ends on March 15th """
         return cls(ini="11-15", end="03-15", doy="01-15")
+
+    @classmethod
+    def Growing_North(cls):
+        """ Growing season for Northern latitudes. Begins on May 15th
+        and ends on September 15th """
+        return cls(ini="05-15", end="09-15", doy="07-15")
 
 
 class SeasonPriority(object):
@@ -339,36 +347,42 @@ class SeasonPriority(object):
     El año de inicio es el dado, y el año final es el siguiente
 
     :param breaks: años donde hay un cambio en la lista de satelites
-    :param periodos: lista de lista de periodos
+    :param periods: lista de lista de periods
     :param satlist: lista de satlites segun cada periodo
     :param relacion: diccionario de relacion
     """
-    breaks = [1972, 1974, 1976, 1978, 1982, 1983, 1994, 1999, 2012, 2013, date.today().year+1]
-    periodos = [range(b, breaks[i+1]) for i, b in enumerate(breaks) if i < len(breaks)-1]
+    breaks = [1972, 1974, 1976, 1978, 1982, 1983,
+              1994, 1999, 2003, 2012, 2013, date.today().year+1]
+    periods = [range(b, breaks[i + 1]) for i, b in enumerate(breaks) if i < len(breaks) - 1]
 
     satlist = [[ID1],
                [ID2, ID1],
                [ID3, ID2, ID1],
                [ID3, ID2],
                [ID4TOA, ID3, ID2],
-               [ID5LED, ID5SR, ID4TOA],
-               [ID5LED, ID5SR],
-               [ID7LED, ID7SR, ID5LED, ID5SR],
-               [ID8SR, ID8TOA, ID7LED, ID7SR, ID5LED, ID5SR],
-               [ID8SR, ID8TOA, ID7LED, ID7SR]]
+               [ID5SR, ID5LED, ID4TOA],
+               [ID5SR, ID5LED],
+               [ID7SR, ID7LED, ID5SR, ID5LED],
+               [ID5SR, ID5LED, ID7SR, ID7LED],
+               [ID8SR, ID8TOA, ID7SR, ID7LED, ID5SR, ID5LED],
+               [ID8SR, ID8TOA, ID7SR, ID7LED]]
 
-    relacion = dict([(p, sat) for per, sat in zip(periodos, satlist) for p in per])
+    relation = dict(
+        [(p, sat) for per, sat in zip(periods, satlist) for p in per])
 
-    relacionEE = ee.Dictionary(relacion)
+    ee_relation = ee.Dictionary(relation)
 
 if __name__ == "__main__":
-    # print ee.List(SeasonPriority.relacionEE.get(ee.String(2014))).getInfo()
+    # print ee.List(SeasonPriority.ee_relation.get(ee.String(2014))).getInfo()
 
-    t = Season.Crecimiento_patagonia()
-    f = ee.Date("2013-03-12")
-
+    t = Season.Growing_South()
+    f = ee.Date("2007-03-05")
+    year = f.get("year")
+    '''
     for a in range(2014, 2015):
         d = t.year_diff_ee(f, a)
         # print d.getInfo()
 
     print ee.Date("2014-"+t.doy).millis().getInfo()
+    '''
+    print SeasonPriority.ee_relation.get(year.format()).getInfo()

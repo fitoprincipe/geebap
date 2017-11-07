@@ -8,13 +8,13 @@ class TestBAP(unittest.TestCase):
 
     def setUp(self):
         # FILTERS
-        self.filtro = filters.NubesPor()
+        self.filtro = filters.CloudsPercent()
 
         # MASKS
-        self.nubes = masks.Nubes()
+        self.nubes = masks.Clouds()
 
         # SEASON
-        self.temporada = season.Season.Crecimiento_patagonia()
+        self.temporada = season.Season.Growing_South()
 
         # COLLECTIONS
         self.coleccion = satcol.ColGroup.Landsat()

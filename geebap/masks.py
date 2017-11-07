@@ -6,7 +6,7 @@ import satcol
 import ee
 from abc import ABCMeta, abstractmethod
 
-class Mascara(object):
+class Mask(object):
     __metaclass__ = ABCMeta
     """ Clase base para las mascaras """
     def __init__(self, nombre="masks", **kwargs):
@@ -19,10 +19,10 @@ class Mascara(object):
 class Manual(object):
     pass
 
-class Nubes(Mascara):
+class Clouds(Mask):
     """ Mascara de nubes propia de la coleccion """
     def __init__(self, **kwargs):
-        super(Nubes, self).__init__(**kwargs)
+        super(Clouds, self).__init__(**kwargs)
         self.nombre = "nubes"
 
     def map(self, col, **kwargs):
@@ -40,7 +40,7 @@ class Nubes(Mascara):
             return lambda x: x
 
 
-class Equivalente(Mascara):
+class Equivalent(Mask):
     """ Enmascara las nubes de una imagen LEDAPS utilizando la misma imagen
     de la coleccion TOA.
 
@@ -59,7 +59,7 @@ class Equivalente(Mascara):
     """
 
     def __init__(self, **kwargs):
-        super(Equivalente, self).__init__(**kwargs)
+        super(Equivalent, self).__init__(**kwargs)
         self.nombre = "equivalente"
 
     def map(self, col, **kwargs):

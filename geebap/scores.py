@@ -342,7 +342,7 @@ class Pdoy(Puntaje):
 
     """
     def __init__(self, factor=-0.5, formula=Expression.Normal,
-                 temporada=season.Season.Crecimiento_patagonia(),
+                 temporada=season.Season.Growing_South(),
                  **kwargs):
         super(Pdoy, self).__init__(**kwargs)
         # PARAMETROS
@@ -579,10 +579,10 @@ class Psat(Puntaje):
         del modulo CIEFAP
     """
 
-    def __init__(self, factor=0.05, **kwargs):
+    def __init__(self, rate=0.05, **kwargs):
         super(Psat, self).__init__(**kwargs)
         self.nombre = kwargs.get("nombre", "psat")
-        self.factor = factor
+        self.rate = rate
     '''
     @staticmethod
     def listado(year):
@@ -611,7 +611,7 @@ class Psat(Puntaje):
 
             # LISTA DE SATELITES PRIORITARIOS PARA ESE AÑO
             # lista = season.PriorTempLandEE(ee.Number(a)).listaEE
-            lista = season.SeasonPriority.relacionEE.get(a.format())
+            lista = season.SeasonPriority.ee_relation.get(a.format())
             # UBICA AL SATELITE EN CUESTION EN LA LISTA DE SATELITES
             # PRIORITARIOS, Y OBTIENE LA POSICION EN LA LISTA
             index = ee.List(lista).indexOf(ee.String(theid))
@@ -619,7 +619,7 @@ class Psat(Puntaje):
             ## OPCION 2
             # 1 - (0.05 * index)
             # EJ: [1, 0.95, 0.9]
-            factor = ee.Number(self.factor).multiply(index)
+            factor = ee.Number(self.rate).multiply(index)
             pje = ee.Number(1).subtract(factor)
             ##
 

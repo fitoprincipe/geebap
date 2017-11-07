@@ -131,7 +131,7 @@ class Bap(object):
             s2 = set()
             for a in self.date_range:
                 s2 = s2.union(
-                    set([col for col in temp.SeasonPriority.relacion[a]]))
+                    set([col for col in temp.SeasonPriority.relation[a]]))
 
             intersect = s1.intersection(s2)
             if Bap.debug:
@@ -191,7 +191,7 @@ class Bap(object):
             # Imagen del bandID de la coleccion
             bid = colobj.bandIDimg
 
-            # diccionario para agregar a los metadatos con la relacion entre
+            # diccionario para agregar a los metadatos con la relation entre
             # satelite y bandID
             # prop_codsat = {colobj.ID: colobj.bandID}
             toMetadata["codsat_"+short] = colobj.bandID
@@ -533,8 +533,8 @@ class Bap(object):
         pdoy = scores.Pdoy(temporada=season)
         pop = scores.Pop()
         colG = satcol.ColGroup.SR()
-        masc = masks.Nubes()
-        filt = filters.NubesPor()
+        masc = masks.Clouds()
+        filt = filters.CloudsPercent()
 
         pjes = (psat, pdist, pdoy, pop)
         mascs = (masc,)
@@ -559,8 +559,8 @@ class Bap(object):
         pout = scores.Poutlier(("nirXred",))
 
         colG = satcol.ColGroup.Modis()
-        masc = masks.Nubes()
-        filt = filters.MascPor(0.3)
+        masc = masks.Clouds()
+        filt = filters.MaskPercent(0.3)
 
         pjes = [pdist, pdoy, pmasc, pout]
 

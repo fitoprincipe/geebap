@@ -9,7 +9,7 @@ import satcol
 import ee
 
 
-class Filtro(object):
+class Filter(object):
     def __init__(self, **kwargs):
         """ Clase base para los filters """
         pass
@@ -18,14 +18,14 @@ class Filtro(object):
         pass
 
 
-class NubesPor(Filtro):
+class CloudsPercent(Filter):
     def __init__(self, percent=70, **kwargs):
         """ Filtro por porcentaje de cobertura de nubes de la escena
 
         :param percent: porcentaje
         :param kwargs:
         """
-        super(NubesPor, self).__init__(**kwargs)
+        super(CloudsPercent, self).__init__(**kwargs)
         self.percent = percent
 
     def apply(self, colEE, **kwargs):
@@ -45,14 +45,14 @@ class NubesPor(Filtro):
             return colEE
 
 
-class MascPor(Filtro):
+class MaskPercent(Filter):
     def __init__(self, percent=0.7, prop="pmascpor", **kwargs):
         """
 
         :param percent:
         :param kwargs:
         """
-        super(MascPor, self).__init__(**kwargs)
+        super(MaskPercent, self).__init__(**kwargs)
         self.percent = percent
         self.prop = prop
 
