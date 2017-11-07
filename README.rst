@@ -1,17 +1,20 @@
-Gee Bap
-=
-Best Available Pixel (Bap) Composite using the Python API of Google Earth Engine (Gee)
--
+Best Available Pixel (Bap) Composite using
+------------------------------------------
+the Python API of Google Earth Engine (Gee)
+-------------------------------------------
 
-This code is based on *Pixel-Based Image Compositing for Large-Area Dense Time Series Applications and Science. (White et al., 2014)* 
+This code is based on *Pixel-Based Image Compositing for Large-Area Dense Time
+Series Applications and Science. (White et al., 2014)*
 http://www.tandfonline.com/doi/full/10.1080/07038992.2014.945827
 
-It uses a series of pixel based scores to generate a composite with the *Best Available Pixel*, assuming it is the one that has better score.
+It uses a series of pixel based scores to generate a composite with the
+*Best Available Pixel*, assuming it is the one that has better score.
 
 Instalation
--
+-----------
 
-To use this package you must have installed and running Google Earth Engine Python API: https://developers.google.com/earth-engine/python_install
+To use this package you must have installed and running Google Earth Engine
+Python API: https://developers.google.com/earth-engine/python_install
 
 Once you have that, proceed 
 
@@ -19,7 +22,7 @@ Once you have that, proceed
 
 
 Available Collections
--
+---------------------
 
 - Serie Landsat
     
@@ -37,7 +40,7 @@ Available Collections
     - Modis Terra
 
 Available Scores
--
+----------------
 
 - Satellite
 - Distance to clouds and shadows masks
@@ -48,14 +51,14 @@ Available Scores
 - Absolute value of a vegetation index
 
 Available Indices
--
+-----------------
 
 - NDVI
 - EVI
 - NBR
 
 Basic Usage
--
+-----------
 
 .. code:: python
 
