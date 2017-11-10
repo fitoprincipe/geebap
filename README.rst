@@ -8,6 +8,20 @@ http://www.tandfonline.com/doi/full/10.1080/07038992.2014.945827
 It uses a series of pixel based scores to generate a composite with the
 *Best Available Pixel*, assuming it is the one that has better score.
 
+License and Copyright
+---------------------
+
+(c) 2017 Rodrigo E. Principe - geebap - https://github.com/fitoprincipe/geebap
+
+This work was financed by 'Ministerio de Ambiente y Desarrollo Sustentable"
+(Argentine Nation) and CIEFAP (Centro de Investigación y Extensión Forestal
+Andino Patagónico)
+
+Contact
+-------
+
+Rodrigo E. Principe: rprincipe@ciefap.org.ar
+
 Installation
 ------------
 
@@ -16,9 +30,17 @@ Python API: https://developers.google.com/earth-engine/python_install
 
 Once you have that, proceed 
 
+download the latest release from https://github.com/fitoprincipe/geebap/releases
+
 ::
 
-  pip install geebap
+  pip install geebap-(ver)-py2-none-any.whl
+
+replace (ver) for the version you have downloaded. Example:
+
+::
+
+  pip install geebap-0.0.2-py2-none-any.whl
 
 
 Available Collections
