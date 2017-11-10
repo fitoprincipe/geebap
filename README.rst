@@ -60,6 +60,10 @@ Available Indices
 Basic Usage
 -----------
 
+*Considerations:*
+
+- Sites size must not be too big. Works with 300 km2 tiles
+
 .. code:: python
 
     from geebap import bap, season, filters, masks, \
@@ -89,13 +93,13 @@ Basic Usage
     filters = (filt_cld, filt_mask)
     
     # SCORES
-    doy = scores.Pdoy()
-    sat = scores.Psat()
-    op = scores.Pop()
-    out = scores.Poutlier(("ndvi",))
-    ind = scores.Pindice("ndvi")
-    mascpor = scores.Pmascpor()
-    dist = scores.Pdist()
+    doy = scores.Doy()
+    sat = scores.Satellite()
+    op = scores.AtmosOpacity()
+    out = scores.Outliers(("ndvi",))
+    ind = scores.Index("ndvi")
+    mascpor = scores.MaskPercent()
+    dist = scores.CloudDist()
     
     # Combine scores in a tuple    
     scores = (doy, sat, op, out, ind, mascpor, dist)

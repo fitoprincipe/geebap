@@ -32,9 +32,19 @@ class Bap(object):
     def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
                  masks=None, filters=None, bbox=0, season=None,
                  fmap=None):
-        """
+        """ The Bap object is designed to be independet of the site and the
+        method that will be used to generate the composite.
 
-        :param year:
+        :param year: The year of the final composite. If the season covers two
+            years the last one will be used. Ej.
+
+            ..code::
+
+                season = Season(ini="15-12", end="15-01")
+                bap = Bap(year=2000)
+
+            to generate the composite the code will use images from
+            15-12-1999 to 15-01-2000
         :type year: int
         :param range:
         :type range: tuple
@@ -56,7 +66,7 @@ class Bap(object):
         # check_type("filters", filters, tuple)
         check_type("year", year, int)
         # check_type("range", range, tuple)
-        check_type("bbox", bbox, int)
+        # check_type("bbox", bbox, int)
         check_type("season", season, temp.Season)
 
         if year < MIN_YEAR or year > MAX_YEAR:
@@ -70,7 +80,7 @@ class Bap(object):
         self.scores = scores
         self.masks = masks
         self.filters = filters
-        self.bbox = bbox
+        # self.bbox = bbox
         self.season = season
         self.fmap = fmap
 
@@ -108,7 +118,7 @@ class Bap(object):
     @property
     def score_names(self):
         if self.scores:
-            punt = [p.nombre for p in self.scores]
+            punt = [p.name for p in self.scores]
             return functions.replace_duplicate(punt)
         else:
             return []
@@ -140,7 +150,7 @@ class Bap(object):
                 print "Intersection:", intersect
             return [satcol.Collection.from_id(ID) for ID in intersect]
 
-    def collection(self, site, indices=None, normalize=True, **kwargs):
+    def collection(self, site, indices=None, normalize=True, bbox=0):
         """
         :param indices: vegetation indices to include in the final image. If
             None, no index is calculated
@@ -185,22 +195,21 @@ class Bap(object):
             # Obtengo el ID de la coleccion
             cid = colobj.ID
 
-            # Obtengo el nombre abreviado para agregar a los metadatos
+            # Obtengo el name abreviado para agregar a los metadatos
             short = colobj.short
 
-            # Imagen del bandID de la coleccion
+            # Imagen del col_id de la coleccion
             bid = colobj.bandIDimg
 
             # diccionario para agregar a los metadatos con la relation entre
-            # satelite y bandID
-            # prop_codsat = {colobj.ID: colobj.bandID}
-            toMetadata["codsat_"+short] = colobj.bandID
+            # satelite y col_id
+            # prop_codsat = {colobj.ID: colobj.col_id}
+            toMetadata["col_id_"+short] = colobj.col_id
 
             # Collection completa de EE
             c = colobj.colEE
 
             # Filtro por el site
-            # TODO: Use bbox parameter
             if isinstance(site, ee.Feature): site = site.geometry()
             c2 = c.filterBounds(site)
 
@@ -236,17 +245,23 @@ class Bap(object):
                 if size == 0: continue  # 1
 
                 # corto la imagen con la region para minimizar los calculos
-                def cut(img):
-                    return img.clip(site)
+                if bbox == 0:
+                    def cut(img):
+                        return img.clip(site)
+                else:
+                    def cut(img):
+                        bounds = site.buffer(bbox)
+                        return img.clip(bounds)
+
                 c = c.map(cut)
 
                 # Mascaras
                 if self.masks:
                     for m in self.masks:
                         c = c.map(
-                            m.map(col=col, anio=anio, colEE=c))
+                            m.map(col=col, year=anio, colEE=c))
                         if self.debug:
-                            print " SIZE AFTER THE MASK "+m.nombre, \
+                            print " BANDS AFTER THE MASK "+m.nombre, \
                                 ee.Image(c.first()).bandNames().getInfo()
 
                 # Transformo los valores enmascarados a cero
@@ -283,13 +298,13 @@ class Bap(object):
                 # Puntajes
                 if self.scores:
                     for p in self.scores:
-                        if self.verbose: print "** "+p.nombre+" **"
+                        if self.verbose: print "** "+p.name+" **"
                         # Espero el tiempo seteado en cada puntaje
                         sleep = p.sleep
                         for t in range(sleep):
                             sys.stdout.write(str(t+1)+".")
                             time.sleep(1)
-                        c = c.map(p.map(col=col, anio=anio, colEE=c, geom=site))
+                        c = c.map(p.map(col=col, year=anio, colEE=c, geom=site))
 
                         # DEBUG
                         if self.debug and n > 0:
@@ -310,7 +325,7 @@ class Bap(object):
                 # Selecciona solo las bandas que tienen en comun todas las
                 # Colecciones
 
-                # METODO ANTERIOR: funcionaba, pero si agregaba una banda
+                # METODO ANTERIOR: funcionaba, pero si agregaba una band
                 # con fmap, no se seleccionaba
                 '''
                 def sel(img):
@@ -332,15 +347,15 @@ class Bap(object):
                 # Convierto los valores de las mascaras a 0
                 c = c.map(functions.antiMask)
 
-                # Agrego la banda de fecha a la imagen
+                # Agrego la band de fecha a la imagen
                 c = c.map(date.Date.map())
 
-                # Agrego la banda bandID de la coleccion
+                # Agrego la band col_id de la coleccion
                 def addBandID(img):
                     return img.addBands(bid)
                 c = c.map(addBandID)
 
-                if self.debug: print " AFTER ADDING bandID BAND:", \
+                if self.debug: print " AFTER ADDING col_id BAND:", \
                     ee.Image(c.first()).bandNames().getInfo()
 
                 # Convierto a lista para agregar a la coleccion anterior
@@ -364,19 +379,23 @@ class Bap(object):
             # Selecciono las bandas en comun de todas las imagenes
             newcol = functions.select_match(newcol)
 
-            if self.debug: print " BEFORE score:", \
+            if self.debug: print " BEFORE score:", scores, "\n", \
                 ee.Image(newcol.first()).bandNames().getInfo()
 
             # Calcula el puntaje total sumando los puntajes
             ftotal = functions.sumBands("score", scores)
             newcol = newcol.map(ftotal)
 
+            if self.debug:
+                print " AFTER score:", \
+                    ee.Image(newcol.first()).bandNames().getInfo()
+
             if normalize:
                 newcol = newcol.map(
                     functions.parameterize((0, maxpunt), (0, 1), ("score",)))
 
             if self.debug:
-                print " AFTER score:", \
+                print " AFTER parametrize:", \
                     ee.Image(newcol.first()).bandNames().getInfo()
 
             output = namedtuple("ColBap", ("col", "dictprop"))
@@ -431,7 +450,8 @@ class Bap(object):
         prop.update(fechaprop)
         return img.set(prop)
 
-    def bestpixel(self, site, name="score", bands=None, **kwargs):
+    def bestpixel(self, site, name="score", bands=None,
+                  indices=None, normalize=True, bbox=0):
         """ Generate the BAP composite using the pixels that have higher
         final score. This is a custom method
 
@@ -441,14 +461,15 @@ class Bap(object):
         :type name: str
         :param bands: name of the bands to include in the final image
         :type bands: list
-        :param kwargs:
+        :param kwargs: see Bap.collection() method
         :return: A namedtuple:
             .image = the Best Available Pixel Composite (ee.Image)
             .col = the collection of images used to generate the BAP
                 (ee.ImageCollection)
         :rtype: namedtuple
         """
-        colbap = self.collection(site=site, **kwargs)
+        colbap = self.collection(site=site, indices=indices,
+                                 normalize=normalize, bbox=bbox)
 
         imgCol = colbap.col
         prop = colbap.dictprop
@@ -528,10 +549,10 @@ class Bap(object):
 
     @classmethod
     def White(cls, year, range, season):
-        psat = scores.Psat()
-        pdist = scores.Pdist()
-        pdoy = scores.Pdoy(temporada=season)
-        pop = scores.Pop()
+        psat = scores.Satellite()
+        pdist = scores.CloudDist()
+        pdoy = scores.Doy(season=season)
+        pop = scores.AtmosOpacity()
         colG = satcol.ColGroup.SR()
         masc = masks.Clouds()
         filt = filters.CloudsPercent()
@@ -549,14 +570,14 @@ class Bap(object):
         :param index: Indice de vegetacion para el cual se va a calcular
             el puntaje. Debe coincidir con el que se usará en el metodo de
             generacion del Bap (ej: CalcUnpix). Si es None se omite el calculo
-            del puntaje por indice, lo que puede genera malos resultados
+            del puntaje por index, lo que puede genera malos resultados
         :return:
         """
         # Puntajes
-        pdist = scores.Pdist()
-        pdoy = scores.Pdoy(temporada=season)
-        pmasc = scores.Pmascpor()
-        pout = scores.Poutlier(("nirXred",))
+        pdist = scores.CloudDist()
+        pdoy = scores.Doy(season=season)
+        pmasc = scores.MaskPercent()
+        pout = scores.Outliers(("nirXred",))
 
         colG = satcol.ColGroup.Modis()
         masc = masks.Clouds()
@@ -566,7 +587,7 @@ class Bap(object):
 
         if index:
             pindice = scores.PIndice(index)
-            pout2 = scores.Poutlier((index,))
+            pout2 = scores.Outliers((index,))
             pjes.append(pindice)
             pjes.append(pout2)
 

@@ -362,7 +362,7 @@ def parameterize(original_range, final_range, bands=None):
         diff = list_diff(todas, inter)
         imagen = img.select(inter)
 
-        # Porcentaje del valor actual de la banda en el rango de valores
+        # Porcentaje del valor actual de la band en el rango de valores
         porcent = imagen.subtract(min0).divide(rango0)
 
         # Teniendo en cuenta el porcentaje en el que se encuentra el valor
@@ -382,27 +382,29 @@ def parameterize(original_range, final_range, bands=None):
     return wrap
 
 
-def replace_duplicate(list):
+def replace_duplicate(list, separator="_"):
     """ replace duplicated values from a list adding a suffix with a number
 
     :param list: list to be processed
     :type list: ee.List
+    :param separator: string to separate the name and the suffix
+    :type separator: str
     :return: new list with renamed values
     :rtype: ee.List
     """
     def wrap(a):
-        newlist = [a[0]]
+        newlist = [a[0]]  # list with first element
         for i, v in enumerate(a):
-            if i == 0: continue
+            if i == 0: continue  # skip first element
             # t = a[i+1:]
             if v in newlist:
-                if "_" in v:
-                    two = v.split("_")
+                if separator in v:
+                    two = v.split(separator)
                     orig = two[0]
                     n = int(two[1])
-                    newval = "{}_{}".format(orig, n+1)
+                    newval = "{}{}{}".format(orig, separator, n+1)
                 else:
-                    newval = v+"_1"
+                    newval = v+separator+"1"
                 newlist.append(newval)
             else:
                 newlist.append(v)

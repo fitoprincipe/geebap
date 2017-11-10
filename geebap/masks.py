@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-""" Modulo que contiene las clases para las mascaras a aplicar en la generacion
+""" Module containing the classes
+Modulo que contiene las clases para las mascaras a aplicar en la generacion
 del compuesto BAP """
 
 import satcol
@@ -23,7 +24,7 @@ class Clouds(Mask):
     """ Mascara de nubes propia de la coleccion """
     def __init__(self, **kwargs):
         super(Clouds, self).__init__(**kwargs)
-        self.nombre = "nubes"
+        self.nombre = "clouds"
 
     def map(self, col, **kwargs):
         """
@@ -50,7 +51,7 @@ class Equivalent(Mask):
         la misma (DATE_ACQUIRED)
     :type fechafld: str
 
-    :param fld: banda de la imagen en la que está el valor de fmask (fmask)
+    :param fld: band de la imagen en la que está el valor de fmask (fmask)
     :type fld: str
 
     :param col: colección que se quiere enmascarar STRING (argumento)
@@ -60,7 +61,7 @@ class Equivalent(Mask):
 
     def __init__(self, **kwargs):
         super(Equivalent, self).__init__(**kwargs)
-        self.nombre = "equivalente"
+        self.nombre = "equivalent"
 
     def map(self, col, **kwargs):
         """

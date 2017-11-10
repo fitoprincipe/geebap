@@ -15,7 +15,7 @@ def read(fname):
 # the setup
 setup(
     name='geebap',
-    version="0.1",
+    version=__version__,
     description='Generate a "Best Available Pixel (BAP)" composite in Google '\
                 'Earth Engine (GEE)',
     # long_description=read('README'),

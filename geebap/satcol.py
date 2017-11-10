@@ -43,8 +43,8 @@ class Collection(object):
         # ID Privado
         self.__ID = None
 
-        # bandid para crear una banda que identifique a la col
-        self.bandID = kwargs.get("bandID", None)
+        # bandid para crear una band que identifique a la col
+        self.col_id = kwargs.get("col_id", None)
 
         # IDENTIFICADOR DEL PROCESO
         self.process = kwargs.get("process", None)
@@ -139,7 +139,7 @@ class Collection(object):
 
     @property
     def bandIDimg(self):
-        return ee.Image.constant(self.bandID).select([0], ["bandID"])
+        return ee.Image.constant(self.col_id).select([0], ["col_id"])
 
     @property
     def renamed(self):
@@ -153,8 +153,8 @@ class Collection(object):
     def ID(self, id):
         if self.__ID is not None:
             raise ValueError(
-                "El Objeto ya tiene el ID '{}'".format(self.__ID) + \
-                " y no puede ser modificado")
+                "The collection already has ID '{}'".format(self.__ID) + \
+                " and cannot be modified")
 
         elif id in Collection.__OPTIONS:
             self.__ID = id
@@ -162,7 +162,7 @@ class Collection(object):
         else:
             # raise Collection.VERROR
             raise ValueError(
-                "El id de la coleccion debe ser una de: {}".format(
+                "ID must be one of: {}".format(
                     Collection.__OPTIONS))
 
     @property
@@ -188,7 +188,7 @@ class Collection(object):
             return Collection.__OPTIONS.index(self.ID) + 1
         except:
             raise ValueError(
-                "{} no esta en {}".format(self.ID, Collection.__OPTIONS))
+                "{} is not in {}".format(self.ID, Collection.__OPTIONS))
 
     @property
     def colEE(self):
@@ -210,8 +210,8 @@ class Collection(object):
     @property
     def nbr(self):
         """ Funcion para calcular el nbr usando map() """
-        if self.NIR and self.SWIR and init:
-            return indices.nbr(self.NIR, self.SWIR)
+        if self.NIR and self.SWIR2 and init:
+            return indices.nbr(self.NIR, self.SWIR2)
         else:
             return None
 
@@ -225,10 +225,11 @@ class Collection(object):
 
     # NORMAL METHOD
     def rename(self, drop=False):
-        """ Renombra las bands de una coleccion por sus equivalentes
+        """ Renames the name of the bands for its equivalents
 
-        :param img:
+        :param drop:
         :return:
+        :rtype: function
         """
         # drop = drop
 
@@ -330,7 +331,7 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat1())  # L1
         copy.kws["ini"] = 1975
         copy.kws["end"] = 1983
-        copy.kws["bandID"] = 2
+        copy.kws["col_id"] = 2
         copy.kws["short"] = "L2"
         obj = cls(**copy.kws)
 
@@ -345,7 +346,7 @@ class Collection(object):
         copy.kws["scale"] = 40
         copy.kws["ini"] = 1978
         copy.kws["end"] = 1983
-        copy.kws["bandID"] = 3
+        copy.kws["col_id"] = 3
         copy.kws["short"] = "L3"
         obj = cls(**copy.kws)
 
@@ -355,10 +356,10 @@ class Collection(object):
 
     @classmethod
     def Landsat4TOA(cls):
-        escalables = ["B1", "B2", "B3", "B4", "B5"]
+        escalables = ["B1", "B2", "B3", "B4", "B5", "B7"]
         bandscale = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=120, B7=30)
         obj = cls(BLUE="B1", GREEN="B2", RED="B3", NIR="B4", SWIR="B5",
-                  to_scale=escalables, clouds_fld="CLOUD_COVER",
+                  SWIR2="B7", to_scale=escalables, clouds_fld="CLOUD_COVER",
                   process="TOA", max=1, fclouds=cld.fmask, scale=30,
                   bandscale=bandscale, bandmask="B1", family="Landsat",
                   clouds_band="fmask", ini=1982, end=1993, bandID=4,
@@ -372,7 +373,7 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat4TOA())
         copy.kws["ini"] = 1984
         copy.kws["end"] = 2013
-        copy.kws["bandID"] = 5
+        copy.kws["col_id"] = 5
         copy.kws["short"] = "L5TOA"
         obj = cls(**copy.kws)
 
@@ -389,7 +390,7 @@ class Collection(object):
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT5_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "cfmask"
-        copy.kws["bandID"] = 6
+        copy.kws["col_id"] = 6
         copy.kws["short"] = "L5USGS"
         obj = cls(**copy.kws)
 
@@ -406,7 +407,7 @@ class Collection(object):
         copy.kws["fclouds"] = cld.ledaps
         copy.kws["equiv"] = "LANDSAT/LT5_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "QA"
-        copy.kws["bandID"] = 7
+        copy.kws["col_id"] = 7
         copy.kws["short"] = "L5LEDAPS"
         obj = cls(**copy.kws)
 
@@ -420,7 +421,7 @@ class Collection(object):
         copy.kws["bandscale"] = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=60,
                                      B7=30, B8=15)
         copy.kws["ini"] = 1999
-        copy.kws["bandID"] = 8
+        copy.kws["col_id"] = 8
         copy.kws["short"] = "L7TOA"
         obj = cls(**copy.kws)
 
@@ -437,7 +438,7 @@ class Collection(object):
         copy.kws["fclouds"] = cld.usgs
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["clouds_band"] = "cfmask"
-        copy.kws["bandID"] = 9
+        copy.kws["col_id"] = 9
         copy.kws["short"] = "L7USGS"
         obj = cls(**copy.kws)
 
@@ -453,7 +454,7 @@ class Collection(object):
         copy.kws["equiv"] = copy_TOA.equiv
         copy.kws["bandscale"] = copy_TOA.bandscale
         copy.kws["ini"] = copy_TOA.ini
-        copy.kws["bandID"] = 10
+        copy.kws["col_id"] = 10
         copy.kws["short"] = "L7LEDAPS"
         obj = cls(**copy.kws)
 
@@ -476,7 +477,7 @@ class Collection(object):
         copy.kws["SWIR2"] = "B7"
         copy.kws["ini"] = 2013
         copy.kws["bandmask"] = "B2"
-        copy.kws["bandID"] = 11
+        copy.kws["col_id"] = 11
         copy.kws["short"] = "L8TOA"
         obj = cls(**copy.kws)
 
@@ -495,7 +496,7 @@ class Collection(object):
         # copy.kws["ATM_OP"] = copy_usgs.ATM_OP
         copy.kws["equiv"] = "LANDSAT/LC8_L1T_TOA_FMASK"
         copy.kws["bandscale"] = copy.bandscale
-        copy.kws["bandID"] = 12
+        copy.kws["col_id"] = 12
         copy.kws["short"] = "L8USGS"
         obj = cls(**copy.kws)
 
@@ -545,7 +546,7 @@ class Collection(object):
         copy = deepcopy(Collection.ModisTerra())
         copy.kws["ini"] = 2002
         copy.kws["short"] = "MODAQ"
-        copy.kws["bandID"] = 15
+        copy.kws["col_id"] = 15
         obj = cls(**copy.kws)
 
         # CAMBIO
@@ -713,6 +714,9 @@ class ColGroup(object):
 
 
 if __name__ == "__main__":
+    l5led = ee.Image("LEDAPS/LT5_L1T_SR/LT52310901984169XXX03")
+    l8toa = ee.Image("LANDSAT/LC8_L1T_TOA_FMASK/LC82310902013344LGN00")
+
     '''
     c = Collection.Landsat1()
     c._ID = "LEDAPS/LE7_L1T_SR"
@@ -794,6 +798,14 @@ if __name__ == "__main__":
     
     g1 = ColGroup.SR()
     print g1.ids
-    '''
-    ls = ColGroup.Todas()
+    
+    ls = ColGroup.SR()
     print ls.collections
+    print ls.bandsrel()
+    '''
+    Cl5led = Collection.Landsat5LEDAPS()
+    print Cl5led.bandasrel_original, '\n', Cl5led.bandsrel
+    print Cl5led.to_scale
+
+    newL5toa = Cl5led.rename(True)(l5led)
+    print newL5toa.bandNames().getInfo()

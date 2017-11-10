@@ -56,7 +56,7 @@ class Season(object):
 
     @staticmethod
     def check_between(date, ini, end, raiseE=True):
-        """ Verifica que la fecha dada este entre la inicial y la final
+        """ Verifica que la fecha dada este entre la ini_date y la final
 
         :param date:
         :param ini:

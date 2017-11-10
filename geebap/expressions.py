@@ -73,10 +73,10 @@ class Expression(object):
         exp = Expression.Exponential(range=(0, 100))
         exp2 = Expression.Exponential(range=(0, 5000), normalize=True)
 
-        # Defino las funciones, indicando el nombre de la banda resultante
+        # Defino las funciones, indicando el name de la band resultante
         # y la variable que se usará para el cálculo
         fmap = exp.map("otronombre", prop="CLOUD_COVER")
-        fmap2 = exp2.map("nombre", banda="NIR")
+        fmap2 = exp2.map("name", band="NIR")
 
         # Mapeo los resultados
         newcol = imgcol.map(fmap)
@@ -140,11 +140,11 @@ class Expression(object):
 
     @staticmethod
     def adjust(name, valor):
-        """ Ajusta el valor de la banda resultante multipliandolo por 'valor'
+        """ Ajusta el valor de la band resultante multipliandolo por 'valor'
 
-        :param valor: Valor de ajuste
+        :param valor: Valor de adjust
         :type valor: float
-        :param name: name de la banda que contiene el valor a ajustar
+        :param name: name de la band que contiene el valor a ajustar
         :type name: str
         :return: La funcion para map()
         :rtype: function
@@ -269,7 +269,7 @@ class Expression(object):
             esa band, y si es una propiedad, el argumento será la propiedad.
         :type eval: function
         :param map: funcion para aplicarle al valor final. Puede usarse para
-            hacer un ajuste o ponderacion. El argumento de la funcion debe ser
+            hacer un adjust o ponderacion. El argumento de la funcion debe ser
             la imagen con la band agregada
         :type map: function
         :return: la funcion para map()
@@ -374,23 +374,23 @@ class Expression(object):
                    **kwargs)
 
     @classmethod
-    def Normal(cls, range=(0, 100), factor=-0.5, **kwargs):
+    def Normal(cls, range=(0, 100), ratio=-0.5, **kwargs):
         """ Campana de Normal
 
         :param rango: Rango entre los que oscilan los valores de entrada
         :type rango: tuple
-        :param factor: factor de 'agusamiento' de la curva. Debe ser menor a
+        :param ratio: factor de 'agusamiento' de la curva. Debe ser menor a
             cero. Cuanto menor sea, mas 'fina' será la curva
-        :type factor: float
+        :type ratio: float
         :param kwargs:
         :return:
         """
-        if factor > 0:
-            print "el factor de la curva gaussiana debe ser menor a cero, convirtiendo.."
-            factor *= -1
+        if ratio > 0:
+            print "el ratio de la curva gaussiana debe ser menor a cero, convirtiendo.."
+            ratio *= -1
         if not isinstance(range, tuple):
             raise ValueError("el range debe ser una tupla")
 
-        exp = "exp(((({var}-{mean})/{std})**2)*{factor})/(sqrt(2*pi)*{std})"
-        return cls(expression=exp, range=range, factor=factor,
+        exp = "exp(((({var}-{mean})/{std})**2)*{ratio})/(sqrt(2*pi)*{std})"
+        return cls(expression=exp, range=range, ratio=ratio,
                    name="Normal", **kwargs)

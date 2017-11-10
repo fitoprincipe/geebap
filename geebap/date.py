@@ -5,7 +5,7 @@ import ee
 
 
 class Date(object):
-    """ Agrega una banda de nombre *fecha* de tipo *Uint16* que toma de la
+    """ Agrega una band de name *fecha* de tipo *Uint16* que toma de la
     propiedad *system:time_start* y computa la cantidad de dias que
     transcurrieron a partir del 1970-01-01.
     Agrega a la imagen una propiedad con el id de la imagen llamada 'id_img'
@@ -23,7 +23,7 @@ class Date(object):
     def map(name="date"):
         """
         :PARAMETROS:
-        :param name: name que se le dara a la banda
+        :param name: name que se le dara a la band
         :type name: str
         """
         def wrap(img):

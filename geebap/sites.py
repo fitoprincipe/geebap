@@ -8,7 +8,8 @@ ee.Initialize()
 
 class Site(object):
     """ Site Class to store sites related to fusion tables """
-    def __init__(self, name, id_ft, id_fld, name_fld=None, n_feat=0):
+    def __init__(self, name=None, id_ft=None, id_fld=None, name_fld=None,
+                 n_feat=0):
         """
         :param name: name of the site
         :type name: str
@@ -90,9 +91,9 @@ def from_gsheet(url, sheet, name=None, id_ft=None, id_fld=None, name_fld=None):
 
     :param url:
     :param sheet:
-    :param name:
-    :param id_ft:
-    :param id_fld:
+    :param name: name of field that holds the name of the site
+    :param id_ft: name of field that holds the id of the fusion table
+    :param id_fld: name of field that holds the ID of the site
     :param name_fld:
     """
     content = requests.get(url)
@@ -103,9 +104,11 @@ def from_gsheet(url, sheet, name=None, id_ft=None, id_fld=None, name_fld=None):
     for n, row in enumerate(sheet):
         if n == 0: continue
         if row[name] == "": continue
-        params = [row[name], row[id_ft], row[id_fld]]
-        params = params.append(row[name_fld]) if name_fld else params
-        site = (row[name], Site(*params))
+        # params = [row[name], row[id_ft], row[id_fld]]
+        # print params
+        # params = params.append(row[name_fld]) if name_fld else params
+        site = (row[name], Site(name=row[name], id_ft=row[id_ft],
+                                id_fld=row[id_fld], name_fld=row[name_fld]))
         sites.append(site)
 
     return dict(sites)

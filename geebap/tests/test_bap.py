@@ -20,12 +20,12 @@ class TestBAP(unittest.TestCase):
         self.coleccion = satcol.ColGroup.Landsat()
 
         # SCORES
-        self.psat = scores.Psat()
-        self.pop = scores.Pop()
-        self.pmascpor = scores.Pmascpor()
-        self.pindice = scores.Pindice()
-        self.pout = scores.Poutlier(("ndvi",))
-        self.pdoy = scores.Pdoy()
+        self.psat = scores.Satellite()
+        self.pop = scores.AtmosOpacity()
+        self.pmascpor = scores.MaskPercent()
+        self.pindice = scores.Index()
+        self.pout = scores.Outliers(("ndvi",))
+        self.pdoy = scores.Doy()
 
         # SITES
         self.sitio = ee.Geometry.Polygon(
@@ -36,10 +36,11 @@ class TestBAP(unittest.TestCase):
         self.centroid = self.sitio.centroid()
 
     def test_bap2016_0(self):
+        pmulti = scores.MultiYear(2016, self.temporada)
         objbap = bap.Bap(year=2016, colgroup=self.coleccion,
                          season=self.temporada,
                          scores=(self.pindice, self.pmascpor, self.psat,
-                                 self.pout, self.pop, self.pdoy),
+                                 self.pout, self.pop, self.pdoy, pmulti),
                          masks=(self.nubes,), filters=(self.filtro,))
 
         sitio = self.sitio
@@ -61,5 +62,5 @@ class TestBAP(unittest.TestCase):
 
         self.assertIsInstance(value, dict)
         # self.assertEqual(value["BLUE"], 0.008500000461935997)
-        # self.assertEqual(value["bandID"], 12.0)
+        # self.assertEqual(value["col_id"], 12.0)
         # self.assertEqual(value["ndvi"], 0.872759222984314)

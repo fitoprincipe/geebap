@@ -145,6 +145,6 @@ if __name__ == "__main__":
 
     col2 = col.map(ndvi("B5", "B4"))
     # i = ee.Image(col2.first())
-    i = ndvi("B5", "B4")(img)
+    i = nbr("B7", "B4")(img)
     v = i.reduceRegion(ee.Reducer.first(), p, 30)
     print v.getInfo()
