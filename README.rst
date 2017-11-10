@@ -11,7 +11,7 @@ It uses a series of pixel based scores to generate a composite with the
 License and Copyright
 ---------------------
 
-(c) 2017 Rodrigo E. Principe - geebap - https://github.com/fitoprincipe/geebap
+2017 Rodrigo E. Principe - geebap - https://github.com/fitoprincipe/geebap
 
 This work was financed by 'Ministerio de Ambiente y Desarrollo Sustentable"
 (Argentine Nation) and CIEFAP (Centro de Investigación y Extensión Forestal
