@@ -417,7 +417,8 @@ def replace_duplicate(list, separator="_"):
     return(new)
 
 
-def get_size(col, sleep=0, step=5, limit=100):
+RETRY_LIMIT = 100
+def get_size(col, sleep=0, step=5, limit=RETRY_LIMIT):
     """ Obtain locally the size of a collection. If an error of 'too many
     concurrent aggregations' occurs, it will retry adding a step of time each
     time
@@ -438,8 +439,9 @@ def get_size(col, sleep=0, step=5, limit=100):
         return s
     except Exception as e:
         print str(e)
-        cond = str(e) in "Too many concurrent aggregations."
-        if cond and sleep<limit:
+        # cond = str(e) in "Too many concurrent aggregations."
+        # if cond and sleep<limit:
+        if sleep<limit:
             print "esperando {} segundos".format(sleep)
             for r in range(sleep+1):
                 sys.stdout.write(str(r+1)+".")
