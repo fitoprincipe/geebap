@@ -53,16 +53,18 @@ Available Scores
 Available Indices
 -----------------
 
-- NDVI
-- EVI
-- NBR
+- ndvi
+- evi
+- nbr
+
+Some considerations
+-------------------
+
+- Sites size must not be too big. Works with 300 km2 tiles
+- There is a module (sites.py) that has the avility to read a list of fusion table sites from a csv file
 
 Basic Usage
 -----------
-
-*Considerations:*
-
-- Sites size must not be too big. Works with 300 km2 tiles
 
 .. code:: python
 
