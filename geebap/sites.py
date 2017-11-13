@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 ''' A simple module to store sites from fusion tables '''
 import ee
 import csv

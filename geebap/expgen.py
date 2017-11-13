@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Modulo para generar expresiones compatibles con GEE """
 import simpleeval as sval

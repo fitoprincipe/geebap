@@ -59,7 +59,11 @@ bap_env/
 # DATA
 data/
 
+# SCRIPTS
 crear_BAP_manual.py
 readme.py
 crear_compuesto_archivo.py
 crear_compuesto_gsheet.py
+
+# JSON
+privatekey.json

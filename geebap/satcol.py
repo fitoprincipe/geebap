@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """ Modulo que contiene todo lo relacionado a las collections para el
@@ -703,7 +704,7 @@ class ColGroup(object):
         return cls(collections=col, scale=500)
 
     @classmethod
-    def Todas(cls):
+    def All(cls):
         """ Todas las collections """
         landsat = ColGroup.Landsat().collections
         sen = (Collection.Sentinel2(),)

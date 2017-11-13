@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Module containing the classes
 Modulo que contiene las clases para las mascaras a aplicar en la generacion

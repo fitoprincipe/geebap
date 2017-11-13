@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import unittest
 import ee
 from .. import satcol, scores, bap, season, masks, filters, functions
