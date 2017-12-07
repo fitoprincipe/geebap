@@ -5,6 +5,7 @@ import ee
 import csv
 import requests
 import functions
+from geetools import tools
 
 ee.Initialize()
 
@@ -99,7 +100,7 @@ def from_gsheet(url, sheet, name=None, id_ft=None, id_fld=None, name_fld=None):
     :param name_fld:
     """
     content = requests.get(url)
-    json = functions.execli(content.json, 10, 5)()
+    json = tools.execli(content.json, 10, 5)()
     sheet = json[sheet]
     sites = []
 
