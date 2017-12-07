@@ -47,7 +47,7 @@ class CloudsPercent(Filter):
 
 
 class MaskPercent(Filter):
-    def __init__(self, percent=0.7, prop="pmascpor", **kwargs):
+    def __init__(self, percent=0.7, prop="score-maskper", **kwargs):
         """
 
         :param percent:
