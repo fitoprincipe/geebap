@@ -3,6 +3,7 @@
 import unittest
 import ee
 from .. import satcol, scores, bap, season, masks, filters, functions
+from geetools import tools
 
 ee.Initialize()
 
@@ -59,8 +60,8 @@ class TestBAP(unittest.TestCase):
         self.assertIsInstance(idict, dict)
         self.assertIsInstance(cdict, dict)
 
-        value = functions.get_value(img, self.centroid, 30)
-        print value
+        value = tools.get_value(img, self.centroid, 30, 'client')
+        print(value)
 
         self.assertIsInstance(value, dict)
         # self.assertEqual(value["BLUE"], 0.008500000461935997)
