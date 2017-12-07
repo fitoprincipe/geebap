@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """ Main module holding the Bap Class and its methods """
 
+from __future__ import print_function
 import ee
 import satcol
 import season as temp
@@ -14,6 +15,8 @@ import filters
 import time
 import sys
 from collections import namedtuple
+from geetools import tools
+import json
 
 MIN_YEAR = 1970
 MAX_YEAR = datetime.date.today().year
@@ -32,13 +35,13 @@ class Bap(object):
     def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
                  masks=None, filters=None, bbox=0, season=None,
                  fmap=None):
-        """ The Bap object is designed to be independet of the site and the
+        """ Main Bap object designed to be independet of the site and the
         method that will be used to generate the composite.
 
         :param year: The year of the final composite. If the season covers two
             years the last one will be used. Ej.
 
-            ..code::
+            ..code:: python
 
                 season = Season(ini="15-12", end="15-01")
                 bap = Bap(year=2000)
@@ -145,9 +148,9 @@ class Bap(object):
 
             intersect = s1.intersection(s2)
             if Bap.debug:
-                print "Collections inside ColGroup:", s1
-                print "Prior Collections:", s2
-                print "Intersection:", intersect
+                print("Collections inside ColGroup:", s1)
+                print("Prior Collections:", s2)
+                print("Intersection:", intersect)
             return [satcol.Collection.from_id(ID) for ID in intersect]
 
     def collection(self, site, indices=None, normalize=True, bbox=0):
@@ -160,8 +163,31 @@ class Bap(object):
         :param normalize: Whether to normalize the final score from 0 to 1
             or not
         :type normalize: bool
-        :return:
+        :return: a namedtuple:
+
+            - col: the collection with filters, masks and scores applied
+            - dictprop: dict that will go to the metadata of the Image
         """
+        # DEBUG. Get site centroid for debugging purpose
+        geom = site if isinstance(site, ee.Geometry) else site.geometry()
+        centroid = geom.centroid()
+
+        # Function to get the value of the first image of the collection in
+        # its centroid
+        def get_col_val(col):
+            ''' Values of the first image in the centroid '''
+
+            values = tools.get_values(col, centroid, 30, 'client')
+            for key, val in values.iteritems():
+                val_list = [v for k, v in val.iteritems()]
+                print(key, ':', val_list)
+
+            '''
+            return json.dumps(tools.get_value(
+                                ee.Image(col.first()), centroid, 30, 'client'),
+                              indent=2)
+            '''
+
         # Si no se pasa una funcion para aplicar antes de los puntajes, se
         # crea una que devuelva la misma imagen
         if self.fmap is None:
@@ -188,7 +214,7 @@ class Bap(object):
         # Diccionario de cant de imagenes para incluir en las propiedades
         toMetadata = dict()
 
-        if self.verbose: print "scores:", scores
+        if self.verbose: print("scores:", scores)
 
         for colobj in self.collist():
 
@@ -201,10 +227,10 @@ class Bap(object):
             # Imagen del col_id de la coleccion
             bid = colobj.bandIDimg
 
-            # diccionario para agregar a los metadatos con la relation entre
-            # satelite y col_id
-            # prop_codsat = {colobj.ID: colobj.col_id}
-            toMetadata["col_id_"+short] = colobj.col_id
+            # Add col_id to metadata.
+            # col_id_11 = 'L8TAO'
+            # etc..
+            toMetadata["col_id_"+str(colobj.col_id)] = short
 
             # Collection completa de EE
             c = colobj.colEE
@@ -216,8 +242,8 @@ class Bap(object):
             # Renombra las bandas aca?
             # c2 = c2.map(col.rename())
 
-            if self.verbose: print "\nSatellite:", colobj.ID
-            if self.debug: print " SIZE AFTER FILTER SITE:", c2.size().getInfo()
+            if self.verbose: print("\nSatellite:", colobj.ID)
+            if self.debug: print("SIZE AFTER FILTER SITE:", c2.size().getInfo())
 
             # Filtro por los años
             for anio in self.date_range:
@@ -228,21 +254,24 @@ class Bap(object):
                 ini = self.season.add_year(anio)[0]
                 end = self.season.add_year(anio)[1]
 
-                if self.verbose: print "ini:", ini, ",end:", end
+                if self.verbose: print("ini:", ini, ",end:", end)
 
                 # Filtro por fecha
                 c = c2.filterDate(ini, end)
 
                 if self.debug:
                     n = c.size().getInfo()
-                    print "    SIZE AFTER FILTER DATE:", n
+                    print("SIZE AFTER FILTER DATE:", n)
 
                 ## FILTROS ESTABAN ACA
 
                 # Si despues de los filters no quedan imgs, saltea..
                 size = c.size().getInfo()
-                if self.verbose: print "size after filters:", size
+                if self.verbose: print("size after filters:", size)
                 if size == 0: continue  # 1
+
+                if self.debug:
+                    print("INITIAL CENTROID VALUES", get_col_val(c))
 
                 # corto la imagen con la region para minimizar los calculos
                 if bbox == 0:
@@ -255,17 +284,21 @@ class Bap(object):
 
                 c = c.map(cut)
 
+                if self.debug:
+                    print("AFTER CLIPPING WITH REGION", get_col_val(c))
+
                 # Mascaras
                 if self.masks:
                     for m in self.masks:
                         c = c.map(
                             m.map(col=col, year=anio, colEE=c))
                         if self.debug:
-                            print " BANDS AFTER THE MASK "+m.nombre, \
-                                ee.Image(c.first()).bandNames().getInfo()
+                            print("AFTER THE MASK "+m.nombre,
+                                get_col_val(c))
 
                 # Transformo los valores enmascarados a cero
-                c = c.map(functions.antiMask)
+                # c = c.map(tools.mask2zero)
+                c = c.map(tools.mask2zero)
 
                 # Renombra las bandas con los datos de la coleccion
                 c = c.map(col.rename(drop=True))
@@ -274,22 +307,23 @@ class Bap(object):
                 bandasrel = []
 
                 if self.debug:
-                    print " AFTER RENAMING BANDS:", \
-                        ee.Image(c.first()).bandNames().getInfo()
+                    print("AFTER RENAMING BANDS:",
+                        get_col_val(c))
 
                 # Escalo a 0-1
                 c = c.map(col.do_scale())
                 if self.debug:
                     if c.size().getInfo() > 0:
-                        print " AFTER SCALING:", \
-                            ee.Image(c.first()).bandNames().getInfo()
+                        print("AFTER SCALING:",
+                            get_col_val(c))
 
                 # Indices
                 if indices:
                     for i in indices:
                         f = col.INDICES[i]
                         c = c.map(f)
-                        if self.debug: print c.size().getInfo()
+                        if self.debug: print("SIZE AFTER COMPUTE "+i,
+                                             c.size().getInfo())
 
                 # Antes de aplicar los puntajes, aplico la funcion que pasa
                 # el usuario
@@ -298,7 +332,7 @@ class Bap(object):
                 # Puntajes
                 if self.scores:
                     for p in self.scores:
-                        if self.verbose: print "** "+p.name+" **"
+                        if self.verbose: print("** "+p.name+" **")
                         # Espero el tiempo seteado en cada puntaje
                         sleep = p.sleep
                         for t in range(sleep):
@@ -308,10 +342,8 @@ class Bap(object):
 
                         # DEBUG
                         if self.debug and n > 0:
-                            geom = site if isinstance(site, ee.Geometry)\
-                                         else site.geometry()
-                            print "value:", functions.get_value(
-                                ee.Image(c.first()), geom.centroid())
+                            print("value:",
+                                  get_col_val(c))
 
                 # Filtros
                 if self.filters:
@@ -341,11 +373,11 @@ class Bap(object):
 
                 if self.debug:
                     if c.size().getInfo() > 0:
-                        print " AFTER SELECTING COMMON BANDS:",\
-                            ee.Image(c.first()).bandNames().getInfo()
+                        print("AFTER SELECTING COMMON BANDS:",
+                            get_col_val(c))
 
                 # Convierto los valores de las mascaras a 0
-                c = c.map(functions.antiMask)
+                c = c.map(tools.mask2zero)
 
                 # Agrego la band de fecha a la imagen
                 c = c.map(date.Date.map())
@@ -355,8 +387,8 @@ class Bap(object):
                     return img.addBands(bid)
                 c = c.map(addBandID)
 
-                if self.debug: print " AFTER ADDING col_id BAND:", \
-                    ee.Image(c.first()).bandNames().getInfo()
+                if self.debug: print("AFTER ADDING col_id BAND:",
+                    get_col_val(c))
 
                 # Convierto a lista para agregar a la coleccion anterior
                 c_list = c.toList(2500)
@@ -371,7 +403,7 @@ class Bap(object):
         s_fin = functions.get_size(colfinal)
 
         # DEBUG
-        if self.verbose: print "final collection size:", s_fin
+        if self.verbose: print("final collection size:", s_fin)
 
         if s_fin > 0:
             newcol = ee.ImageCollection(colfinal)
@@ -379,24 +411,21 @@ class Bap(object):
             # Selecciono las bandas en comun de todas las imagenes
             newcol = functions.select_match(newcol)
 
-            if self.debug: print " BEFORE score:", scores, "\n", \
-                ee.Image(newcol.first()).bandNames().getInfo()
+            if self.debug: print("BEFORE score:", scores, "\n", get_col_val(c))
 
             # Calcula el puntaje total sumando los puntajes
-            ftotal = functions.sumBands("score", scores)
+            ftotal = tools.sumBands("score", scores)
             newcol = newcol.map(ftotal)
 
             if self.debug:
-                print " AFTER score:", \
-                    ee.Image(newcol.first()).bandNames().getInfo()
+                print("AFTER score:", get_col_val(c))
 
             if normalize:
                 newcol = newcol.map(
-                    functions.parameterize((0, maxpunt), (0, 1), ("score",)))
+                    tools.parametrize((0, maxpunt), (0, 1), ("score",)))
 
             if self.debug:
-                print " AFTER parametrize:", \
-                    ee.Image(newcol.first()).bandNames().getInfo()
+                print("AFTER parametrize:", get_col_val(c))
 
             output = namedtuple("ColBap", ("col", "dictprop"))
             return output(newcol, toMetadata)
@@ -413,10 +442,11 @@ class Bap(object):
         img = imgCol.qualityMosaic(score)
 
         if Bap.debug:
-            print " AFTER qualityMosaic:", img.bandNames().getInfo()
+            print(" AFTER qualityMosaic:", img.bandNames().getInfo())
 
         # CONVIERTO LOS VALORES ENMASCARADOS EN 0
-        img = functions.antiMask(img)
+        # img = tools.mask2zero(img)
+        img = tools.mask2zero(img)
 
         return img
 
@@ -483,7 +513,8 @@ class Bap(object):
             # ALTERNATIVA PARA OBTENER LA LISTA DE BANDAS
             first = ee.Image(imgCol.first())
             listbands = first.bandNames()
-            nbands = functions.execli(listbands.size().getInfo)()
+            # nbands = tools.execli(listbands.size().getInfo)()
+            nbands = tools.execli(listbands.size().getInfo)()
 
             thelist = []
 
@@ -530,8 +561,8 @@ class Bap(object):
             return output(self.setprop(img, **prop), imgCol)
         # SI NO HAY IMAGENES
         else:
-            print "The process can not be done because the Collections have " \
-                  "no images. Returns None"
+            print("The process can not be done because the Collections have " \
+                  "no images. Returns None")
             return output(None, None)
 
     def setprop(self, img, **kwargs):
