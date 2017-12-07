@@ -5,79 +5,6 @@ import time
 import sys
 import traceback
 
-_execli_trace = False
-_execli_times = 10
-_execli_wait = 0
-
-
-def execli(function, times=None, wait=None, trace=None):
-    """ This function tries to excecute a client side Earth Engine function
-    and retry as many times as needed
-
-    :Example:
-    .. code:: python
-
-        from geetools import execli
-        import ee
-        ee.Initialize()
-
-        # THIS IMAGE DOESN'E EXISTE SO IT WILL THROW AN ERROR
-        img = ee.Image("wrongparam")
-
-        # try to get the info with default parameters (10 times, wait 0 sec)
-        info = execli(img.getInfo)()
-        print info
-
-        # try with custom param (2 times 5 seconds with traceback)
-        info2 = execli(img.getInfo, 2, 5)
-        print info2
-
-
-    :param times: number of times it will try to excecute the function
-    :type times: int
-    :param wait: waiting time to excetue the function again
-    :type wait: int
-    :param trace: print the traceback
-    :type trace: bool
-    """
-    if trace is None:
-        trace = _execli_trace
-    if times is None:
-        times = _execli_times
-    if wait is None:
-        wait = _execli_wait
-
-    try:
-        times = int(times)
-        wait = int(wait)
-    except:
-        print type(times)
-        print type(wait)
-        raise ValueError("los parametros 'times' y 'wait' deben ser numericos")
-
-    def wrap(f):
-        def wrapper(*args, **kwargs):
-            r = range(times)
-            for i in r:
-                try:
-                    # print "ejecutando {0} {1} veces, {2} seg cada vez".format(f.__name__, times, wait)
-                    result = f(*args, **kwargs)
-                except Exception as e:
-                    print "intento n°", i+1, "en la funcion", f.__name__, "ERROR:", e
-                    if trace:
-                        traceback.print_exc()
-                    if i < r[-1] and wait > 0:
-                        print "esperando {} segundos...".format(str(wait))
-                        time.sleep(wait)
-                    elif i == r[-1]:
-                        raise RuntimeError("Hubo un error al ejecutar la " \
-                                           "funcion '{0}'".format(f.__name__))
-                else:
-                    return result
-
-        return wrapper
-    return wrap(function)
-
 
 def pass_prop(imgcon, imgsin, prop):
     p = imgcon.get(prop)
@@ -106,16 +33,6 @@ def drange(ini, end, step=1, places=0):
     return result
 
 
-def antiMask(img):
-    """ Converts masked pixels into zeros
-
-    :param img: Image contained in the Collection
-    :type img: ee.Image
-    """
-    theMask = img.mask()
-    return pass_date(img, theMask.where(1, img))
-
-
 def simple_rename(img, suffix="", prefix="", separator="_"):
     """ Rename an image band using a given prefix and/or suffix
 
@@ -142,32 +59,6 @@ def simple_rename(img, suffix="", prefix="", separator="_"):
     newbandas = bandas.map(ren)
     newimg = img.select(bandas, newbandas)
     return newimg
-
-
-def sumBands(name="sum", bands=None):
-    """ Add all bands values together and put the result in a new band
-
-    :param name: name of the new band holding the added value
-    :type name: str
-    :return: a function to use in a mapping or iteration
-    :rtype: function
-    """
-    def wrap(image):
-        if bands is None:
-            bn = image.bandNames()
-        else:
-            bn = ee.List(list(bands))
-
-        nim = ee.Image(0).select([0], [name])
-
-        # TODO: check if passed band names are in band names
-        def sumBandas(n, ini):
-            return ee.Image(ini).add(image.select([n]))
-
-        newimg = ee.Image(bn.iterate(sumBandas, nim))
-
-        return image.addBands(newimg)
-    return wrap
 
 
 def replace(to_replace, to_add):
@@ -257,27 +148,6 @@ def replace_dict(toreplace):
     return wrap
 
 
-def get_value(img, point, scale=10):
-    """ Return the value of all bands of the image in the specified point
-
-    :param img: Image to get the info from
-    :type img: ee.Image
-    :param point: Point from where to get the info
-    :type point: ee.Geometry.Point
-    :param scale: The scale to use in the reducer. It defaults to 10 due to the
-        minimum scale available in EE (Sentinel 10m)
-    :type scale: int
-    :return: Values of all bands in the ponit
-    :rtype: dict
-    """
-    scale = int(scale)
-    type = point.getInfo()["type"]
-    if type != "Point":
-        raise ValueError("Point must be ee.Geometry.Point")
-
-    return img.reduceRegion(ee.Reducer.first(), point, scale).getInfo()
-
-
 def replace_many(listEE, toreplace):
     """ Replace many elements of a Earth Engine List object
 
@@ -313,72 +183,6 @@ def rename_bands(names, drop=False):
             return newimg.select(names.values())
         else:
             return newimg
-    return wrap
-
-
-def parameterize(original_range, final_range, bands=None):
-    """ Parameterize from an original range (has to be a known range) to a
-    final range in the elected bands.
-
-    :param original_range: min and max range of the original image. Ej: (0, 1)
-    :type original_range: tuple
-    :param final_range: min and max range of the final image. Ej: (0.5, 2)
-    :type final_range: tuple
-    :param bands: bands to parameterize. If None, all bands will be
-        parameterized.
-    :type bands: list
-    :return: function to use in a mapping or iteration
-    :rtype: function
-    """
-
-    original_range = original_range if isinstance(original_range, ee.List) else ee.List(original_range)
-    final_range = final_range if isinstance(final_range, ee.List) else ee.List(final_range)
-
-    # Imagenes del min y max originales
-    min0 = ee.Image.constant(original_range.get(0))
-    max0 = ee.Image.constant(original_range.get(1))
-
-    # Rango de min a max
-    rango0 = max0.subtract(min0)
-
-    # Imagenes del min y max final
-    min1 = ee.Image.constant(final_range.get(0))
-    max1 = ee.Image.constant(final_range.get(1))
-
-    # Rango final
-    rango1 = max1.subtract(min1)
-
-    def wrap(img):
-        # todas las bands
-        todas = img.bandNames()
-
-        # bands a parameterize. Si no se especifica se usan todas
-        if bands:
-            bandasEE = ee.List(bands)
-        else:
-            bandasEE = img.bandNames()
-
-        inter = list_intersection(todas, bandasEE)
-        diff = list_diff(todas, inter)
-        imagen = img.select(inter)
-
-        # Porcentaje del valor actual de la band en el rango de valores
-        porcent = imagen.subtract(min0).divide(rango0)
-
-        # Teniendo en cuenta el porcentaje en el que se encuentra el valor
-        # real en el rango real, calculo el valor en el que se encuentra segun
-        # el rango final. Porcentaje*rango_final + min_final
-
-        final = porcent.multiply(rango1).add(min1)
-
-        # Agrego el resto de las bands que no se parametrizaron
-        # final = final.addBands(img.select(diff))
-
-        # VALE LA PENA ACLARAR QUE: siempre se le deben agregar las bands a la
-        # imagen original y no al reves, para que mantenga las propiedades
-        final = img.select(diff).addBands(final)
-
-        return pass_date(img, final)
     return wrap
 
 
@@ -520,80 +324,3 @@ def nirXred(nir="NIR", red="RED", output="nirXred"):
         return img.addBands(nirXred)
     return wrap
 
-
-if __name__ == "__main__":
-
-    ee.Initialize()
-    '''
-    imagen = ee.Image("LANDSAT/LC8_L1T_TOA_FMASK/LC82310902013344LGN00").select(["B1","B2","B3"])
-    m = imagen.select(["B1"]).lt(0.1).addBands(ee.Image(1)).addBands(ee.Image(1))
-    i = imagen.updateMask(m)
-
-    p = ee.Geometry.Point(-71.72029495239258, -42.78997046797438)
-
-    print get_value(antiMask(i), p)
-
-    
-    todas = imagen.bandNames()
-    otras = ee.List(["B1"])
-
-    inter = list_intersection(todas, otras)
-    print inter.getInfo()
-    print list_diff(todas, inter).getInfo()
-
-    
-    i = ee.Image().select("hola")
-    tarea = ee.batch.Export.image.toDrive(i, folder="P", fileNamePrefix="P")
-    runonserver(tarea)
-    # tarea.runonserver()
-    
-    l1 = ee.List([1,"dos","tres"])
-    print l1.getInfo()
-
-    l2 = replace_many(l1, {1:"NIR", "dos":"RED"})
-
-    print l2.getInfo()
-    
-    i = rename_bands({"B1":"BLUE", "B2":"GREEN"}, True)(imagen)
-
-    print get_value(imagen, p)
-    print get_value(i, p)
-    
-    list = ee.List(["one", "two", "three", 4])
-    newlist = replace_many(list, {"one": 1, 4:"four"})
-
-    print newlist.getInfo()
-    
-    i = replace_dict({"B1":ee.Image(0), "B2":ee.Image(1)})(imagen)
-    print get_value(imagen, p)
-    print get_value(i, p)
-    
-
-    a = ee.List(["a", "a", "b"])
-    b = ee.List(["a", "c"])
-
-    i = list_intersection(a, b)
-
-    print i.getInfo()
-    
-    a = ["cc", "trs", "uno", "dos", "uno", "uno", "dos", "uno"]
-
-    print replace_duplicate(a)
-    print a
-    '''
-
-    i1 = ee.Image(0).select([0], ["uno"])
-    i2 = ee.Image(0).select([0], ["dos"])
-    i3 = ee.Image(0).select([0], ["tres"])
-    i4 = ee.Image(0).select([0], ["cuatro"])
-
-    i12 = i1.addBands(i2).addBands(i4)
-    i134 = i1.addBands(i3).addBands(i4)
-    i14 = i1.addBands(i4)
-
-    col = ee.ImageCollection([i12, i134, i14])
-
-    col = select_match(col)
-
-    for f in col.getInfo()["features"]:
-        print f["bands"]
