@@ -9,6 +9,7 @@ import cloud_mask as cld
 import ee
 from copy import deepcopy
 import functions
+from geetools import tools
 from datetime import date
 
 try:
@@ -274,7 +275,7 @@ class Collection(object):
                 escalables = functions.list_intersection(
                     img.bandNames(), ee.List(self.to_scale))
 
-                return functions.parameterize(
+                return tools.parametrize(
                     rango_orig, final_range, escalables)(img)
             return wrap
         else:
