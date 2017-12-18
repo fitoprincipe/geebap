@@ -23,7 +23,7 @@ class Score(object):
     __metaclass__ = ABCMeta
     def __init__(self, name="score", range_in=None, formula=None,
                  range_out=(0, 1), sleep=0, **kwargs):
-        """ Abstract class for scores
+        """ Abstract Base Class for scores
 
         :param name: score's name
         :type name: str
@@ -79,13 +79,13 @@ class Score(object):
 @register(factory)
 @register_all(__all__)
 class CloudScene(Score):
-    def __init__(self, name="score-cld-esc", **kwargs):
-        """ Cloud cover percent score for the whole scene. Default name for the
-        resulting band will be 'score-cld-esc'.
+    """ Cloud cover percent score for the whole scene. Default name for the
+    resulting band will be 'score-cld-esc'.
 
-        :param name: name of the resulting band
-        :type name: str
-        """
+    :param name: name of the resulting band
+    :type name: str
+    """
+    def __init__(self, name="score-cld-esc", **kwargs):
         super(CloudScene, self).__init__(**kwargs)
         # self.normalize = normalize  # heredado
         # self.adjust = adjust  # heredado
@@ -97,6 +97,11 @@ class CloudScene(Score):
                                               **kwargs)
 
     def map(self, col, **kwargs):
+        """
+
+        :param col: collection
+        :type col: satcol.Collection
+        """
         if col.nubesFld:
             # fmap = Expression.adjust(self.name, self.adjust)
             fmap = self.adjust()
@@ -111,7 +116,18 @@ class CloudScene(Score):
 @register(factory)
 @register_all(__all__)
 class CloudDist(Score):
+    """ Score for the distance to the nearest cloud. Default name will be
+    'score-cld-dist'
 
+    :param unit: Unit to use in the distance kernel. Options: meters,
+        pixels
+    :type unit: str
+    :param dmax: Maximum distance to calculate the score. If the pixel is
+        further than dmax, the score will be 1.
+    :type dmax: int
+    :param dmin: Minimum distance.
+    :type dmin: int
+    """
     kernels = {"euclidean": ee.Kernel.euclidean,
                "manhattan": ee.Kernel.manhattan,
                "chebyshev": ee.Kernel.chebyshev
@@ -119,18 +135,6 @@ class CloudDist(Score):
 
     def __init__(self, dmax=600, dmin=0, unit="meters", name="score-cld-dist",
                  **kwargs):
-        """ Score for the distance to the nearest cloud. Default name will be
-        'score-cld-dist'
-
-        :param unit: Unit to use in the distance kernel. Options: meters,
-            pixels
-        :type unit: str
-        :param dmax: Maximum distance to calculate the score. If the pixel is
-            further than dmax, the score will be 1.
-        :type dmax: int
-        :param dmin: Minimum distance.
-        :type dmin: int
-        """
         super(CloudDist, self).__init__(**kwargs)
         self.kernel = kwargs.get("kernel", "euclidean")
         self.unit = unit
@@ -251,17 +255,17 @@ class CloudDist(Score):
 @register(factory)
 @register_all(__all__)
 class Doy(Score):
-    """ Score for the 'Day of the Year (DOY)'"""
+    """ Score for the 'Day of the Year (DOY)'
+
+    :param formula: Formula to use
+    :type formula: Expression
+    :param season: Growing season (holds a `doy` attribute)
+    :type season: season.Season
+    :param name: name for the resulting band
+    :type name: str
+    """
     def __init__(self, formula=Expression.Normal, name="score-doy",
                  season=season.Season.Growing_South(), **kwargs):
-        """ Score for the 'Day of the Year (DOY)'
-
-        :type formula: Expression
-        :param season: Growing season (holds a `doy` attribute)
-        :type season: season.Season
-        :param name: name for the resulting band
-        :type name: str
-        """
         super(Doy, self).__init__(**kwargs)
         # PARAMETROS
         self.doy_month = season.doy_month
@@ -293,6 +297,7 @@ class Doy(Score):
 
     def ini_date(self, year):
         """ Initial date
+
         :param year: Year
         :type year: int
         :return: initial date
@@ -303,6 +308,7 @@ class Doy(Score):
 
     def end_date(self, year):
         """ End date
+
         :param year: Year
         :type year: int
         :return: end date
@@ -340,7 +346,7 @@ class Doy(Score):
     def std(self, year):
         """ Standar deviation
 
-        :return: Valor de la mean en un objeto de Earth Engine
+        :return:
         :rtype: ee.Number
         """
         return ee.Number(self.sequence(year).reduce(ee.Reducer.stdDev()))
@@ -368,6 +374,11 @@ class Doy(Score):
         return ee.Number(year)
 
     def map(self, year, **kwargs):
+        """
+
+        :param year: central year
+        :type year: int
+        """
         media = execli(self.mean(year).getInfo)()
         std = execli(self.std(year).getInfo)()
         ran = execli(self.doy_range(year).getInfo)()
@@ -389,15 +400,15 @@ class Doy(Score):
 @register(factory)
 @register_all(__all__)
 class AtmosOpacity(Score):
+    """ Score for 'Atmospheric Opacity'
+
+    :param range_in: Range of variation for the atmos opacity
+    :type range_in: tuple
+    :param formula: Distribution formula
+    :type formula: Expression
+    """
     def __init__(self, range_in=(100, 300), formula=Expression.Exponential,
                  name="score-atm-op", **kwargs):
-        """ Score for 'Atomospheric Opacity'
-
-        :param range_in: Range of variation for the atmos opacity
-        :type range_in: tuple
-        :param formula: Distribution formula
-        :type formula: Expression
-        """
         super(AtmosOpacity, self).__init__(**kwargs)
         self.range_in = range_in
         self.formula = formula
@@ -409,6 +420,11 @@ class AtmosOpacity(Score):
         return expresion
 
     def map(self, col, **kwargs):
+        """
+
+        :param col: collection
+        :type col: satcol.Collection
+        """
         if col.ATM_OP:
             return self.expr.map(name=self.name,
                                  band=col.ATM_OP,
@@ -421,19 +437,16 @@ class AtmosOpacity(Score):
 @register(factory)
 @register_all(__all__)
 class MaskPercent(Score):
-    """ This score represents the 'masked pixels cover' for a given area. It
-    uses a ee.Reducer so it can be consume much EE capacity """
+    """ This score represents the 'masked pixels cover' for a given area.
+    It uses a ee.Reducer so it can be consume much EE capacity
 
+    :param band: band of the image that holds the masked pixels
+    :type band: str
+    :param maxPixels: same param of ee.Reducer
+    :type maxPixels: int
+    """
     def __init__(self, band=None, name="score-maskper", maxPixels=1e13,
                  **kwargs):
-        """ This score represents the 'masked pixels cover' for a given area.
-        It uses a ee.Reducer so it can be consume much EE capacity
-
-        :param band: band of the image that holds the masked pixels
-        :type band: str
-        :param maxPixels: same param of ee.Reducer
-        :type maxPixels: int
-        """
         super(MaskPercent, self).__init__(**kwargs)
         self.band = band
         self.maxPixels = maxPixels
@@ -443,6 +456,8 @@ class MaskPercent(Score):
     # TODO: ver param geom, cambiar por el área de la imagen
     def map(self, col, geom=None, **kwargs):
         """
+        :param col: collection
+        :type col: satcol.Collection
         :param geom: geometry of the area
         :type geom: ee.Geometry, ee.Feature
         :return:
@@ -495,15 +510,13 @@ class MaskPercent(Score):
 @register(factory)
 @register_all(__all__)
 class Satellite(Score):
-    """ Score for the satellite """
+    """ Score for the satellite
 
+    :param rate: 'amount' of the score that will be taken each step of the
+        available satellite list
+    :type rate: float
+    """
     def __init__(self, rate=0.05, name="score-sat", **kwargs):
-        """ Score for the satellite
-
-        :param rate: 'amount' of the score that will be taken each step of the
-            available satellite list
-        :type rate: float
-        """
         super(Satellite, self).__init__(**kwargs)
         self.name = name
         self.rate = rate
@@ -555,44 +568,32 @@ class Satellite(Score):
 @register(factory)
 @register_all(__all__)
 class Outliers(Score):
-    """ Score for outliers """
+    """ Score for outliers
+
+    Compute a pixel based score regarding to its 'outlier' condition. It
+    can use more than one band.
+
+    To see an example, run `test_outliers.py`
+
+    :param bands: name of the bands to compute the outlier score
+    :type bands: tuple
+    :param process: Statistic to detect the outlier
+    :type process: str
+    :param dist: 'distance' to be considered outlier. If the chosen process
+        is 'mean' the distance is in 'standar deviation' else if it is
+        'median' the distance is in 'percentage/100'. Example:
+
+        dist=1 -> min=0, max=100
+
+        dist=0.5 -> min=25, max=75
+
+        etc
+
+    :type dist: int
+    """
 
     def __init__(self, bands, process="median", name="score-outlier",
                  dist=0.7, **kwargs):
-        """ Score for outliers
-
-        Compute a pixel based score regarding to its 'outlier' condition. It
-        can use more than one band.
-
-        Example:
-
-            - process: 'mean'
-            - bands: ('ndvi',)
-            - dist: 1
-
-            - One pixel values:
-                - col 1: 0.8
-                - col 2: 0.7
-                - col 3: 0.5
-                - col 4: 0.9
-                - col 5: 0.1
-
-        :param bands: name of the bands to compute the outlier score
-        :type bands: tuple
-        :param process: Statistic to detect the outlier
-        :type process: str
-        :param dist: 'distance' to be considered outlier. If the chosen process
-            is 'mean' the distance is in 'standar deviation' else if it is
-            'median' the distance is in 'percentage/100'. Example:
-
-            dist=1 -> min=0, max=100
-
-            dist=0.5 -> min=25, max=75
-
-            etc
-
-        :type dist: int
-        """
         super(Outliers, self).__init__(**kwargs)
 
         # TODO: el param bands esta mas relacionado a la coleccion... pensarlo mejor..
@@ -644,15 +645,10 @@ class Outliers(Score):
         return float(1 / self.bandslength)
 
     def map(self, colEE, **kwargs):
-        """ Si está por fuera del valor definido como mínimo o máximo, entonces le
-        asigna un puntaje de 0,5, sino 1.
-
-        :param colEE: coleccion de EE que se quiere procesar
+        """
+        :param colEE: Earth Engine collection to process
         :type colEE: ee.ImageCollection
-        :param nombre: name que se le dará a la band
-        :type nombre: str
-        :return: una imagen (ee.Image) con una band cuyo name tiene la
-            siguiente estructura: "pout_banda" ej: "pout_ndvi"
+        :return:
         :rtype: ee.Image
         """
         nombre = self.name
@@ -720,6 +716,12 @@ class Outliers(Score):
 @register(factory)
 @register_all(__all__)
 class Index(Score):
+    """ Score for a vegetation index. As higher the index value, higher the
+    score.
+
+    :param index: name of the vegetation index. Can be 'ndvi', 'evi' or 'nbr'
+    :type index: str
+    """
     def __init__(self, index="ndvi", name="score-index", **kwargs):
         super(Index, self).__init__(**kwargs)
         self.index = index
@@ -739,21 +741,19 @@ class Index(Score):
 @register(factory)
 @register_all(__all__)
 class MultiYear(Score):
-    """Calcula el puntaje para cada imagen cuando creo una imagen BAP a
-    partir de imagenes de varios años
+    """ Score for a multiyear (multiseason) composite. Suppose you create a
+    single composite for 2002 but want to use images from 2001 and 2003. To do
+    that you have to indicate in the creation of the Bap object, but you want
+    to prioritize the central year (2002). To do that you have to include this
+    score in the score's list.
 
-    :CREACION:
-
-    :param anio: año central
-    :type anio: int
-
-    :METODOS:
-
-    :mapsat: funcion que mapea en una coleccion el puntaje del satelite
-        segun la funcion de prioridades creada en -objetos- del modulo CIEFAP
-
-    :METODO ESTATICO:
-    :mapnull: agrega la band *pmulti* con valor 0 (cero)
+    :param main_year: central year
+    :type main_year: int
+    :param season: main season
+    :type season: season.Season
+    :param ratio: how much score will be taken each year. In the example would
+        be 0.95 for 2001, 1 for 2002 and 0.95 for 2003
+    :type ration: float
     """
 
     def __init__(self, main_year, season, ratio=0.05, name="score-multi",
@@ -765,9 +765,6 @@ class MultiYear(Score):
         self.name = name
 
     def map(self, **kwargs):
-        """ Funcion para agregar una band pmulti a la imagen con el puntaje
-        según la distancia al año central
-        """
         a = self.main_year
         ajuste = self.adjust()
 
