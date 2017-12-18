@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-""" Modulo que contiene todo lo relacionado a las collections para el
-armado de los compuestos BAP """
+""" Collections module. Add some needed parameters to collections and create
+collection groups to generate a Best Available Pixel Composite """
 
 import indices
 import cloud_mask as cld
@@ -26,13 +26,14 @@ class Collection(object):
                 "LANDSAT/LM2_L1T",
                 "LANDSAT/LM3_L1T",
                 "LANDSAT/LT4_L1T_TOA_FMASK",
-                "LANDSAT/LT5_SR",
+                "LANDSAT/LT04/C01/T1_SR",
+                "LANDSAT/LT05/C01/T1_SR",
                 "LEDAPS/LT5_L1T_SR",
                 "LANDSAT/LT5_L1T_TOA_FMASK",
-                "LANDSAT/LE7_SR",
+                "LANDSAT/LE07/C01/T1_SR",
                 "LANDSAT/LE7_L1T_TOA_FMASK",
                 "LEDAPS/LE7_L1T_SR",
-                "LANDSAT/LC8_SR",
+                "LANDSAT/LC08/C01/T1_SR",
                 "LANDSAT/LC8_L1T_TOA_FMASK",
                 "COPERNICUS/S2",
                 "MODIS/MOD09GA",
@@ -194,7 +195,7 @@ class Collection(object):
 
     @property
     def colEE(self):
-        """ COLECCION ORIGINAL (COMPLETA) DE EARTH ENGINE """
+        """ Original Earth Engine Collection """
         if init:
             return ee.ImageCollection(self.ID)
         else:
@@ -597,12 +598,18 @@ class ColGroup(object):
             return None
 
     def bandsrel(self):
-        """ Obtiene las bands en comun que tienen las collections del grupo
+        """ Matching bands throghout the collections
 
-        :param use: determina si usar los keys o los values del dict bandsrel
-            Opciones: "keys" o "values" (def: "keys")
-        :type use: str
-        :return: lista de bands
+        Example
+        -------
+
+        - collections:
+            - Landsat 1 (GREEN, RED, NIR, SWIR)
+            - Landsat 4 (BLUE, GREEN, RED, NIR, SWIR, SWIR2)
+            - Landsat 8 (BLUE, GREEN, RED, NIR, SWIR, SWIR2)
+        - bandasrel: [GREEN, RED, NIR, SWIR]
+
+        :return: names of the matching bands
         :rtype: list
         """
         # diccionario de relaciones de la primer coleccion
