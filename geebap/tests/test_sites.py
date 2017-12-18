@@ -9,4 +9,3 @@ class Test_sites(unittest.TestCase):
 
     def setUp(self):
         script_dir = os.path.dirname(__file__)
-
