@@ -28,7 +28,8 @@ setup(
     include_package_data=True,
     install_requires=['requests',
                       'simpleeval',
-                      'numpy'],
+                      'numpy',
+                      'geetools'],
     extras_require={
     'dev': [],
     'docs': [],

@@ -558,21 +558,17 @@ class Collection(object):
 
 
 class ColGroup(object):
-    """ Colecciones Agrupadas """
+    """ Grouped collections """
     def __init__(self, collections=None, scale=None, **kwargs):
-        """
-        :Factory Methods:
-        :Landsat: Toda la coleccion Landsat
-        :Modis: Toda la coleccion Modis
-        :Todas: Landsat + Sentinel
+        """ Grouped collections.
 
-        :param scale: Escala que se usara para el conjunto de collections
+        :param scale: Scale to use for all collections inside the group
         :type scale: int
 
-        :param collections: collections agrupadas
+        :param collections: grouped collections
         :type collections: tuple
 
-        :param IDS: ids de las collections
+        :param IDS: list of IDs
         :type IDS: list
         """
         self.scale = scale
@@ -647,7 +643,7 @@ class ColGroup(object):
 
     @classmethod
     def Landsat(cls):
-        """ Todas las collections Landsat """
+        """ All Landsat Collection """
         col = (Collection.Landsat1(),
                Collection.Landsat2(),
                Collection.Landsat3(),
@@ -674,7 +670,7 @@ class ColGroup(object):
 
     @classmethod
     def Landsat_Sentinel(cls):
-        """ Todas las collections excepto Modis (Landsat + Sentinel) """
+        """ All collections except Modis (Landsat + Sentinel) """
         landsat = ColGroup.Landsat()
         add = (Collection.Sentinel2(),)
 
@@ -699,115 +695,17 @@ class ColGroup(object):
 
     @classmethod
     def Modis(cls):
-        """ Todas las Modis """
+        """ All Modis collections """
         col = (Collection.ModisAqua(),
                Collection.ModisTerra())
         return cls(collections=col, scale=500)
 
     @classmethod
     def All(cls):
-        """ Todas las collections """
+        """ All collections """
         landsat = ColGroup.Landsat().collections
         sen = (Collection.Sentinel2(),)
         mod = ColGroup.Modis().collections
 
         col = landsat+sen+mod
         return cls(collections=col, scale=10)
-
-
-if __name__ == "__main__":
-    l5led = ee.Image("LEDAPS/LT5_L1T_SR/LT52310901984169XXX03")
-    l8toa = ee.Image("LANDSAT/LC8_L1T_TOA_FMASK/LC82310902013344LGN00")
-
-    '''
-    c = Collection.Landsat1()
-    c._ID = "LEDAPS/LE7_L1T_SR"
-    # c.ID = None
-    print c.ID, c.max, c.NIR, c.scale
-
-    d = Collection.from_id("LANDSAT/LM2_L1T")
-    print d.satmask, d.ID, d.scale, d.max, d.process, d.NIR
-
-    h = Collection(scale=30)
-    print h.scale, h.ID
-
-    # c.colEE = ee.ImageCollection("Algomas")
-    c.custom = ee.ImageCollection("algomas")
-    print c.custom
-
-    p = ee.Geometry.Point(-71,-43)
-
-    col = c.colEE.filterBounds(p).map(c.ndvi)
-
-    img = ee.Image(col.first())
-
-    val_ndvi = img.reduceRegion(ee.Reducer.first(), p, 30)
-
-    print val_ndvi.getInfo()
-    
-    
-    for col in Collection.OPCIONES:
-        c = Collection.from_id(col)
-        print c, c.ID
-    
-    # Collection.OPC2 = ("aa", "BB")
-    # print Collection.OPC()
-    Collection.__OPTIONS = ("aa", "BB")
-    
-    a1 = Collection.from_id("LANDSAT/LT4_L1T_TOA_FMASK")
-    a2 = Collection.from_id("LANDSAT/LT5_L1T_TOA_FMASK")
-
-    print a1.kws
-    
-    # a1.ID = "ALGO"
-    # print a1.satmask
-
-    g1 = ColGroup.MSS()
-    g1 = ColGroup(collections=(Collection.Landsat5LEDAPS(), Collection.Landsat7LEDAPS(), Collection.ModisTerra()), scale=30)
-
-    print g1.bandsrel(), g1.scale_min(), g1.scale_max(), g1.family()
-    
-
-    imagen = ee.Image("LANDSAT/LC8_L1T_TOA_FMASK/LC82310902013344LGN00")
-    imagen2 = ee.Image("LEDAPS/LT5_L1T_SR/LT52310901984169XXX03")
-    p = ee.Geometry.Point(-71.72029495239258, -42.78997046797438)
-    col = Collection.Landsat8TOA()
-    col2 = Collection.Landsat5LEDAPS()
-
-    print funciones.get_value(imagen2, p)
-
-    i = col2.do_scale()(imagen2)
-
-    print funciones.get_value(i, p)
-    
-    col = Collection.Landsat8TOA()
-    print col.bandsrel
-    print col.bandasrel_original
-    print "to_scale", col.to_scale
-    print "bandmask", col.bandmask
-    print "renombro.."
-    col.rename()
-    print col.bandsrel
-    print col.bandasrel_original
-    print "to_scale", col.to_scale
-    print "bandmask", col.bandmask
-    print "renombro.."
-    col.rename()
-    print col.bandsrel
-    print col.bandasrel_original
-    print "to_scale", col.to_scale
-    print "bandmask", col.bandmask
-    
-    g1 = ColGroup.SR()
-    print g1.ids
-    
-    ls = ColGroup.SR()
-    print ls.collections
-    print ls.bandsrel()
-    '''
-    Cl5led = Collection.Landsat5LEDAPS()
-    print Cl5led.bandasrel_original, '\n', Cl5led.bandsrel
-    print Cl5led.to_scale
-
-    newL5toa = Cl5led.rename(True)(l5led)
-    print newL5toa.bandNames().getInfo()
