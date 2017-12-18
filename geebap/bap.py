@@ -22,6 +22,7 @@ MIN_YEAR = 1970
 MAX_YEAR = datetime.date.today().year
 
 def check_type(name, param, type):
+    """ Wrapper to check parameter's type """
     if param and not isinstance(param, type):
         raise ValueError(
             "argument '{}' must be {}".format(name, type.__name__))
@@ -33,8 +34,7 @@ class Bap(object):
     debug = False
     verbose = True
     def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
-                 masks=None, filters=None, bbox=0, season=None,
-                 fmap=None):
+                 masks=None, filters=None, season=None, fmap=None):
         """ Main Bap object designed to be independet of the site and the
         method that will be used to generate the composite.
 
@@ -83,7 +83,6 @@ class Bap(object):
         self.scores = scores
         self.masks = masks
         self.filters = filters
-        # self.bbox = bbox
         self.season = season
         self.fmap = fmap
 
@@ -126,12 +125,15 @@ class Bap(object):
         else:
             return []
 
-
     def collist(self):
-        """ List of Collections. If the list is not defined in the creation of
+        """ List of Collections.
+        If the 'family' of `colgroup` property of the object is not 'Landsat',
+
+        If the list is not defined in the creation of
         the Bap object, a prioritized list is used according to the season.
+
         :return: list of collections that will be used
-        :rtype: tuple
+        :rtype: list
         """
         if self.col.family() != "Landsat":
             return self.col.collections
@@ -566,8 +568,20 @@ class Bap(object):
             return output(None, None)
 
     def setprop(self, img, **kwargs):
-        """ Sets properties to the composite
-        :return:
+        """ Sets properties to the composite.
+
+        - ini_date: Initial date.
+        - end_date: End date.
+
+        The images included to generate the BAP are between `ini_data` and
+        `end_date`
+
+        :param img: Image to set attributes
+        :type img: ee.Image
+        :param kwargs: extra parameters passed to the function will be added
+            to the image as a property
+        :return: the passed image with added properties
+        :rtype: ee.Image
         """
         d = {"ini_date": date.Date.local(self.ini_date),
              "end_date": date.Date.local(self.end_date),
@@ -598,10 +612,9 @@ class Bap(object):
     @classmethod
     def Modis(cls, year, range, season, index=None):
         """
-        :param index: Indice de vegetacion para el cual se va a calcular
-            el puntaje. Debe coincidir con el que se usará en el metodo de
-            generacion del Bap (ej: CalcUnpix). Si es None se omite el calculo
-            del puntaje por index, lo que puede genera malos resultados
+        :param index: Vegetation index to use in the scrore computing. It must
+            match the one used in the method used to generate the BAP (example:
+            bestpixel). If it's None, the index score is not computed.
         :return:
         """
         # Puntajes
