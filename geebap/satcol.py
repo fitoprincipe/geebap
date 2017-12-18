@@ -371,6 +371,21 @@ class Collection(object):
         return obj
 
     @classmethod
+    def Landsat4USGS(cls):
+        copy = deepcopy(Collection.Landsat4TOA())
+        copy.kws["col_id"] = 16
+        copy.kws["short"] = "L4USGS"
+        copy.kws["max"] = 10000
+        copy.kws["fclouds"] = cld.usgs
+        copy.kws["ATM_OP"] = "sr_atmos_opacity"
+        copy.kws["equiv"] = "LANDSAT/LT4_L1T_TOA_FMASK"
+        copy.kws["clouds_band"] = "cfmask"
+
+        # CAMBIO
+        obj.ID = "LANDSAT/LT04/C01/T1_SR"
+        return obj
+
+    @classmethod
     def Landsat5TOA(cls):
         copy = deepcopy(Collection.Landsat4TOA())
         copy.kws["ini"] = 1984
@@ -397,7 +412,7 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LT5_SR"
+        obj.ID = "LANDSAT/LT05/C01/T1_SR"
         return obj
 
     @classmethod
@@ -445,7 +460,7 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LE7_SR"
+        obj.ID = "LANDSAT/LE07/C01/T1_SR"
 
         return obj
 
@@ -503,7 +518,7 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIOS
-        obj.ID = "LANDSAT/LC8_SR"
+        obj.ID = "LANDSAT/LC08/C01/T1_SR"
 
         return obj
 
@@ -648,6 +663,7 @@ class ColGroup(object):
                Collection.Landsat2(),
                Collection.Landsat3(),
                Collection.Landsat4TOA(),
+               Collection.Landsat4USGS(),
                Collection.Landsat5TOA(),
                Collection.Landsat5USGS(),
                Collection.Landsat5LEDAPS(),
@@ -688,10 +704,19 @@ class ColGroup(object):
     @classmethod
     def SR(cls):
         """ L5 USGS y LEDAPS, L7 USGS y LEDAPS, L8 USGS"""
-        col = (Collection.Landsat5USGS(), Collection.Landsat5LEDAPS(),
-               Collection.Landsat7USGS(), Collection.Landsat7LEDAPS(),
+        col = (Collection.Landsat4USGS(),
+               Collection.Landsat5USGS(),
+               Collection.Landsat5LEDAPS(),
+               Collection.Landsat7USGS(),
+               Collection.Landsat7LEDAPS(),
                Collection.Landsat8USGS())
         return cls(collections=col, scale=30)
+
+    @classmethod
+    def Sentinel2(cls):
+        """ Only Sentinel 2 inside a Collection Group """
+        col = (Collection.Sentinel2(),)
+        return cls(collections=col, scale=10)
 
     @classmethod
     def Modis(cls):
