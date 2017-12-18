@@ -44,19 +44,19 @@ class Season(object):
 
         if m < 1 or m > 12:
             raise ValueError(
-                "Error en {}: El mes debe ser mayor a 1 y menor a 12".format(date))
+                "Error in {}: Month must be greate than 1 and less than 12".format(date))
             # return False
         maxday = Season.month_day[m]
         if d < 1 or d > maxday:
             raise ValueError(
-                "Error en {}: En el mes {} el dia debe ser menor a {}".format(date, m, maxday))
+                "Error in {}: In month {} the day must be less than {}".format(date, m, maxday))
             # return False
 
         return m , d
 
     @staticmethod
     def check_between(date, ini, end, raiseE=True):
-        """ Verifica que la fecha dada este entre la ini_date y la final
+        """ Verify that the given date is between `ini_date` and `end_date`
 
         :param date:
         :param ini:
@@ -67,7 +67,7 @@ class Season(object):
         retorno = False
         def rerror():
             if raiseE:
-                raise ValueError("La date {} debe estar entre {} y {}".format(date, ini, end))
+                raise ValueError("Date {} must be between {} and {}".format(date, ini, end))
             else:
                 return
 
@@ -107,11 +107,11 @@ class Season(object):
         return retorno
 
     def __init__(self, ini=None, end=None, doy=None, **kwargs):
-        """ Season de crecimiento
+        """ Growing season
 
-        :param ini: mes y dia de inicio de la season
-        :param end: mes y dia de end de la season
-        :param doy: mes y dia del dia mas representativo del año
+        :param ini: initial month and day of the season
+        :param end: final month and day of the season
+        :param doy: month and day of the 'day of year'
         :param kwargs:
         """
 
@@ -137,6 +137,11 @@ class Season(object):
 
     @property
     def year_factor(self):
+        ''' season is in different years?
+
+        :return: 1 if True, 0 if False
+        :rtype: int
+        '''
         rel_mi = 12 - self.ini_month
         rel_mf = 12 - self.end_month
         if rel_mi < rel_mf:
@@ -145,15 +150,16 @@ class Season(object):
             return 0
 
     def year_diff(self, date, year, raiseE=True):
-        """ Metodo para calcular la diferencia de 'anios' o mas bien
-        numero de temporadas, desde la fecha dada, hasta la season que
-        tiene como año el de la fecha final.
+        """ Compute difference between number of seasons, since the given date,
+        until the last season
 
-        :param date: fecha de la cual se quiere saber la diferencia, tiene
-            que incluir el año. Ej: "1999-01-05"
+        :param date: date to which want to know the difference, must include
+            the year. Example: '1999-01-05'
         :type date: str
-        :param year: año del final de la season
+        :param year: final season's year
         :type year: int
+        :return: number of seasons
+        :rtype: int
         """
         try:
             s = date.split("-")
@@ -171,7 +177,7 @@ class Season(object):
             dentro = Season.check_between(desc, self.ini, self.end, raiseE=False)
             if not dentro:
                 if raiseE:
-                    raise ValueError("La date {} no esta dentro de la season".format(date))
+                    raise ValueError("Date {} is not inside the season".format(date))
                 else:
                     return abs(year - a)
             else:
@@ -183,26 +189,49 @@ class Season(object):
                     return abs(year - a)
 
     def year_diff_ee(self, eedate, year):
-        a = eedate.get("year")
-        m = eedate.get("month")
-        d = eedate.get("day")
+        ''' Same as `year_diff` but all code is in Earth Engine format
+
+        :param eedate: date to which want to know the difference, must include
+            the year. Example: ee.Date('1999-01-05')
+        :type eedate: ee.Date
+        :param year: final season's year
+        :type year: int
+        :return: number of seasons
+        :rtype: ee.Number
+        '''
+        # TODO: check if given date is inside the season, now assumes it is
+        a = ee.Number(eedate.get("year"))
+        m = ee.Number(eedate.get("month"))
+        d = ee.Number(eedate.get("day"))
         year = ee.Number(year)
         # factor = ee.Number(self.year_factor)
         mes_ini = ee.Number(self.ini_month)
         dia_ini = ee.Number(self.ini_day)
 
-        cond = m.gt(mes_ini).Or(m.eq(mes_ini).And(d.gte(dia_ini)))
+        # year factor
+        rel_mi = ee.Number(12).subtract(mes_ini)
+        rel_mf = ee.Number(12).subtract(ee.Number(self.end_month))
+        year_factor = ee.Algorithms.If(rel_mi.lt(rel_mf), ee.Number(1), ee.Number(0))
+        year_factor = ee.Number(year_factor)
 
-        diff = ee.Algorithms.If(cond, year.subtract(a).add(1), year.subtract(a))
+        # cond = m.gt(mes_ini).Or(m.eq(mes_ini).And(d.gte(dia_ini)))
+
+        cond1 = ee.Algorithms.If(m.gt(mes_ini).Or(m.eq(mes_ini).And(d.gte(dia_ini))),
+                                 year.subtract(a).add(1).abs(),
+                                 year.subtract(a).abs())
+
+        # diff = ee.Algorithms.If(cond, year.subtract(a).add(1), year.subtract(a))
+        diff = ee.Algorithms.If(year_factor.eq(0), year.subtract(a).abs(), ee.Number(cond1))
 
         return ee.Number(diff).abs()
 
 
     def add_year(self, year):
-        """ Crea el inicio y end de la season con el año dado
+        """ Create the beginning and end of a season with the given year
 
-        :param year: año de la season
-        :return: inicio y end de la season
+        :param year: season's year
+        :type year: int
+        :return: season's beginning and end
         :rtype: tuple
         """
         a = int(year)
