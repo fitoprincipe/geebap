@@ -4,34 +4,38 @@ import satcol
 import ee
 from datetime import date
 
+col_opt = satcol.Collection._OPTIONS
+
 # IDS
-ID1 = "LANDSAT/LM1_L1T"
-ID2 = "LANDSAT/LM2_L1T"
-ID3 = "LANDSAT/LM3_L1T"
-ID4TOA = "LANDSAT/LT4_L1T_TOA_FMASK"
-ID5SR = "LANDSAT/LT5_SR"
-ID5LED = "LEDAPS/LT5_L1T_SR"
-ID5TOA = "LANDSAT/LT5_L1T_TOA_FMASK"
-ID7SR = "LANDSAT/LE7_SR"
-ID7TOA = "LANDSAT/LE7_L1T_TOA_FMASK"
-ID7LED = "LEDAPS/LE7_L1T_SR"
-ID8SR = "LANDSAT/LC8_SR"
-ID8TOA = "LANDSAT/LC8_L1T_TOA_FMASK"
-S2 = "COPERNICUS/S2"
+ID1 = col_opt[0]
+ID2 = col_opt[1]
+ID3 = col_opt[2]
+ID4TOA = col_opt[3]
+ID4SR = col_opt[4]
+ID5SR = col_opt[5]
+ID5LED = col_opt[6]
+ID5TOA = col_opt[7]
+ID7SR = col_opt[8]
+ID7TOA = col_opt[9]
+ID7LED = col_opt[10]
+ID8SR = col_opt[11]
+ID8TOA = col_opt[12]
+S2 = col_opt[13]
 
 
 class Season(object):
     """ PROTOTIPO """
     #
-    month_day = {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30,
+    month_day = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30,
                  10:31, 11:30, 12:31}
 
     @staticmethod
     def check_valid_date(date):
-        """ Verifica que la fecha tenga el formato correcto
+        """ Verify if date has right format
 
-        :param date:
-        :return: año, mes, dia
+        :param date: date to verify
+        :type date: str
+        :return: month, day
         :rtype: tuple
         """
         if not isinstance(date, str):
@@ -52,7 +56,7 @@ class Season(object):
                 "Error in {}: In month {} the day must be less than {}".format(date, m, maxday))
             # return False
 
-        return m , d
+        return m, d
 
     @staticmethod
     def check_between(date, ini, end, raiseE=True):
@@ -372,13 +376,15 @@ class Season(object):
 
 
 class SeasonPriority(object):
-    """ Determina las prioridades de los satelites segun la season dada
-    El año de inicio es el dado, y el año final es el siguiente
+    """ Satellite priorities for seasons. It could be NOT a class, but for
+    organization purposes it IS a class. It has only class params. No methods
+    and initialization.
 
-    :param breaks: años donde hay un cambio en la lista de satelites
-    :param periods: lista de lista de periods
-    :param satlist: lista de satlites segun cada periodo
-    :param relacion: diccionario de relacion
+    :param breaks: list of years when there is a break
+    :param periods: nested list of periods
+    :param satlist: nested list of satellites in each period
+    :param relation: dict of relations
+    :param ee_relation: EE dict of relations
     """
     breaks = [1972, 1974, 1976, 1978, 1982, 1983,
               1994, 1999, 2003, 2012, 2013, date.today().year+1]
