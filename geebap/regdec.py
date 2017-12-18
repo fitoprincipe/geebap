@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 ''' Registry Decorator '''
 
+import functools
+
 __all__ = ('register', 'register_all')
 
 def register(holder):
@@ -24,6 +26,7 @@ def register(holder):
     :param holder: dict that will hold the classes
     :type holder: dict
     '''
+    # @functools.wraps(holder)
     def wrap(cls):
         name = cls.__name__
         holder[name] = cls
@@ -51,6 +54,7 @@ def register_all(holder):
     :param holder: list that will hold the classe's names
     :type holder: list
     '''
+    # @functools.wraps(holder)
     def wrap(cls):
         name = cls.__name__
         holder.append(name)
