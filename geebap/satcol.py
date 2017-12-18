@@ -5,7 +5,8 @@
 collection groups to generate a Best Available Pixel Composite """
 
 import indices
-import cloud_mask as cld
+# import cloud_mask as cld
+from geetools import cloud_mask as cld
 import ee
 from copy import deepcopy
 import functions
@@ -20,26 +21,41 @@ except:
 
 ACTUAL_YEAR = date.today().year
 
+def info(col):
+    """ Pritty prints information about the given collection
+
+    :param col: Collection
+    :type col: Collection
+    """
+    import pprint
+
+    pp = pprint.PrettyPrinter(indent=2)
+
+    print(col.ID)
+    pp.pprint(col.kws)
+
+
 class Collection(object):
 
-    __OPTIONS = ("LANDSAT/LM1_L1T",
-                "LANDSAT/LM2_L1T",
-                "LANDSAT/LM3_L1T",
-                "LANDSAT/LT4_L1T_TOA_FMASK",
-                "LANDSAT/LT04/C01/T1_SR",
-                "LANDSAT/LT05/C01/T1_SR",
-                "LEDAPS/LT5_L1T_SR",
-                "LANDSAT/LT5_L1T_TOA_FMASK",
-                "LANDSAT/LE07/C01/T1_SR",
-                "LANDSAT/LE7_L1T_TOA_FMASK",
-                "LEDAPS/LE7_L1T_SR",
-                "LANDSAT/LC08/C01/T1_SR",
-                "LANDSAT/LC8_L1T_TOA_FMASK",
-                "COPERNICUS/S2",
-                "MODIS/MOD09GA",
-                "MODIS/MYD09GA")
+    _OPTIONS = ("LANDSAT/LM1_L1T", # 0
+                "LANDSAT/LM2_L1T", # 1
+                "LANDSAT/LM3_L1T", # 2
+                "LANDSAT/LT4_L1T_TOA_FMASK", # 3
+                "LANDSAT/LT04/C01/T1_SR", # 4
+                "LANDSAT/LT5_L1T_TOA_FMASK", # 5
+                "LANDSAT/LT05/C01/T1_SR", # 6
+                "LEDAPS/LT5_L1T_SR", # 7
+                "LANDSAT/LE7_L1T_TOA_FMASK", # 8
+                "LANDSAT/LE07/C01/T1_SR", # 9
+                "LEDAPS/LE7_L1T_SR", # 10
+                "LANDSAT/LC8_L1T_TOA_FMASK", # 11
+                "LANDSAT/LC08/C01/T1_SR", # 12
+                "COPERNICUS/S2", # 13
+                "MODIS/MOD09GA", # 14
+                "MODIS/MYD09GA") # 15
 
-    VERROR = ValueError("Collection ID must be one of: {}".format(__OPTIONS))
+
+    VERROR = ValueError("Collection ID must be one of: {}".format(_OPTIONS))
 
     def __init__(self, **kwargs):
 
@@ -159,14 +175,14 @@ class Collection(object):
                 "The collection already has ID '{}'".format(self.__ID) + \
                 " and cannot be modified")
 
-        elif id in Collection.__OPTIONS:
+        elif id in Collection._OPTIONS:
             self.__ID = id
 
         else:
             # raise Collection.VERROR
             raise ValueError(
                 "ID must be one of: {}".format(
-                    Collection.__OPTIONS))
+                    Collection._OPTIONS))
 
     @property
     def bands(self):
@@ -188,10 +204,10 @@ class Collection(object):
         """
         try:
             # le suma 1 para que el primero sea 1 y no 0
-            return Collection.__OPTIONS.index(self.ID) + 1
+            return Collection._OPTIONS.index(self.ID) + 1
         except:
             raise ValueError(
-                "{} is not in {}".format(self.ID, Collection.__OPTIONS))
+                "{} is not in {}".format(self.ID, Collection._OPTIONS))
 
     @property
     def colEE(self):
@@ -228,7 +244,7 @@ class Collection(object):
 
     # NORMAL METHOD
     def rename(self, drop=False):
-        """ Renames the name of the bands for its equivalents
+        """ Renames the bands for its equivalent names
 
         :param drop:
         :return:
@@ -250,6 +266,8 @@ class Collection(object):
         self.SWIR2 = self.bandsrel[self.SWIR2] if self.SWIR2 else None
         self.GREEN = self.bandsrel[self.GREEN] if self.GREEN else None
         self.ATM_OP = self.bandsrel[self.ATM_OP] if self.ATM_OP else None
+
+        # print(self.ATM_OP)
 
         # Redefine to_scale
         self.to_scale = [self.bandsrel[i] for i in self.to_scale]
@@ -293,21 +311,22 @@ class Collection(object):
         :return: El objeto creado
         :rtype: Collection
         """
-        rel = {"LANDSAT/LM1_L1T": Collection.Landsat1,
-               "LANDSAT/LM2_L1T": Collection.Landsat2,
-               "LANDSAT/LM3_L1T": Collection.Landsat3,
-               "LANDSAT/LT4_L1T_TOA_FMASK": Collection.Landsat4TOA,
-               "LANDSAT/LT5_L1T_TOA_FMASK": Collection.Landsat5TOA,
-               "LANDSAT/LT5_SR": Collection.Landsat5USGS,
-               "LEDAPS/LT5_L1T_SR": Collection.Landsat5LEDAPS,
-               "LANDSAT/LE7_L1T_TOA_FMASK": Collection.Landsat7TOA,
-               "LANDSAT/LE7_SR": Collection.Landsat7USGS,
-               "LEDAPS/LE7_L1T_SR": Collection.Landsat7LEDAPS,
-               "LANDSAT/LC8_L1T_TOA_FMASK": Collection.Landsat8TOA,
-               "LANDSAT/LC8_SR": Collection.Landsat8USGS,
-               "COPERNICUS/S2": Collection.Sentinel2,
-               "MODIS/MOD09GA": Collection.ModisTerra,
-               "MODIS/MYD09GA": Collection.ModisAqua
+        rel = {Collection._OPTIONS[0]: Collection.Landsat1,
+               Collection._OPTIONS[1]: Collection.Landsat2,
+               Collection._OPTIONS[2]: Collection.Landsat3,
+               Collection._OPTIONS[3]: Collection.Landsat4TOA,
+               Collection._OPTIONS[4]: Collection.Landsat4USGS,
+               Collection._OPTIONS[5]: Collection.Landsat5TOA,
+               Collection._OPTIONS[6]: Collection.Landsat5USGS,
+               Collection._OPTIONS[7]: Collection.Landsat5LEDAPS,
+               Collection._OPTIONS[8]: Collection.Landsat7TOA,
+               Collection._OPTIONS[9]: Collection.Landsat7USGS,
+               Collection._OPTIONS[10]: Collection.Landsat7LEDAPS,
+               Collection._OPTIONS[11]: Collection.Landsat8TOA,
+               Collection._OPTIONS[12]: Collection.Landsat8USGS,
+               Collection._OPTIONS[13]: Collection.Sentinel2,
+               Collection._OPTIONS[14]: Collection.ModisTerra,
+               Collection._OPTIONS[15]: Collection.ModisAqua
                }
 
         try:
@@ -363,11 +382,13 @@ class Collection(object):
         bandscale = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=120, B7=30)
         obj = cls(BLUE="B1", GREEN="B2", RED="B3", NIR="B4", SWIR="B5",
                   SWIR2="B7", to_scale=escalables, clouds_fld="CLOUD_COVER",
-                  process="TOA", max=1, fclouds=cld.fmask, scale=30,
+                  process="TOA", max=1, scale=30,
                   bandscale=bandscale, bandmask="B1", family="Landsat",
-                  clouds_band="fmask", ini=1982, end=1993, bandID=4,
+                  ini=1982, end=1993, bandID=4,
                   short="L4TOA")
 
+        obj.clouds_band = "fmask"
+        obj.fclouds = cld.fmask(obj.clouds_band),
         obj.ID = "LANDSAT/LT4_L1T_TOA_FMASK"
         return obj
 
@@ -377,10 +398,11 @@ class Collection(object):
         copy.kws["col_id"] = 16
         copy.kws["short"] = "L4USGS"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = cld.usgs
+        copy.kws["fclouds"] = cld.cfmask_bits
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT4_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "cfmask"
+        obj = cls(**copy.kws)
 
         # CAMBIO
         obj.ID = "LANDSAT/LT04/C01/T1_SR"
@@ -404,7 +426,7 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat5TOA())  # L5 TOA
         copy.kws["process"] = "SR"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = cld.usgs
+        copy.kws["fclouds"] = cld.cfmask_bits
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT5_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "cfmask"
@@ -453,7 +475,7 @@ class Collection(object):
         copy.kws["equiv"] = "LANDSAT/LE7_L1T_TOA_FMASK"
         copy.kws["process"] = "SR"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = cld.usgs
+        copy.kws["fclouds"] = cld.cfmask_bits
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["clouds_band"] = "cfmask"
         copy.kws["col_id"] = 9
@@ -497,6 +519,7 @@ class Collection(object):
         copy.kws["bandmask"] = "B2"
         copy.kws["col_id"] = 11
         copy.kws["short"] = "L8TOA"
+        # copy.kws["ID"] = "LANDSAT/LC8_L1T_TOA_FMASK"
         obj = cls(**copy.kws)
 
         # CAMBIOS
@@ -510,7 +533,7 @@ class Collection(object):
         copy_usgs = deepcopy(Collection.Landsat5USGS())  # L5 USGS
         copy.kws["process"] = copy_usgs.process
         copy.kws["max"] = copy_usgs.max
-        copy.kws["fclouds"] = cld.cfmask
+        copy.kws["fclouds"] = cld.cfmask_bits
         # copy.kws["ATM_OP"] = copy_usgs.ATM_OP
         copy.kws["equiv"] = "LANDSAT/LC8_L1T_TOA_FMASK"
         copy.kws["bandscale"] = copy.bandscale
@@ -534,8 +557,8 @@ class Collection(object):
                   SWIR2="B12", to_scale=escalables, process="TOA",
                   clouds_fld="CLOUD_COVERAGE_ASSESSMENT", max=10000,
                   fclouds=cld.sentinel, scale=10, bandscale=bandscale,
-                  bandmask="B2", family="Sentinel", ini=2015, bandID=13,
-                  short="S2")
+                  bandmask="B2", family="Sentinel", ini=2015, short="S2",
+                  col_id=13)
 
         obj.ID = "COPERNICUS/S2"
 
@@ -553,7 +576,7 @@ class Collection(object):
                   RED="sur_refl_b01", NIR="sur_refl_b02", SWIR="sur_refl_b06",
                   SWIR2="sur_refl_b07", process="SR", scale=500, max=5000,
                   bandscale=bandscale, bandmask="sur_refl_b06",
-                  family="Modis", ini=1999, bandID=14, short="MODT",
+                  family="Modis", ini=1999, col_id=14, short="MODT",
                   to_scale=escalables, fclouds=cld.modis,)
 
         obj.ID = "MODIS/MOD09GA"
@@ -741,3 +764,20 @@ class ColGroup(object):
 
         col = landsat+sen+mod
         return cls(collections=col, scale=10)
+
+
+if __name__ == '__main__':
+    col = Collection.Landsat7TOA()
+    info(col)
+
+    colg = ColGroup.Landsat()
+    print(colg.bandsrel())
+
+    col_test = ee.ImageCollection(
+        ee.List(
+            col.colEE.toList(50)).slice(0,10))
+
+    ren = col.rename(True)
+    newcol = col_test.map(ren)
+
+    print(ee.Image(newcol.first()).bandNames().getInfo())
