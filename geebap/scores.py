@@ -20,6 +20,7 @@ ee.Initialize()
 
 
 class Score(object):
+    ''' Abstract Base class for scores '''
     __metaclass__ = ABCMeta
     def __init__(self, name="score", range_in=None, formula=None,
                  range_out=(0, 1), sleep=0, **kwargs):
