@@ -43,21 +43,10 @@ class Clouds(Mask):
 
 
 class Equivalent(Mask):
-    """ Enmascara las nubes de una imagen LEDAPS utilizando la misma imagen
-    de la coleccion TOA.
+    """ Use fmask mask from TOA collections in images of LEDAPS collection
+    It does not use Joins, but it should -> TODO
 
-    :Parametros:
-
-    :param fechafld: propiedad de la imagen en la que está alojada la fecha de
-        la misma (DATE_ACQUIRED)
-    :type fechafld: str
-
-    :param fld: band de la imagen en la que está el valor de fmask (fmask)
-    :type fld: str
-
-    :param col: colección que se quiere enmascarar STRING (argumento)
-        EJ: 'LEDAPS/LT5_L1T_SR'
-    :type col: str
+    DEPRECATED: New SR collections have fmask information
     """
 
     def __init__(self, **kwargs):
@@ -66,10 +55,7 @@ class Equivalent(Mask):
 
     def map(self, col, **kwargs):
         """
-        Propósito: para usar en la función map() de GEE
-        Objetivo: enmascara en cada imagen de la coleccion la sombra de la nube
-        Devuelve: la propia imagen enmascarada
-        :param col: Coleccion
+        :param col: Collection
         :type col: satcol.Collection
         """
         fam = col.family
