@@ -392,14 +392,21 @@ class SeasonPriority(object):
                [ID3, ID2, ID1],
                [ID3, ID2],
                [ID4SR, ID4TOA, ID3, ID2],
-               [ID5SR, ID5LED, ID4SR, ID4TOA],
-               [ID5SR, ID5LED],
-               [ID7SR, ID7LED, ID5SR, ID5LED],
-               [ID5SR, ID5LED, ID7SR, ID7LED],
-               [ID8SR, ID8TOA, ID7SR, ID7LED, ID5SR, ID5LED],
-               [ID8SR, ID8TOA, ID7SR, ID7LED]]
+               [ID5SR, ID5TOA, ID4SR, ID4TOA],
+               [ID5SR, ID5TOA],
+               [ID7SR, ID7TOA, ID5SR, ID5TOA],
+               [ID5SR, ID5TOA, ID7SR, ID7TOA],
+               [ID8SR, ID8TOA, ID7SR, ID7TOA, ID5SR, ID5TOA],
+               [ID8SR, ID8TOA, ID7SR, ID7TOA]]
 
     relation = dict(
         [(p, sat) for per, sat in zip(periods, satlist) for p in per])
 
     ee_relation = ee.Dictionary(relation)
+
+if __name__ == "__main__":
+    import pprint
+    pp = pprint.PrettyPrinter(indent=2)
+    prior = SeasonPriority.relation
+
+    pp.pprint(prior)
