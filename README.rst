@@ -93,6 +93,9 @@ Basic Usage
     from geebap import bap, season, filters, masks, \
                        scores, satcol, functions
     from geetools import tools
+
+    import pprint
+    pp = pprint.PrettyPrinter(indent=2)
     
     import ee
     ee.Initialize()
@@ -105,10 +108,10 @@ Basic Usage
     
     # MASKS
     cld_mask = masks.Clouds()
-    equiv_mask = masks.Equivalent()
+    # equiv_mask = masks.Equivalent()  # DEPRECATED
     
     # Combine masks in a tuple
-    masks = (cld_mask, equiv_mask)
+    masks = (cld_mask,)
      
     # FILTERS
     filt_cld = filters.CloudsPercent()
@@ -157,27 +160,26 @@ Basic Usage
                                 site.centroid(),
                                 30, 'client')
     
-    print(one_value)
+    pp.pprint(one_value)
 
 *Prints:*
 
 ::
 
-   {u'ATM_OP': 9.0,
-    u'BLUE': 0.03440000116825104,
-    u'GREEN': 0.06920000165700912,
-    u'NIR': 0.2443999946117401,
-    u'RED': 0.06809999793767929,
-    u'SWIR': 0.1915999948978424,
-    u'SWIR2': 0.12039999663829803,
-    u'col_id': 7.0,
-    u'date': 14632.0,
-    u'ndvi': 0.5641599893569946,
-    u'score': 0.7584124471824276,
-    u'score-atm-op': 0.983697501608319,
-    u'score-cld-dist': 1.0,
-    u'score-doy': 0.010969498225101475,
-    u'score-index': 0.7820799946784973,
-    u'score-maskper': 0.5821401476860046,
-    u'score-outlier': 1.0,
-    u'score-sat': 0.949999988079071}
+    { u'BLUE': 0.03889999911189079,
+      u'GREEN': 0.06790000200271606,
+      u'NIR': 0.23999999463558197,
+      u'RED': 0.07090000063180923,
+      u'SWIR': 0.20160000026226044,
+      u'SWIR2': 0.12110000103712082,
+      u'col_id': 6.0,
+      u'date': 14632.0,
+      u'ndvi': 0.5439047813415527,
+      u'score': 0.7525906145936868,
+      u'score-atm-op': 0.983697501608319,
+      u'score-cld-dist': 1.0,
+      u'score-doy': 0.010969498225101475,
+      u'score-index': 0.7719523906707764,
+      u'score-maskper': 0.5015149116516113,
+      u'score-outlier': 1.0,
+      u'score-sat': 1.0}
