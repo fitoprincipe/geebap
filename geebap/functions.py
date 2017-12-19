@@ -190,11 +190,11 @@ def replace_duplicate(list, separator="_"):
     """ replace duplicated values from a list adding a suffix with a number
 
     :param list: list to be processed
-    :type list: ee.List
+    :type list: list
     :param separator: string to separate the name and the suffix
     :type separator: str
     :return: new list with renamed values
-    :rtype: ee.List
+    :rtype: list
     """
     def wrap(a):
         newlist = [a[0]]  # list with first element
