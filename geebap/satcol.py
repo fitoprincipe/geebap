@@ -303,12 +303,11 @@ class Collection(object):
 
     @staticmethod
     def from_id(id):
-        """ Metodo para crear un objeto a partir del ID de la coleccion
+        """ Create a Collection object giving an ID
 
-        :param id: Mismo id que en Google Earth Engine. Opciones en
-            Coleccion.OPCIONES
+        :param id: Same as Google Earth Engine. Options in Collection._OPTIONS
         :type id: str
-        :return: El objeto creado
+        :return: the object
         :rtype: Collection
         """
         rel = {Collection._OPTIONS[0]: Collection.Landsat1,
@@ -597,19 +596,19 @@ class Collection(object):
 
 
 class ColGroup(object):
-    """ Grouped collections """
+    """ Grouped collections
+
+    :param scale: Scale to use for all collections inside the group
+    :type scale: int
+
+    :param collections: grouped collections
+    :type collections: tuple
+
+    :param IDS: list of IDs
+    :type IDS: list
+    """
     def __init__(self, collections=None, scale=None, **kwargs):
-        """ Grouped collections.
-
-        :param scale: Scale to use for all collections inside the group
-        :type scale: int
-
-        :param collections: grouped collections
-        :type collections: tuple
-
-        :param IDS: list of IDs
-        :type IDS: list
-        """
+        """ Grouped collections """
         self.scale = scale
         self.collections = collections
 
@@ -696,10 +695,10 @@ class ColGroup(object):
                Collection.Landsat4USGS(),
                Collection.Landsat5TOA(),
                Collection.Landsat5USGS(),
-               Collection.Landsat5LEDAPS(),
+               # Collection.Landsat5LEDAPS(),
                Collection.Landsat7TOA(),
                Collection.Landsat7USGS(),
-               Collection.Landsat7LEDAPS(),
+               # Collection.Landsat7LEDAPS(),
                Collection.Landsat8TOA(),
                Collection.Landsat8USGS())
 
@@ -736,9 +735,9 @@ class ColGroup(object):
         """ L5 USGS y LEDAPS, L7 USGS y LEDAPS, L8 USGS"""
         col = (Collection.Landsat4USGS(),
                Collection.Landsat5USGS(),
-               Collection.Landsat5LEDAPS(),
+               # Collection.Landsat5LEDAPS(),
                Collection.Landsat7USGS(),
-               Collection.Landsat7LEDAPS(),
+               # Collection.Landsat7LEDAPS(),
                Collection.Landsat8USGS())
         return cls(collections=col, scale=30)
 
@@ -764,20 +763,3 @@ class ColGroup(object):
 
         col = landsat+sen+mod
         return cls(collections=col, scale=10)
-
-
-if __name__ == '__main__':
-    col = Collection.Landsat7TOA()
-    info(col)
-
-    colg = ColGroup.Landsat()
-    print(colg.bandsrel())
-
-    col_test = ee.ImageCollection(
-        ee.List(
-            col.colEE.toList(50)).slice(0,10))
-
-    ren = col.rename(True)
-    newcol = col_test.map(ren)
-
-    print(ee.Image(newcol.first()).bandNames().getInfo())
