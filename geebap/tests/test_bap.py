@@ -40,12 +40,16 @@ class TestBAP(unittest.TestCase):
 
     def test_bap2016_0(self):
         pmulti = scores.MultiYear(2016, self.temporada)
-        objbap = bap.Bap(year=2016, colgroup=self.coleccion,
+        objbap = bap.Bap(year=2016,
+                         colgroup=self.coleccion,
                          season=self.temporada,
                          scores=(self.pindice, self.pmascpor, self.psat,
                                  self.pout, self.pop, self.pdoy, pmulti),
-                         masks=(self.nubes,), filters=(self.filtro,))
+                         masks=(self.nubes,),
+                         filters=(self.filtro,),
+                         )
 
+        # objbap.debug = True
         sitio = self.sitio
 
         unpix = objbap.bestpixel(sitio, indices=("ndvi",))
