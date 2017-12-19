@@ -12,20 +12,24 @@ ID2 = col_opt[1]
 ID3 = col_opt[2]
 ID4TOA = col_opt[3]
 ID4SR = col_opt[4]
-ID5SR = col_opt[5]
-ID5LED = col_opt[6]
-ID5TOA = col_opt[7]
-ID7SR = col_opt[8]
-ID7TOA = col_opt[9]
+ID5TOA = col_opt[5]
+ID5SR = col_opt[6]
+ID5LED = col_opt[7]
+ID7TOA = col_opt[8]
+ID7SR = col_opt[9]
 ID7LED = col_opt[10]
-ID8SR = col_opt[11]
-ID8TOA = col_opt[12]
+ID8TOA = col_opt[11]
+ID8SR = col_opt[12]
 S2 = col_opt[13]
 
 
 class Season(object):
-    """ PROTOTIPO """
-    #
+    """ Growing season
+
+    :param ini: initial month and day of the season
+    :param end: final month and day of the season
+    :param doy: month and day of the 'day of year'
+    """
     month_day = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30,
                  10:31, 11:30, 12:31}
 
@@ -110,14 +114,7 @@ class Season(object):
 
         return retorno
 
-    def __init__(self, ini=None, end=None, doy=None, **kwargs):
-        """ Growing season
-
-        :param ini: initial month and day of the season
-        :param end: final month and day of the season
-        :param doy: month and day of the 'day of year'
-        :param kwargs:
-        """
+    def __init__(self, ini=None, end=None, doy=None):
 
         self.ini = ini
         self.end = end
@@ -376,8 +373,8 @@ class Season(object):
 
 
 class SeasonPriority(object):
-    """ Satellite priorities for seasons. It could be NOT a class, but for
-    organization purposes it IS a class. It has only class params. No methods
+    """ Satellite priorities for seasons. It could NOT be a class, but for
+    organization purposes it is. It has only class params. No methods
     and initialization.
 
     :param breaks: list of years when there is a break
@@ -394,8 +391,8 @@ class SeasonPriority(object):
                [ID2, ID1],
                [ID3, ID2, ID1],
                [ID3, ID2],
-               [ID4TOA, ID3, ID2],
-               [ID5SR, ID5LED, ID4TOA],
+               [ID4SR, ID4TOA, ID3, ID2],
+               [ID5SR, ID5LED, ID4SR, ID4TOA],
                [ID5SR, ID5LED],
                [ID7SR, ID7LED, ID5SR, ID5LED],
                [ID5SR, ID5LED, ID7SR, ID7LED],
@@ -406,18 +403,3 @@ class SeasonPriority(object):
         [(p, sat) for per, sat in zip(periods, satlist) for p in per])
 
     ee_relation = ee.Dictionary(relation)
-
-if __name__ == "__main__":
-    # print ee.List(SeasonPriority.ee_relation.get(ee.String(2014))).getInfo()
-
-    t = Season.Growing_South()
-    f = ee.Date("2007-03-05")
-    year = f.get("year")
-    '''
-    for a in range(2014, 2015):
-        d = t.year_diff_ee(f, a)
-        # print d.getInfo()
-
-    print ee.Date("2014-"+t.doy).millis().getInfo()
-    '''
-    print SeasonPriority.ee_relation.get(year.format()).getInfo()
