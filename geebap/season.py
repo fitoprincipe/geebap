@@ -404,9 +404,20 @@ class SeasonPriority(object):
 
     ee_relation = ee.Dictionary(relation)
 
+    relation_colgroup = []
+    for year, satlist in relation.iteritems():
+        col_satlist = [satcol.Collection.from_id(id) for id in satlist]
+        colgroup = satcol.ColGroup(col_satlist)
+        relation_colgroup.append((year, colgroup))
+
+    relation_colgroup = dict(relation_colgroup)
+
 if __name__ == "__main__":
     import pprint
     pp = pprint.PrettyPrinter(indent=2)
     prior = SeasonPriority.relation
+    colgroup = SeasonPriority.relation_colgroup
+    # pp.pprint(prior)
+    # pp.pprint(colgroup)
 
-    pp.pprint(prior)
+    print(colgroup[2010].bandsrel())

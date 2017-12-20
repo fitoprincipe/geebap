@@ -401,6 +401,7 @@ class Collection(object):
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT4_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "cfmask"
+        copy.kws["process"] = "SR"
         obj = cls(**copy.kws)
 
         # CAMBIO
