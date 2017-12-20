@@ -17,6 +17,9 @@ import sys
 from collections import namedtuple
 from geetools import tools
 import json
+import pprint
+
+pp = pprint.PrettyPrinter(indent=2)
 
 MIN_YEAR = 1970
 MAX_YEAR = datetime.date.today().year
@@ -34,7 +37,8 @@ class Bap(object):
     debug = False
     verbose = True
     def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
-                 masks=None, filters=None, season=None, fmap=None):
+                 masks=None, filters=None, season=None, fmap=None,
+                 only_sr=False):
         """ Main Bap object designed to be independet of the site and the
         method that will be used to generate the composite.
 
@@ -62,6 +66,7 @@ class Bap(object):
         :param bbox:
         :param season:
         :type season: season.Season
+        :param fmap:
         """
         check_type("colgroup", colgroup, satcol.ColGroup)
         # check_type("scores", scores, tuple)
@@ -77,14 +82,15 @@ class Bap(object):
         "The year must be greatre than {} and less than {}".format(
             MIN_YEAR, MAX_YEAR))
 
+        self.only_sr = only_sr
         self.year = year
         self.range = range
-        self.col = colgroup
         self.scores = scores
         self.masks = masks
         self.filters = filters
         self.season = season
         self.fmap = fmap
+        self.colgroup = colgroup
 
     @property
     def date_to_set(self):
@@ -125,21 +131,46 @@ class Bap(object):
         else:
             return []
 
+    @property
+    def colgroup(self):
+        return self._colgroup
+
+    @colgroup.setter
+    def colgroup(self, value):
+        if value is None:
+            s = set()
+            for a in self.date_range:
+                s = s.union(
+                    set([col for col in temp.SeasonPriority.relation[a]]))
+
+
+            if self.only_sr:
+                colist = [satcol.Collection.from_id(ID) for ID in s if satcol.Collection.from_id(ID).process == 'SR']
+            else:
+                colist = [satcol.Collection.from_id(ID) for ID in s]
+
+            self._colgroup = satcol.ColGroup(colist)
+        else:
+            self._colgroup = value
+
     def collist(self):
         """ List of Collections.
-        If the 'family' of `colgroup` property of the object is not 'Landsat',
+        DEPRECATED: use `self.colgroup.ids`
 
-        If the list is not defined in the creation of
-        the Bap object, a prioritized list is used according to the season.
+        If the 'family' of `colgroup` property of the object is not 'Landsat',
+        then it'll use the given `colgroup`, else
 
         :return: list of collections that will be used
         :rtype: list
         """
-        if self.col.family() != "Landsat":
-            return self.col.collections
+        fam = self.colgroup.family()
+        if self.debug: print("COLLECTIONS family:", fam)
+
+        if fam != "Landsat":
+            return self.colgroup.collections
         else:
             # Ids de las collections dadas
-            s1 = set([col.ID for col in self.col.collections])
+            s1 = set([col.ID for col in self.colgroup.collections])
 
             # Ids de la lista de collections presentes en el range de
             # temporadas
@@ -149,14 +180,17 @@ class Bap(object):
                     set([col for col in temp.SeasonPriority.relation[a]]))
 
             intersect = s1.intersection(s2)
-            if Bap.debug:
+            if self.debug:
                 print("Collections inside ColGroup:", s1)
                 print("Prior Collections:", s2)
                 print("Intersection:", intersect)
             return [satcol.Collection.from_id(ID) for ID in intersect]
 
-    def collection(self, site, indices=None, normalize=True, bbox=0):
-        """
+    def collection(self, site, indices=None, normalize=True, bbox=0,
+                   force=True):
+        """ Apply masks, filters and scores to the given collection group and
+        return one image collecion with all images and their score bands.
+
         :param indices: vegetation indices to include in the final image. If
             None, no index is calculated
         :type indices: tuple
@@ -170,7 +204,8 @@ class Bap(object):
             - col: the collection with filters, masks and scores applied
             - dictprop: dict that will go to the metadata of the Image
         """
-        # DEBUG. Get site centroid for debugging purpose
+        ################# DEBUG #########################################
+        # Get site centroid for debugging purpose
         geom = site if isinstance(site, ee.Geometry) else site.geometry()
         centroid = geom.centroid()
 
@@ -180,15 +215,11 @@ class Bap(object):
             ''' Values of the first image in the centroid '''
 
             values = tools.get_values(col, centroid, 30, 'client')
-            for key, val in values.iteritems():
-                val_list = [v for k, v in val.iteritems()]
-                print(key, ':', val_list)
+            pp.pprint(values)
+        #################################################################
 
-            '''
-            return json.dumps(tools.get_value(
-                                ee.Image(col.first()), centroid, 30, 'client'),
-                              indent=2)
-            '''
+        # NamedTuple for the OUTPUT
+        output = namedtuple("ColBap", ("col", "dictprop"))
 
         # Si no se pasa una funcion para aplicar antes de los puntajes, se
         # crea una que devuelva la misma imagen
@@ -216,9 +247,15 @@ class Bap(object):
         # Diccionario de cant de imagenes para incluir en las propiedades
         toMetadata = dict()
 
-        if self.verbose: print("scores:", scores)
+        # collist = self.collist()
+        collist = self.colgroup.collections
 
-        for colobj in self.collist():
+        if self.verbose:
+            print("scores:", scores)
+            # print("satellites:", [c.ID for c in collist])
+            print("satellites:", self.colgroup.ids)
+
+        for colobj in collist:
 
             # Obtengo el ID de la coleccion
             cid = colobj.ID
@@ -245,7 +282,9 @@ class Bap(object):
             # c2 = c2.map(col.rename())
 
             if self.verbose: print("\nSatellite:", colobj.ID)
-            if self.debug: print("SIZE AFTER FILTER SITE:", c2.size().getInfo())
+            if self.debug:
+                pp.pprint(colobj.kws)
+                print("SIZE AFTER FILTER SITE:", c2.size().getInfo())
 
             # Filtro por los años
             for anio in self.date_range:
@@ -289,7 +328,7 @@ class Bap(object):
                 if self.debug:
                     print("AFTER CLIPPING WITH REGION", get_col_val(c))
 
-                # Mascaras
+                # MASKS
                 if self.masks:
                     for m in self.masks:
                         c = c.map(
@@ -314,6 +353,7 @@ class Bap(object):
 
                 # Escalo a 0-1
                 c = c.map(col.do_scale())
+
                 if self.debug:
                     if c.size().getInfo() > 0:
                         print("AFTER SCALING:",
@@ -397,8 +437,8 @@ class Bap(object):
                 colfinal = colfinal.cat(c_list)
 
                 # Agrego col id y year al diccionario para propiedades
-                cant_imgs = "n_imgs_{cid}_{a}".format(cid=short, a=anio)
-                toMetadata[cant_imgs] = functions.get_size(c)
+                n_imgs = "n_imgs_{cid}_{a}".format(cid=short, a=anio)
+                toMetadata[n_imgs] = functions.get_size(c)
 
         # comprueba que la lista final tenga al menos un elemento
         # s_fin = colfinal.size().getInfo()  # 2
@@ -429,15 +469,27 @@ class Bap(object):
             if self.debug:
                 print("AFTER parametrize:", get_col_val(c))
 
-            output = namedtuple("ColBap", ("col", "dictprop"))
             return output(newcol, toMetadata)
+        elif force:
+            bands_from_col = self.colgroup.bandsrel()
+            bands_from_scores = self.score_names if self.score_names else ['score']
+            bands_from_indices = list(indices) if indices else []
+            bands = bands_from_col + bands_from_scores + bands_from_indices
+
+            img = ee.Image.constant(0).select([0], [bands[0]])
+
+            for i, band in enumerate(bands):
+                if i == 0: continue
+                newimg = ee.Image.constant(0).select([0], [band])
+                img = img.addBands(newimg)
+
+            return output(ee.ImageCollection([img]), toMetadata)
         else:
-            return None
+            return output(None, toMetadata)
 
     @staticmethod
     def calcUnpix_generic(col, score):
-        """
-        """
+        """ DO NOT USE. It's a test method """
         imgCol = col
         # tamcol = funciones.execli(imgCol.size().getInfo)()
 
@@ -483,7 +535,7 @@ class Bap(object):
         return img.set(prop)
 
     def bestpixel(self, site, name="score", bands=None,
-                  indices=None, normalize=True, bbox=0):
+                  indices=None, normalize=True, bbox=0, force=True):
         """ Generate the BAP composite using the pixels that have higher
         final score. This is a custom method
 
@@ -501,7 +553,7 @@ class Bap(object):
         :rtype: namedtuple
         """
         colbap = self.collection(site=site, indices=indices,
-                                 normalize=normalize, bbox=bbox)
+                                 normalize=normalize, bbox=bbox, force=force)
 
         imgCol = colbap.col
         prop = colbap.dictprop
@@ -561,10 +613,10 @@ class Bap(object):
             img = img if bands is None else img.select(*bands)
 
             return output(self.setprop(img, **prop), imgCol)
-        # SI NO HAY IMAGENES
         else:
-            print("The process can not be done because the Collections have " \
-                  "no images. Returns None")
+            if self.verbose:
+                print("The process can not be done because the Collections "
+                      "have no images. Returns None")
             return output(None, None)
 
     def setprop(self, img, **kwargs):
@@ -594,6 +646,8 @@ class Bap(object):
 
     @classmethod
     def White(cls, year, range, season):
+        """ Pre-built subclass using same parameters as White (original
+        author of the BAP method) """
         psat = scores.Satellite()
         pdist = scores.CloudDist()
         pdoy = scores.Doy(season=season)
