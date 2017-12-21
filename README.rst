@@ -100,8 +100,8 @@ Basic Usage
     import ee
     ee.Initialize()
     
-    # COLLECTION
-    col_group = satcol.ColGroup.Landsat()
+    # COLLECTIONS
+    # col_group = satcol.ColGroup.Landsat()
     
     # SEASON
     a_season = season.Season.Growing_South()
@@ -135,7 +135,7 @@ Basic Usage
     # BAP OBJECT
     bap = bap.Bap(year=2010, range=(0, 0),
                   season=a_season,
-                  colgroup=col_group,
+                  # colgroup=col_group,  # if colgroup is None, it'll use season.SeasonPriority
                   masks=masks,
                   scores=scores,
                   filters=filters)

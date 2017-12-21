@@ -39,8 +39,8 @@ class Bap(object):
     def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
                  masks=None, filters=None, season=None, fmap=None,
                  only_sr=False):
-        """ Main Bap object designed to be independet of the site and the
-        method that will be used to generate the composite.
+        """ Main Class designed to be independet of the site and the method
+        that will be used to generate the composite.
 
         :param year: The year of the final composite. If the season covers two
             years the last one will be used. Ej.
@@ -53,20 +53,32 @@ class Bap(object):
             to generate the composite the code will use images from
             15-12-1999 to 15-01-2000
         :type year: int
-        :param range:
+        :param range: Range which indicates before and after the `year`
+            parameter. For example:
+
+            ..code:: python
+
+                bap = Bap(year=2001, range=(1, 1))
+                bap.date_range()
+
+            >> [2000, 2001, 2002]
+
         :type range: tuple
-        :param colgroup:
+        :param colgroup: Group of collections. If `None`, it'll use
+            `season.SeasonPriotiry`
         :type colgroup: satcol.ColGroup
-        :param scores:
+        :param scores: scores (scores.Score) to use in the process
         :type scores: tuple
-        :param masks:
+        :param masks: masks (masks.Mask) to use in the process
         :type masks: tuple
-        :param filters:
+        :param filters: filters (filters.Filter) to use in the process
         :type filters: tuple
-        :param bbox:
-        :param season:
+        :param season: growing season
         :type season: season.Season
-        :param fmap:
+        :param fmap: This param will change..
+        :type fmap: function
+        :param only_sr: use only SR collections
+        :type only_sr: bool
         """
         check_type("colgroup", colgroup, satcol.ColGroup)
         # check_type("scores", scores, tuple)
