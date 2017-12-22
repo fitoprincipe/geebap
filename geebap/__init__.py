@@ -14,7 +14,7 @@ __title__ = "BestAvailablePixel"
 __summary__ = "Generate a 'Best Available Pixel' image in Google Earth Engine"
 __uri__ = ""
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 __author__ = "Rodrigo E. Principe"
 __email__ = "rprincipe@ciefap.org.ar"
