@@ -358,8 +358,7 @@ class Season(object):
     @ini_month.setter
     def ini_month(self, month):
         newini = "{}-{}".format(month, self.ini_day)
-        # Season.check_dif_date(newini, self.end)
-        # self.ini_month = month
+        Season.check_valid_date(newini, self.leap)
         self.ini = newini
 
     @property
@@ -369,8 +368,7 @@ class Season(object):
     @end_month.setter
     def end_month(self, month):
         newfin = "{}-{}".format(month, self.end_day)
-        # Season.check_dif_date(self.ini, newfin)
-        # self.end_month = month
+        Season.check_valid_date(newfin, self.leap)
         self.end = newfin
 
     @property
@@ -380,8 +378,7 @@ class Season(object):
     @ini_day.setter
     def ini_day(self, day):
         newini = "{}-{}".format(self.ini_month, day)
-        # Season.check_dif_date(newini, self.end)
-        # self.ini_day = day
+        Season.check_valid_date(newini, self.leap)
         self.ini = newini
 
     @property
@@ -391,9 +388,16 @@ class Season(object):
     @end_day.setter
     def end_day(self, day):
         newfin = "{}-{}".format(self.end_month, day)
-        # Season.check_dif_date(self.ini, newfin)
-        # self.end_day = day
+        Season.check_valid_date(newfin, self.leap)
         self.end = newfin
+
+    @property
+    def doy_month(self):
+        return int(self.doy.split('-')[0])
+
+    @property
+    def doy_day(self):
+        return int(self.end.split('-')[1])
 
     @classmethod
     def Growing_South(cls):
