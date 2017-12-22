@@ -3,6 +3,7 @@
 import satcol
 import ee
 from datetime import date
+from collections import OrderedDict
 
 col_opt = satcol.Collection._OPTIONS
 
@@ -26,15 +27,40 @@ S2 = col_opt[13]
 class Season(object):
     """ Growing season
 
+    format for `ini`, `end` and `doy`parameters must be: MM-dd, but `doy` can
+    be also `None` or n days since the initial date for the season
+
+    Example: '06-02' will be the 2nd of June
+
     :param ini: initial month and day of the season
+    :type ini: str
     :param end: final month and day of the season
-    :param doy: month and day of the 'day of year'
+    :type end: str
+    :param doy: month and day of the 'day of year' or n days since the initial
+        date for the season. If None, it will be computed automatically to be
+        the half of the range.
+    :type doy: str, int
     """
-    month_day = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30,
-                 10:31, 11:30, 12:31}
 
     @staticmethod
-    def check_valid_date(date):
+    def rel_month_day(leap=False):
+        months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        pairs = zip(months, days)
+
+        month_day = OrderedDict()
+        for pair in pairs:
+            m = pair[0]
+            if leap and m == 2:
+                d = 29
+            else:
+                d = pair[1]
+
+            month_day[m] = d
+        return month_day
+
+    @staticmethod
+    def check_valid_date(date, leap=False):
         """ Verify if date has right format
 
         :param date: date to verify
@@ -43,27 +69,31 @@ class Season(object):
         :rtype: tuple
         """
         if not isinstance(date, str):
-            # raise ValueError("La date no es del tipo string")
-            return False
+            raise ValueError("Dates in Season must be strings with format: "
+                             "MM-dd")
+            # return False
 
         split = date.split("-")
+        assert len(split) == 2, \
+            "Error in Season {}: month and day must be divided by '-' " \
+            "and with the following format --> MM-dd".format(date)
         m = int(split[0])
         d = int(split[1])
 
         if m < 1 or m > 12:
             raise ValueError(
-                "Error in {}: Month must be greate than 1 and less than 12".format(date))
-            # return False
-        maxday = Season.month_day[m]
+                "Error in Season {}: Month must be greater than 1 and less "
+                "than 12".format(date))
+        maxday = Season.rel_month_day(leap)[m]
         if d < 1 or d > maxday:
             raise ValueError(
-                "Error in {}: In month {} the day must be less than {}".format(date, m, maxday))
-            # return False
+                "Error in Season {}: In month {} the day must be less or "
+                "equal than {}".format(date, m, maxday))
 
         return m, d
 
     @staticmethod
-    def check_between(date, ini, end, raiseE=True):
+    def check_between(date, ini, end, raiseE=True, leap=False):
         """ Verify that the given date is between `ini_date` and `end_date`
 
         :param date:
@@ -79,9 +109,9 @@ class Season(object):
             else:
                 return
 
-        m, d = Season.check_valid_date(date)
-        mi, di = Season.check_valid_date(ini)
-        mf, df = Season.check_valid_date(end)
+        m, d = Season.check_valid_date(date, leap)
+        mi, di = Season.check_valid_date(ini, leap)
+        mf, df = Season.check_valid_date(end, leap)
         # valores relativos de mes
         # varia entre 0 y 12
         if mi > mf:
@@ -114,38 +144,57 @@ class Season(object):
 
         return retorno
 
-    def __init__(self, ini=None, end=None, doy=None):
+    @staticmethod
+    def day_of_year(date, leap=False):
+        ''' Day of the year for the given date '''
+        m, d = Season.check_valid_date(date, leap)
+        if m == 1:
+            return d
+        else:
+            ini = 31
 
+        for month, days in Season.rel_month_day(leap).iteritems():
+            if month == 1: continue
+
+            if month != m:
+                ini += days
+            else:
+                break
+
+        return ini + d
+
+    @staticmethod
+    def date_for_day(day, leap=False):
+        """ Date corresponding to the given 'day of the year' """
+        for m in range(1, 13):
+            for d in range(1, 32):
+                days = Season.rel_month_day(leap)[m]
+                if d > days: continue
+                date = '{}-{}'.format(m, d)
+                nday = Season.day_of_year(date, leap)
+                if day == nday: return date
+
+    def __init__(self, ini, end, doy=None, leap=False):
+        self.leap = leap
         self.ini = ini
         self.end = end
 
         self.doy = doy
 
-        if ini is not None and end is not None:
-            # Season.check_dif_date(ini, end)
-            self._ini_month = int(self.ini.split("-")[0])
-            self._end_month = int(self.end.split("-")[0])
-            self._ini_day = int(self.ini.split("-")[1])
-            self._end_day = int(self.end.split("-")[1])
-        elif (ini and not end) or (end and not ini):
-            raise ValueError("si se especifica una fecha de inicio "
-                             "debe especificarse la fecha de end, y viceversa")
-        else:
-            self._ini_month = None
-            self._end_month = None
-            self._ini_day = None
-            self._end_day = None
+    @property
+    def year_days(self):
+        return 366 if self.leap else 365
 
     @property
     def year_factor(self):
-        ''' season is in different years?
+        ''' season covers different years? Like 11-01 to 02-01?
 
         :return: 1 if True, 0 if False
         :rtype: int
         '''
-        rel_mi = 12 - self.ini_month
-        rel_mf = 12 - self.end_month
-        if rel_mi < rel_mf:
+        dini = Season.day_of_year(self.ini, self.leap)
+        dend = Season.day_of_year(self.end, self.leap)
+        if dini >= dend:
             return 1
         else:
             return 0
@@ -170,12 +219,12 @@ class Season(object):
 
         a = int(s[0])  # a es el año de la date dada
         desc = "{}-{}".format(s[1], s[2])
-        m, d = Season.check_valid_date(desc)
+        m, d = Season.check_valid_date(desc, self.leap)
 
         if self.year_factor == 0:
             return abs(year - a)
         else:
-            dentro = Season.check_between(desc, self.ini, self.end, raiseE=False)
+            dentro = Season.check_between(desc, self.ini, self.end, raiseE=False, leap=self.leap)
             if not dentro:
                 if raiseE:
                     raise ValueError("Date {} is not inside the season".format(date))
@@ -226,7 +275,6 @@ class Season(object):
 
         return ee.Number(diff).abs()
 
-
     def add_year(self, year):
         """ Create the beginning and end of a season with the given year
 
@@ -249,114 +297,102 @@ class Season(object):
     @ini.setter
     def ini(self, value):
         if value is not None:
-            m, d = Season.check_valid_date(value)
+            m, d = Season.check_valid_date(value, self.leap)
             self._ini = value
-            self._ini_month = m
-            self._ini_day = d
         else:
-            self._ini = None
-            self._ini_month = None
-            self._ini_day = None
+            raise ValueError('initial date is required')
 
     # FIN
     @property
     def end(self):
-        return self._fin
+        return self._end
 
     @end.setter
     def end(self, value):
         if value is not None:
-            m, d = Season.check_valid_date(value)
-            self._fin = value
-            self._fin_mes = m
-            self._fin_dia = d
+            m, d = Season.check_valid_date(value, self.leap)
+            self._end = value
         else:
-            self._fin = None
-            self._fin_mes = None
-            self._fin_dia = None
+            raise ValueError('end date is required')
+
+    @property
+    def range_in_days(self):
+        rini = Season.day_of_year(self.ini, self.leap)
+        rend = Season.day_of_year(self.end, self.leap)
+        r = rend-rini+1
+        return r if self.year_factor == 0 else self.year_days+r
 
     # DOY
     @property
     def doy(self):
-        # Season.check_between(self.doy, self.ini, self.end)
         return self._doy
 
     @doy.setter
     def doy(self, value):
-        if value is None:
-            self._doy = None
+        drange = self.range_in_days
+        if value is None or (isinstance(value, int) and value > drange):
+            doy = drange/2  # doy will be half of range by now
+
+            dini = Season.day_of_year(self.ini, self.leap)
+            new_doy = dini+doy if dini+doy <= self.year_days \
+                               else dini+doy-self.year_days
+
+            self._doy = Season.date_for_day(new_doy-1, self.leap)
+        elif isinstance(value, int):
+            dini = Season.day_of_year(self.ini, self.leap)
+            ini_plus_doy = dini+value
+            # print ini_plus_doy
+            new_doy = ini_plus_doy if ini_plus_doy <= self.year_days \
+                                   else ini_plus_doy-self.year_days
+            print 'newdoy', new_doy
+            self._doy = Season.date_for_day(new_doy+1, self.leap)
+            print self._doy
         else:
-            m, d = Season.check_valid_date(value)
-            Season.check_between(value, self.ini, self.end)
+            Season.check_valid_date(value, self.leap)
             self._doy = value
-            self._doy_month = m
-            self._doy_day = d
-
-    @property
-    def doy_day(self):
-        return self._doy_day
-
-    @property
-    def doy_month(self):
-        return self._doy_month
-
-    @doy_day.setter
-    def doy_day(self, day):
-        newdoy = "{}-{}".format(self._doy_month, day)
-        Season.check_valid_date(newdoy)
-        Season.check_between(newdoy, self.ini, self.end)
-        self._doy = newdoy
-        self._doy_day = day
-
-    @doy_month.setter
-    def doy_month(self, month):
-        newdoy = "{}-{}".format(month, self._doy_day)
-        Season.check_between(newdoy, self.ini, self.end)
-        self._doy = newdoy
-        self._doy_month = month
 
     @property
     def ini_month(self):
-        return self._ini_month
+        return int(self.ini.split('-')[0])
 
     @ini_month.setter
     def ini_month(self, month):
         newini = "{}-{}".format(month, self.ini_day)
         # Season.check_dif_date(newini, self.end)
-        self._ini_month = month
+        # self.ini_month = month
         self.ini = newini
 
     @property
     def end_month(self):
-        return self._end_month
+        return int(self.end.split('-')[0])
 
     @end_month.setter
     def end_month(self, month):
         newfin = "{}-{}".format(month, self.end_day)
         # Season.check_dif_date(self.ini, newfin)
-        self._end_month = month
+        # self.end_month = month
         self.end = newfin
 
     @property
     def ini_day(self):
-        return self._ini_day
+        return int(self.ini.split('-')[1])
 
     @ini_day.setter
     def ini_day(self, day):
         newini = "{}-{}".format(self.ini_month, day)
         # Season.check_dif_date(newini, self.end)
-        self._ini_day = day
+        # self.ini_day = day
         self.ini = newini
 
     @property
     def end_day(self):
-        return self._end_day
+        return int(self.end.split('-')[1])
 
     @end_day.setter
     def end_day(self, day):
         newfin = "{}-{}".format(self.end_month, day)
         # Season.check_dif_date(self.ini, newfin)
-        self._end_day = day
+        # self.end_day = day
         self.end = newfin
 
     @classmethod
@@ -403,10 +439,3 @@ class SeasonPriority(object):
         [(p, sat) for per, sat in zip(periods, satlist) for p in per])
 
     ee_relation = ee.Dictionary(relation)
-
-if __name__ == "__main__":
-    import pprint
-    pp = pprint.PrettyPrinter(indent=2)
-    prior = SeasonPriority.relation
-
-    pp.pprint(prior)
