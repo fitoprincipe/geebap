@@ -1,5 +1,6 @@
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
+''' DEPRECATED. Replaced by geetools '''
 
 # computo de bits para mascaras a partir de la banda QA de LEDAPS
 def getQABits(image, start, end, newName):
