@@ -555,7 +555,7 @@ class Collection(object):
         obj = cls(BLUE="B2", GREEN="B3", RED="B4", NIR="B8", SWIR="B11",
                   SWIR2="B12", to_scale=escalables, process="TOA",
                   clouds_fld="CLOUD_COVERAGE_ASSESSMENT", max=10000,
-                  fclouds=cld.sentinel, scale=10, bandscale=bandscale,
+                  fclouds=cld.sentinel2, scale=10, bandscale=bandscale,
                   bandmask="B2", family="Sentinel", ini=2015, short="S2",
                   col_id=13)
 
