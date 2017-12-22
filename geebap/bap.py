@@ -404,24 +404,6 @@ class Bap(object):
                     for filtro in self.filters:
                         c = filtro.apply(c, col=col, anio=self.year)
 
-                ## INDICES ESTABA ACA
-
-                ## ESCALAR ESTABA ACA
-
-                # Selecciona solo las bandas que tienen en comun todas las
-                # Colecciones
-
-                # METODO ANTERIOR: funcionaba, pero si agregaba una band
-                # con fmap, no se seleccionaba
-                '''
-                def sel(img):
-                    puntajes_ = puntajes if self.scores else []
-                    indices_ = list(indices) if indices else []
-                    relaciones = self.col.bandsrel()
-                    return img.select(relaciones+puntajes_+indices_)
-                c = c.map(sel)
-                '''
-
                 # METODO NUEVO: selecciono las bandas en comun desp de unir
                 # todas las collections usando un metodo distinto
 
