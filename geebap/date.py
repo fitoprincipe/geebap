@@ -5,9 +5,14 @@
 import functions
 import ee
 
+ee.Initialize()
+
 
 class Date(object):
-    """ Agrega una band de name *fecha* de tipo *Uint16* que toma de la
+    """ Class holding some custom methods too add a 'date' band in the 'Best
+    Available Pixel' compostite.
+
+    Agrega una band de name *fecha* de tipo *Uint16* que toma de la
     propiedad *system:time_start* y computa la cantidad de dias que
     transcurrieron a partir del 1970-01-01.
     Agrega a la imagen una propiedad con el id de la imagen llamada 'id_img'
@@ -19,13 +24,13 @@ class Date(object):
     oneday = ee.Number(oneday_local)
 
     def __init__(self):
+        ''' This Class doesn't initialize '''
         pass
 
     @staticmethod
     def map(name="date"):
         """
-        :PARAMETROS:
-        :param name: name que se le dara a la band
+        :param name: name for the new band
         :type name: str
         """
         def wrap(img):
@@ -39,29 +44,30 @@ class Date(object):
 
     @staticmethod
     def local(date):
-        """ Dada una fecha obtiene la cantidad de dias desde el comienzo
+        """ Number of days since the beggining (1970-01-01)
+        Dada una fecha obtiene la cantidad de dias desde el comienzo
         de las fechas (01-01-1970)
 
-        :param date: fecha en formato (AAAA-MM-DD)
+        :param date: date (yyyy-MM-dd)
         :type date: str
-        :param unit: unidades en las que se quiere expresar
-        :return: dias desde el comienzo de las fechas
-        :rtype: int
+        :return: days since the beggining
+        :rtype: float
         """
         d = ee.Date(date)
         mili = d.millis().getInfo()
         return float(mili / Date.oneday_local)
 
-
     @staticmethod
     def get(date, unit="days"):
-        """ Obtiene la fecha EE de la cantidad de unidades pasadas como
-        argumento
+        """ get the date (ee.Date) of the given value in 'unit'.
+        Currentrly ONLY process 'days', so:
 
-        :param date:
+        `date.Date.get(365) = '1971-01-01T00:00:00`
+
+        :param date: the value to transform
         :type date: int
-        :param unit:
-        :return:
+        :param unit: date's unit (currently ONLY 'days')
+        :return: date corresponding to the given value
         :rtype: ee.Date
         """
         if unit == "days":
@@ -69,6 +75,6 @@ class Date(object):
             d = ee.Date(mili)
             dstr = d.format()
 
-            print "{0} days corresponds to the date {1}".format(
+            print "{0} days corresponds to the date: {1}".format(
                 date, dstr.getInfo())
         return d
