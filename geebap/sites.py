@@ -55,9 +55,11 @@ class Site(object):
 
             try:
                 region = place.geometry().bounds().getInfo()['coordinates'][0]
-            except AttributeError:
+            except AttributeError as ae:
+                print ae
                 region = place.getInfo()['coordinates'][0]
-            except:
+            except Exception as e:
+                print e
                 return None, None
 
             return place, region
