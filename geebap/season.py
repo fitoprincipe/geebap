@@ -413,9 +413,7 @@ class Season(object):
 
 
 class SeasonPriority(object):
-    """ Satellite priorities for seasons. It could NOT be a class, but for
-    organization purposes it is. It has only class params. No methods
-    and initialization.
+    """ Satellite priorities for seasons.
 
     :param breaks: list of years when there is a break
     :param periods: nested list of periods
@@ -443,3 +441,45 @@ class SeasonPriority(object):
         [(p, sat) for per, sat in zip(periods, satlist) for p in per])
 
     ee_relation = ee.Dictionary(relation)
+
+    def __init__(self, year):
+        self.year = year
+
+    @property
+    def satellites(self):
+        '''
+        :return: list of satellite's ids
+        :rtype: list
+        '''
+        return self.relation[self.year]
+
+    @property
+    def collections(self):
+        '''
+        :return: list of satcol.Collection
+        :rtype: list
+        '''
+        sat = self.satellites
+        return [satcol.Collection.from_id(id) for id in sat]
+
+    @property
+    def colgroup(self):
+        '''
+        :rtype: satcol.ColGroup
+        '''
+        return satcol.ColGroup(self.collections)
+
+    @property
+    def ee_collection(self):
+        '''
+        :return: merged image collection without filters
+        :rtype: ee.ImageCollection
+        '''
+        collection = ee.ImageCollection(ee.List([]))
+        for col in self.collections:
+            print 'collection', type(collection)
+            print 'colEE', type(col.colEE)
+            collection = ee.ImageCollection(collection.merge(col.colEE))
+
+        # date = '{year}-01-01, {year}-12-31'.format(year=self.year).split(',')
+        return collection
