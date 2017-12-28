@@ -5,7 +5,10 @@
 import functions
 import ee
 
-ee.Initialize()
+try:
+    ee.Initialize()
+except:
+    pass
 
 
 class Date(object):

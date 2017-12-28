@@ -16,7 +16,10 @@ from regdec import *
 __all__ = []
 factory = {}
 
-ee.Initialize()
+try:
+    ee.Initialize()
+except:
+    pass
 
 
 class Score(object):
