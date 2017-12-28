@@ -501,9 +501,9 @@ class SeasonPriority(object):
         '''
         collection = ee.ImageCollection(ee.List([]))
         for col in self.collections:
-            print 'collection', type(collection)
-            print 'colEE', type(col.colEE)
-            collection = ee.ImageCollection(collection.merge(col.colEE))
+            rename_f = col.rename(True)
+            cee = col.colEE.map(rename_f)
+            collection = ee.ImageCollection(collection.merge(cee))
 
         # date = '{year}-01-01, {year}-12-31'.format(year=self.year).split(',')
         return collection
