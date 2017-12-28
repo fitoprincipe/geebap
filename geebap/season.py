@@ -183,6 +183,10 @@ class Season(object):
 
     @property
     def year_days(self):
+        '''
+        :return: number of days in one year
+        :rtype: int
+        '''
         return 366 if self.leap else 365
 
     @property
@@ -288,6 +292,26 @@ class Season(object):
         end = str(a)+"-"+self.end
         # print "add_year", ini, end
         return ini, end
+
+    def year_filter(self, year):
+        '''
+        :param year: season's year
+        :type year: int
+        :return: a date filter for the given year
+        :rtype: ee.Filter
+        '''
+        date = self.add_year(year)
+        return ee.Filter.date(*date)
+
+    def filter(self):
+        '''
+        :return: a filter for the season (as it can be applied througout the
+            years, leap years won't be considered
+        :rtype: ee.Filter
+        '''
+        ini = Season.day_of_year(self.ini)
+        end = Season.day_of_year(self.end)
+        return ee.Filter.dayOfYear(ini, end)
 
     # INICIO
     @property
