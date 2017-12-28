@@ -7,10 +7,6 @@ import requests
 import functions
 from geetools import tools
 
-try:
-    ee.Initialize()
-except:
-    pass
 
 class Site(object):
     """ Site Class to store sites related to fusion tables """

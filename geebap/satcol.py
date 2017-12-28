@@ -5,7 +5,6 @@
 collection groups to generate a Best Available Pixel Composite """
 
 import indices
-# import cloud_mask as cld
 from geetools import cloud_mask as cld
 import ee
 from copy import deepcopy
@@ -13,11 +12,7 @@ import functions
 from geetools import tools
 from datetime import date
 
-try:
-    ee.Initialize()
-    init = True
-except:
-    init = False
+initialized = True
 
 ACTUAL_YEAR = date.today().year
 
@@ -190,7 +185,7 @@ class Collection(object):
         :return: Nombre de las bands en una lista local
         :rtype: list
         """
-        if init:
+        if initialized:
             return self.colEE.bandNames().getInfo()
         else:
             return None
@@ -212,7 +207,7 @@ class Collection(object):
     @property
     def colEE(self):
         """ Original Earth Engine Collection """
-        if init:
+        if initialized:
             return ee.ImageCollection(self.ID)
         else:
             return None
@@ -221,7 +216,7 @@ class Collection(object):
     @property
     def ndvi(self):
         """ Funcion para calcular el ndvi usando map() """
-        if self.NIR and self.RED and init:
+        if self.NIR and self.RED and initialized:
             return indices.ndvi(self.NIR, self.RED)
         else:
             return None
@@ -229,7 +224,7 @@ class Collection(object):
     @property
     def nbr(self):
         """ Funcion para calcular el nbr usando map() """
-        if self.NIR and self.SWIR2 and init:
+        if self.NIR and self.SWIR2 and initialized:
             return indices.nbr(self.NIR, self.SWIR2)
         else:
             return None
@@ -237,7 +232,7 @@ class Collection(object):
     @property
     def evi(self):
         """ Funcion para calcular el evi usando map() """
-        if self.NIR and self.RED and self.BLUE and init:
+        if self.NIR and self.RED and self.BLUE and initialized:
             return indices.evi(self.NIR, self.RED, self.BLUE)
         else:
             return None

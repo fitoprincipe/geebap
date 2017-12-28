@@ -5,11 +5,6 @@
 import functions
 import ee
 
-try:
-    ee.Initialize()
-except:
-    pass
-
 
 class Date(object):
     """ Class holding some custom methods too add a 'date' band in the 'Best

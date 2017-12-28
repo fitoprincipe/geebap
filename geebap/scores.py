@@ -16,11 +16,6 @@ from regdec import *
 __all__ = []
 factory = {}
 
-try:
-    ee.Initialize()
-except:
-    pass
-
 
 class Score(object):
     ''' Abstract Base class for scores '''
