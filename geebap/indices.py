@@ -134,17 +134,3 @@ REL = {"ndvi": ndvi,
        "evi": evi,
        "nbr": nbr
       }
-
-if __name__ == "__main__":
-    ee.Initialize()
-    col = ee.ImageCollection("LANDSAT/LC8_L1T_TOA_FMASK")
-    # img = ee.Image("users/rprincipe/Pruebas_BAP/pind_pout_doy_nirxred/BAP_AgusMeliquina_1_ndvi_2017_reducir_conDoy_")
-    img = ee.Image("LANDSAT/LC8_L1T_TOA_FMASK/LC82310762017099LGN00")
-    # p = ee.Geometry.Point(-71.22269690036774, -40.41003198585169)
-    p = ee.Geometry.Point(-65.53619384765625, -22.874663863516393)
-
-    col2 = col.map(ndvi("B5", "B4"))
-    # i = ee.Image(col2.first())
-    i = nbr("B7", "B4")(img)
-    v = i.reduceRegion(ee.Reducer.first(), p, 30)
-    print v.getInfo()

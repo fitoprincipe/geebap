@@ -81,24 +81,3 @@ def usgs(image):
     cloud = image.select("sr_cloud_qa").neq(255)
     shad = image.select("sr_cloud_shadow_qa").neq(255)
     return image.updateMask(cloud).updateMask(shad)
-
-
-if __name__ == "__main__":
-    import ee
-    from ee import mapclient
-
-    ee.Initialize()
-
-    vizmod = {"bands":["sur_refl_b02", "sur_refl_b06", "sur_refl_b01"], "min":0, "max":5000}
-    vizsen = {"bands":["B8", "B11", "B4"], "min":0, "max":5000}
-    vizled = {"bands":["B4", "B5", "B3"], "min":0, "max":5000}
-    vizfm = {"bands":["B4", "B5", "B3"], "min":0, "max":0.5}
-
-
-    modcloudy = ee.Image("MODIS/MOD09GA/MOD09GA_005_2017_01_01")
-    sencloudy = ee.Image("COPERNICUS/S2/20170301T141041_20170301T141756_T18FYJ")
-    ledcloudy = ee.Image("LEDAPS/LT5_L1T_SR/LT52290952002076COA00")
-    fmaskcloudy = ee.Image("LANDSAT/LT5_L1T_TOA_FMASK/LT52300952002067COA00")
-
-    # m = mapclient.addToMap(modis(i), viz)
-    m = mapclient.addToMap(fmask(fmaskcloudy), vizfm)
