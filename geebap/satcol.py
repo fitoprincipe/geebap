@@ -237,6 +237,13 @@ class Collection(object):
         else:
             return None
 
+    @property
+    def indexrel(self):
+        rel = {'ndvi': self.ndvi,
+               'evi': self.evi,
+               'nbr': self.nbr}
+        return rel
+
     # NORMAL METHOD
     def rename(self, drop=False):
         """ Renames the bands for its equivalent names
