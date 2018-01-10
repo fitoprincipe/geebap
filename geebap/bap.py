@@ -401,8 +401,8 @@ class Bap(object):
 
                 # Filtros
                 if self.filters:
-                    for filtro in self.filters:
-                        c = filtro.apply(c, col=col, anio=self.year)
+                    for filter in self.filters:
+                        c = filter.apply(c, col=col, anio=self.year)
 
                 # METODO NUEVO: selecciono las bandas en comun desp de unir
                 # todas las collections usando un metodo distinto
