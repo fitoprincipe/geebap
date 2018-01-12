@@ -4,6 +4,7 @@ import satcol
 import ee
 from datetime import date
 from collections import OrderedDict
+from geetools import filters
 
 col_opt = satcol.Collection._OPTIONS
 
@@ -27,7 +28,7 @@ S2 = col_opt[13]
 class Season(object):
     """ Growing season
 
-    format for `ini`, `end` and `doy`parameters must be: MM-dd, but `doy` can
+    format for `ini`, `end` and `doy` parameters must be: MM-dd, but `doy` can
     be also `None` or n days since the initial date for the season
 
     Example: '06-02' will be the 2nd of June
@@ -280,28 +281,45 @@ class Season(object):
         return ee.Number(diff).abs()
 
     def add_year(self, year):
-        """ Create the beginning and end of a season with the given year
+        """ Create the beginning and end of a season with the given year.
+        If param year is a ee.Number, it returns a ee.DateRange
 
         :param year: season's year
-        :type year: int
+        :type year: int or ee.Number
         :return: season's beginning and end
         :rtype: tuple
         """
-        a = int(year)
-        ini = str(a - self.year_factor) + "-" + self.ini
-        end = str(a)+"-"+self.end
-        # print "add_year", ini, end
-        return ini, end
+        if isinstance(year, int) or isinstance(year, float):
+            a = int(year)
+            ini = str(a - self.year_factor) + "-" + self.ini
+            end = str(a)+"-"+self.end
+            # print "add_year", ini, end
+            return ini, end
+        elif isinstance(year, ee.Number):
+            factor = ee.Number(self.year_factor)
+            y = year.subtract(factor).format()
+            temp_ini = ee.String(self.ini)
+            ini = y.cat('-').cat(temp_ini)
+            temp_end = ee.String(self.end)
+            end = year.format().cat('-').cat(temp_end)
+            r = ee.DateRange(ee.Date(ini), ee.Date(end))
+            return r
 
     def year_filter(self, year):
         '''
         :param year: season's year
-        :type year: int
+        :type year: int or ee.Number
         :return: a date filter for the given year
         :rtype: ee.Filter
         '''
-        date = self.add_year(year)
-        return ee.Filter.date(*date)
+        if isinstance(year, int) or isinstance(year, float):
+            year = int(year)
+            date = self.add_year(year)
+            return ee.Filter.date(*date)
+        elif isinstance(year, ee.Number):
+            daterange = self.add_year(year)
+            filter = filters.date_range(daterange)
+            return filter
 
     def filter(self):
         '''

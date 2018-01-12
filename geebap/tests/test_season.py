@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 import unittest
 import ee
+ee.Initialize()
+
 from .. import season
-from geetools import tools
 import json
 import math
-
-ee.Initialize()
+from geetools import tools
 
 class TestSeason(unittest.TestCase):
 
@@ -80,4 +80,23 @@ class TestSeason(unittest.TestCase):
         add_year = ('1999-10-01', '1999-12-30')
         add_year_compute = seas.add_year(1999)
         self.assertEqual(add_year, add_year_compute)
+
+    def test_add_year_ee(self):
+        year = 2000
+        seas = season.Season.Growing_South()
+        ini, end = seas.add_year(year)
+
+        year = ee.Number(year)
+        daterange = seas.add_year(year)
+
+        newini = ee.Date(daterange.start()).format('yyyy-MM-dd').getInfo()
+        newend = ee.Date(daterange.end()).format('yyyy-MM-dd').getInfo()
+
+        self.assertEqual(ini, '1999-11-15')
+        self.assertEqual(end, '2000-03-15')
+        self.assertEqual(newini, '1999-11-15')
+        self.assertEqual(newend, '2000-03-15')
+
+
+
 
