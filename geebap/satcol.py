@@ -29,7 +29,6 @@ def info(col):
     print(col.ID)
     pp.pprint(col.kws)
 
-
 class Collection(object):
 
     _OPTIONS = ("LANDSAT/LM1_L1T", # 0
@@ -46,8 +45,8 @@ class Collection(object):
                 "LANDSAT/LC8_L1T_TOA_FMASK", # 11
                 "LANDSAT/LC08/C01/T1_SR", # 12
                 "COPERNICUS/S2", # 13
-                "MODIS/MOD09GA", # 14
-                "MODIS/MYD09GA") # 15
+                "MODIS/006/MOD09GA", # 14
+                "MODIS/006/MYD09GA") # 15
 
 
     VERROR = ValueError("Collection ID must be one of: {}".format(_OPTIONS))
@@ -580,7 +579,7 @@ class Collection(object):
                   family="Modis", ini=1999, col_id=14, short="MODT",
                   to_scale=escalables, fclouds=cld.modis,)
 
-        obj.ID = "MODIS/MOD09GA"
+        obj.ID = "MODIS/006/MOD09GA"
         return obj
 
     @classmethod
@@ -592,7 +591,7 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "MODIS/MYD09GA"
+        obj.ID = "MODIS/006/MYD09GA"
 
         return obj
 
