@@ -3,10 +3,13 @@
 
 """ Collections module. Add some needed parameters to collections and create
 collection groups to generate a Best Available Pixel Composite """
+import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
 
 import indices
 from geetools import cloud_mask as cld
-import ee
 from copy import deepcopy
 import functions
 from geetools import tools
@@ -15,6 +18,23 @@ from datetime import date
 initialized = True
 
 ACTUAL_YEAR = date.today().year
+
+IDS = {'L1': 'LANDSAT/LM1_L1T',
+       'L2': 'LANDSAT/LM2_L1T',
+       'L3': 'LANDSAT/LM3_L1T',
+       'L4TOA': 'LANDSAT/LT4_L1T_TOA_FMASK',
+       'L4USGS': 'LANDSAT/LT04/C01/T1_SR',
+       'L5TOA': 'LANDSAT/LT5_L1T_TOA_FMASK',
+       'L5USGS': 'LANDSAT/LT05/C01/T1_SR',
+       'L5LED': 'LEDAPS/LT5_L1T_SR',
+       'L7TOA': 'LANDSAT/LE7_L1T_TOA_FMASK',
+       'L7USGS': 'LANDSAT/LE07/C01/T1_SR',
+       'L7LED': 'LEDAPS/LE7_L1T_SR',
+       'L8TOA': 'LANDSAT/LC8_L1T_TOA_FMASK',
+       'L8USGS':'LANDSAT/LC08/C01/T1_SR',
+       'S2':'COPERNICUS/S2',
+       'MODT':'MODIS/006/MOD09GA',
+       'MODA': 'MODIS/006/MYD09GA'}
 
 def info(col):
     """ Pritty prints information about the given collection
