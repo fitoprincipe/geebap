@@ -3,9 +3,12 @@
 """ Module containing the classes
 Modulo que contiene las clases para las mascaras a aplicar en la generacion
 del compuesto BAP """
+import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
 
 import satcol
-import ee
 from abc import ABCMeta, abstractmethod
 
 class Mask(object):

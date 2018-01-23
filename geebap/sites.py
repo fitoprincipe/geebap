@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 ''' A simple module to store sites from fusion tables '''
 import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
+
 import csv
 import requests
 import functions

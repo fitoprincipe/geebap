@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
 
 import expgen
 from functions import drange, replace
@@ -7,7 +11,6 @@ import math
 import simpleeval as sval
 import numpy as np
 import copy
-import ee
 
 # FUNCIONES PARA simpleeval
 CUSTOM_FUNCTIONS = {"sqrt": math.sqrt,

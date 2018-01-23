@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Module containing vegetation indixes calculations """
-
 import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
 
 NDVI_EXP = "(NIR-RED)/(NIR+RED)"
 EVI_EXP = "G*((NIR-RED)/(NIR+(C1*RED)-(C2*BLUE)+L))"

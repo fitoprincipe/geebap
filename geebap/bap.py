@@ -4,6 +4,11 @@
 
 from __future__ import print_function
 import ee
+
+# Initialize EE
+import ee.data
+if not ee.data._initialized: ee.Initialize()
+
 import satcol
 import season as temp
 import functions

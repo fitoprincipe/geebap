@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
+
 import time
 import sys
 import traceback

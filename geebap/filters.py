@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """ Module holding custom filters for image collections """
+import ee.data
+if not ee.data._initialized: ee.Initialize()
 
 import satcol
 from abc import ABCMeta, abstractmethod

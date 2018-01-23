@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import satcol
 import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
+
+import satcol
 from datetime import date
 from collections import OrderedDict
 from geetools import filters

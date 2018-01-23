@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Module to implement scores in the Bap Image Composition """
-
 import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
+
 import satcol
 import functions
 from geetools import tools
