@@ -49,14 +49,14 @@ Installation in DataLab (NEW!)
 After following Option 1 or 2 in https://developers.google.com/earth-engine/python_install,
 open a new notebook and write:
 
-::
+.. code:: python
 
     import sys
     !{sys.executable} -m pip install geebap
 
 After running the example code, you can see the results:
 
-::
+.. code:: python
 
     from IPython.display import Image
     url = image.getThumbUrl({'min':0, 'max':0.7, 'region':site.getInfo()['coordinates']})
