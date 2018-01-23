@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Date module for Gee Bap """
+import ee
+
+import ee.data
+if not ee.data._initialized: ee.Initialize()
 
 import functions
-import ee
 
 
 class Date(object):
@@ -32,11 +35,10 @@ class Date(object):
         :type name: str
         """
         def wrap(img):
-            # BANDA DE LA FECHA
-            dateadq = img.date()
-            fechadq = ee.Date(dateadq).millis().divide(Date.oneday)
-            imgfecha = ee.Image(fechadq).select([0], [name]).toUint16()
-            final = img.addBands(imgfecha).set(name, fechadq.toInt())
+            dateadq = img.date()  # ee.Date
+            days_since_70 = ee.Date(dateadq).millis().divide(Date.oneday)  # days since 1970
+            dateimg = ee.Image(days_since_70).select([0], [name]).toUint16()
+            final = img.addBands(dateimg).set(name, days_since_70.toInt())
             return functions.pass_date(img, final)
         return wrap
 

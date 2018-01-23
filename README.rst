@@ -50,6 +50,7 @@ After following Option 1 or 2 in https://developers.google.com/earth-engine/pyth
 open a new notebook and write:
 
 ::
+
     import sys
     !{sys.executable} -m pip install geebap
 
