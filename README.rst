@@ -30,18 +30,11 @@ Python API: https://developers.google.com/earth-engine/python_install
 
 Once you have that, proceed 
 
-download the latest release from https://github.com/fitoprincipe/geebap/releases
-
 ::
 
-  pip install geebap-(ver)-py2-none-any.whl
+  pip install geebap
 
-replace (ver) for the version you have downloaded. Example:
-
-::
-
-  pip install geebap-0.0.2-py2-none-any.whl
-
+this will install also `geetools` that you could use besides `geebap`
 
 Installation in DataLab (NEW!)
 ------------------------------
