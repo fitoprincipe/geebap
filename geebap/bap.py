@@ -85,13 +85,8 @@ class Bap(object):
         :param only_sr: use only SR collections
         :type only_sr: bool
         """
-        check_type("colgroup", colgroup, satcol.ColGroup)
-        # check_type("scores", scores, tuple)
-        # check_type("masks", masks, tuple)
-        # check_type("filters", filters, tuple)
+
         check_type("year", year, int)
-        # check_type("range", range, tuple)
-        # check_type("bbox", bbox, int)
         check_type("season", season, temp.Season)
 
         if year < MIN_YEAR or year > MAX_YEAR:
