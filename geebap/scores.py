@@ -606,7 +606,7 @@ class Outliers(Score):
 
         # self.col = col.select(self.bands)
         self.process = process
-        self.distribution = kwargs.get("distribution", "discreta")
+        # self.distribution = kwargs.get("distribution", "discreta")
         # TODO: distribution
         self.dist = dist
         '''
@@ -659,7 +659,7 @@ class Outliers(Score):
         rango_fin = self.range_out
         incremento = self.increment
         col = colEE.select(bandas)
-        proceso = self.process
+        process = self.process
 
         # MASK PIXELS = 0 OUT OF EACH IMAGE OF THE COLLECTION
         def masktemp(img):
@@ -667,7 +667,7 @@ class Outliers(Score):
             return img.updateMask(m)
         coltemp = col.map(masktemp)
 
-        if proceso == "mean":
+        if process == "mean":
             media = ee.Image(coltemp.mean())
             std = ee.Image(col.reduce(ee.Reducer.stdDev()))
             stdXdesvio = std.multiply(self.dist)
@@ -675,7 +675,7 @@ class Outliers(Score):
             mmin = media.subtract(stdXdesvio)
             mmax = media.add(stdXdesvio)
 
-        elif proceso == "median":
+        elif process == "median":
             # mediana = ee.Image(col.median())
             min = ee.Image(coltemp.reduce(ee.Reducer.percentile([50-self.dist])))
             max = ee.Image(coltemp.reduce(ee.Reducer.percentile([50+self.dist])))
