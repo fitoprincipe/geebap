@@ -100,6 +100,12 @@ Some considerations
 Basic Usage
 -----------
 
+If you are using the DataLab (Jupyter), you can download a notebook from
+https://github.com/fitoprincipe/geebap/blob/master/Best_Available_Pixel_Composite.ipynb
+
+else, if you are using the minimal installation, create an empty script and
+paste the following code:
+
 .. code:: python
 
     from geebap import bap, season, filters, masks, \
