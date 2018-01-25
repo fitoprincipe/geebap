@@ -49,6 +49,7 @@ def info(col):
     print(col.ID)
     pp.pprint(col.kws)
 
+
 class Collection(object):
 
     _OPTIONS = ("LANDSAT/LM1_L1T", # 0
@@ -628,10 +629,17 @@ class ColGroup(object):
     :param IDS: list of IDs
     :type IDS: list
     """
+
     def __init__(self, collections=None, scale=None, **kwargs):
         """ Grouped collections """
         self.scale = scale
         self.collections = collections
+
+    @staticmethod
+    def options():
+        import pprint
+        pp = pprint.PrettyPrinter()
+        pp.pprint(GROUPS)
 
     @property
     def ids(self):
@@ -784,3 +792,13 @@ class ColGroup(object):
 
         col = landsat+sen+mod
         return cls(collections=col, scale=10)
+
+
+GROUPS = {'Landsat': [col.ID for col in ColGroup.Landsat().collections],
+          'MSS': [col.ID for col in ColGroup.MSS().collections],
+          'Landsat_Sentinel': [col.ID for col in ColGroup.Landsat_Sentinel().collections],
+          'TOA': [col.ID for col in ColGroup.TOA().collections],
+          'SR': [col.ID for col in ColGroup.SR().collections],
+          'Sentinel2': [col.ID for col in ColGroup.Sentinel2().collections],
+          'Modis': [col.ID for col in ColGroup.Modis().collections],
+          'All': [col.ID for col in ColGroup.All().collections]}
