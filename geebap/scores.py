@@ -788,3 +788,72 @@ class MultiYear(Score):
             # return funciones.pass_date(img, img.addBands(imgpje))
             return ajuste(img.addBands(imgpje).updateMask(ceros))
         return wrap
+
+@register(factory)
+@register_all(__all__)
+class Threshold(Score):
+    def __init__(self, band=None, threshold=None, name='score-thres',
+                 **kwargs):
+        super(Threshold, self).__init__(**kwargs)
+
+        self.band = band
+        self.threshold = threshold
+        self.name = name
+
+    def map(self, **kwargs):
+        min = self.threshold[0]
+        max = self.threshold[1]
+
+        # TODO: handle percentage values like ('10%', '20%')
+
+        if isinstance(min, int) or isinstance(min, float):
+            min = ee.Number(int(min))
+        elif isinstance(min, str):
+            conversion = int(min)
+            min = ee.Number(conversion)
+
+        if isinstance(max, int) or isinstance(max, float):
+            max = ee.Number(int(max))
+        elif isinstance(max, str):
+            conversion = int(max)
+            max = ee.Number(conversion)
+
+        def wrap_minmax(img):
+            selected_band = img.select(self.band)
+            upper = selected_band.gte(max)
+            lower = selected_band.lte(min)
+            
+            score = selected_band.where(upper, 0)
+            score = score.where(lower, 0)
+            score = score.where(score.neq(0), 1)
+
+            score = score.select([0], [self.name])
+            
+            return img.addBands(score)           
+
+        def wrap_min(img):
+            selected_band = img.select(self.band)            
+            lower = selected_band.lte(min)
+
+            score = selected_band.where(lower, 0)
+            score = score.select([0], [self.name])
+
+            return img.addBands(score)
+
+        def wrap_max(img):
+            selected_band = img.select(self.band)
+            upper = selected_band.gte(min)
+
+            score = selected_band.where(upper, 0)
+            score = score.select([0], [self.name])
+
+            return img.addBands(score)
+
+        # MULTIPLE DISPATCH?
+
+        if min and max:
+            return wrap_minmax
+        elif not min:
+            return wrap_max
+        else:
+            return wrap_min

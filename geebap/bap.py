@@ -560,6 +560,9 @@ class Bap(object):
 
             # ALTERNATIVA PARA OBTENER LA LISTA DE BANDAS
             first = ee.Image(imgCol.first())
+
+            # 'in best pixel 1', first.select('date').getInfo()['bands'])
+
             listbands = first.bandNames()
             # nbands = tools.execli(listbands.size().getInfo)()
             nbands = tools.execli(listbands.size().getInfo)()
@@ -595,6 +598,8 @@ class Bap(object):
                 return ee.Image(maxx)
 
             img = ee.Image(imgCol.iterate(final, img0))
+
+            # print 'in best pixel 2', img.select('date').getInfo()['bands']
 
             # SETEO LAS PROPIEDADES
             dateprop = {"system:time_start": self.date_to_set}
