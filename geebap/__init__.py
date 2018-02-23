@@ -12,12 +12,12 @@ __all__ = (
 
 __title__ = "BestAvailablePixel"
 __summary__ = "Generate a 'Best Available Pixel' image in Google Earth Engine"
-__uri__ = ""
+__uri__ = "https://github.com/fitoprincipe/geebap"
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __author__ = "Rodrigo E. Principe"
 __email__ = "rprincipe@ciefap.org.ar"
 
 __license__ = "GNU GENERAL PUBLIC LICENSE, Version 3"
-__copyright__ = ""
+__copyright__ = "Rodrigo E. Principe"
