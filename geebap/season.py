@@ -10,23 +10,23 @@ from datetime import date
 from collections import OrderedDict
 from geetools import filters
 
-col_opt = satcol.Collection._OPTIONS
+col_opt = satcol.IDS
 
 # IDS
-ID1 = col_opt[0]
-ID2 = col_opt[1]
-ID3 = col_opt[2]
-ID4TOA = col_opt[3]
-ID4SR = col_opt[4]
-ID5TOA = col_opt[5]
-ID5SR = col_opt[6]
-ID5LED = col_opt[7]
-ID7TOA = col_opt[8]
-ID7SR = col_opt[9]
-ID7LED = col_opt[10]
-ID8TOA = col_opt[11]
-ID8SR = col_opt[12]
-S2 = col_opt[13]
+ID1 = col_opt['L1']
+ID2 = col_opt['L2']
+ID3 = col_opt['L3']
+ID4TOA = col_opt['L4TOA']
+ID4SR = col_opt['L4USGS']
+ID5TOA = col_opt['L5TOA']
+ID5SR = col_opt['L5USGS']
+ID5LED = col_opt['L5LED']
+ID7TOA = col_opt['L7TOA']
+ID7SR = col_opt['L7USGS']
+ID7LED = col_opt['L7LED']
+ID8TOA = col_opt['L8TOA']
+ID8SR = col_opt['L8USGS']
+S2 = col_opt['S2']
 
 
 class Season(object):
