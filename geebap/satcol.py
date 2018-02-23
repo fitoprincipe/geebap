@@ -22,19 +22,36 @@ ACTUAL_YEAR = date.today().year
 IDS = {'L1': 'LANDSAT/LM1_L1T',
        'L2': 'LANDSAT/LM2_L1T',
        'L3': 'LANDSAT/LM3_L1T',
-       'L4TOA': 'LANDSAT/LT4_L1T_TOA_FMASK',
+       'L4TOA': 'LANDSAT/LT04/C01/T1_TOA',
        'L4USGS': 'LANDSAT/LT04/C01/T1_SR',
-       'L5TOA': 'LANDSAT/LT5_L1T_TOA_FMASK',
+       'L5TOA': 'LANDSAT/LT05/C01/T1_TOA',
        'L5USGS': 'LANDSAT/LT05/C01/T1_SR',
        'L5LED': 'LEDAPS/LT5_L1T_SR',
-       'L7TOA': 'LANDSAT/LE7_L1T_TOA_FMASK',
+       'L7TOA': 'LANDSAT/LE07/C01/T1_TOA',
        'L7USGS': 'LANDSAT/LE07/C01/T1_SR',
        'L7LED': 'LEDAPS/LE7_L1T_SR',
-       'L8TOA': 'LANDSAT/LC8_L1T_TOA_FMASK',
+       'L8TOA': 'LANDSAT/LC08/C01/T1_TOA',
        'L8USGS':'LANDSAT/LC08/C01/T1_SR',
        'S2':'COPERNICUS/S2',
        'MODT':'MODIS/006/MOD09GA',
-       'MODA': 'MODIS/006/MYD09GA'}
+       'MODAQ': 'MODIS/006/MYD09GA'}
+
+SAT_CODES = {'L1': 1,
+             'L2': 2,
+             'L3': 3,
+             'L4TOA': 4,
+             'L4USGS': 5,
+             'L5TOA': 6,
+             'L5USGS': 7,
+             'L5LED': 8,
+             'L7TOA': 9,
+             'L7USGS': 10,
+             'L7LED': 11,
+             'L8TOA': 12,
+             'L8USGS': 13,
+             'S2': 14,
+             'MODT': 15,
+             'MODAQ': 16}
 
 def info(col):
     """ Pritty prints information about the given collection
@@ -52,25 +69,7 @@ def info(col):
 
 class Collection(object):
 
-    _OPTIONS = ("LANDSAT/LM1_L1T", # 0
-                "LANDSAT/LM2_L1T", # 1
-                "LANDSAT/LM3_L1T", # 2
-                "LANDSAT/LT4_L1T_TOA_FMASK", # 3
-                "LANDSAT/LT04/C01/T1_SR", # 4
-                "LANDSAT/LT5_L1T_TOA_FMASK", # 5
-                "LANDSAT/LT05/C01/T1_SR", # 6
-                "LEDAPS/LT5_L1T_SR", # 7
-                "LANDSAT/LE7_L1T_TOA_FMASK", # 8
-                "LANDSAT/LE07/C01/T1_SR", # 9
-                "LEDAPS/LE7_L1T_SR", # 10
-                "LANDSAT/LC8_L1T_TOA_FMASK", # 11
-                "LANDSAT/LC08/C01/T1_SR", # 12
-                "COPERNICUS/S2", # 13
-                "MODIS/006/MOD09GA", # 14
-                "MODIS/006/MYD09GA") # 15
-
-
-    VERROR = ValueError("Collection ID must be one of: {}".format(_OPTIONS))
+    VERROR = ValueError("Collection ID must be one of: {}".format(IDS.values()))
 
     def __init__(self, **kwargs):
 
@@ -190,23 +189,23 @@ class Collection(object):
                 "The collection already has ID '{}'".format(self.__ID) + \
                 " and cannot be modified")
 
-        elif id in Collection._OPTIONS:
+        elif id in IDS.values():
             self.__ID = id
 
         else:
             # raise Collection.VERROR
             raise ValueError(
                 "ID must be one of: {}".format(
-                    Collection._OPTIONS))
+                    IDS.values()))
 
     @property
     def bands(self):
         """
-        :return: Nombre de las bands en una lista local
+        :return: Band names of images in the collection
         :rtype: list
         """
         if initialized:
-            return self.colEE.bandNames().getInfo()
+            return ee.Image(self.colEE.first()).bandNames().getInfo()
         else:
             return None
 
@@ -219,10 +218,11 @@ class Collection(object):
         """
         try:
             # le suma 1 para que el primero sea 1 y no 0
-            return Collection._OPTIONS.index(self.ID) + 1
+            # return Collection._OPTIONS.index(self.ID) + 1
+            return SAT_CODES[self.short]
         except:
             raise ValueError(
-                "{} is not in {}".format(self.ID, Collection._OPTIONS))
+                "{} is not in {}".format(self.ID, IDS.values()))
 
     @property
     def colEE(self):
@@ -327,27 +327,27 @@ class Collection(object):
     def from_id(id):
         """ Create a Collection object giving an ID
 
-        :param id: Same as Google Earth Engine. Options in Collection._OPTIONS
+        :param id: Same as Google Earth Engine. Options in IDS.values()
         :type id: str
         :return: the object
         :rtype: Collection
         """
-        rel = {Collection._OPTIONS[0]: Collection.Landsat1,
-               Collection._OPTIONS[1]: Collection.Landsat2,
-               Collection._OPTIONS[2]: Collection.Landsat3,
-               Collection._OPTIONS[3]: Collection.Landsat4TOA,
-               Collection._OPTIONS[4]: Collection.Landsat4USGS,
-               Collection._OPTIONS[5]: Collection.Landsat5TOA,
-               Collection._OPTIONS[6]: Collection.Landsat5USGS,
-               Collection._OPTIONS[7]: Collection.Landsat5LEDAPS,
-               Collection._OPTIONS[8]: Collection.Landsat7TOA,
-               Collection._OPTIONS[9]: Collection.Landsat7USGS,
-               Collection._OPTIONS[10]: Collection.Landsat7LEDAPS,
-               Collection._OPTIONS[11]: Collection.Landsat8TOA,
-               Collection._OPTIONS[12]: Collection.Landsat8USGS,
-               Collection._OPTIONS[13]: Collection.Sentinel2,
-               Collection._OPTIONS[14]: Collection.ModisTerra,
-               Collection._OPTIONS[15]: Collection.ModisAqua
+        rel = {IDS['L1']: Collection.Landsat1,
+               IDS['L2']: Collection.Landsat2,
+               IDS['L3']: Collection.Landsat3,
+               IDS['L4TOA']: Collection.Landsat4TOA,
+               IDS['L4USGS']: Collection.Landsat4USGS,
+               IDS['L5TOA']: Collection.Landsat5TOA,
+               IDS['L5USGS']: Collection.Landsat5USGS,
+               IDS['L5LED']: Collection.Landsat5LEDAPS,
+               IDS['L7TOA']: Collection.Landsat7TOA,
+               IDS['L7USGS']: Collection.Landsat7USGS,
+               IDS['L7LED']: Collection.Landsat7LEDAPS,
+               IDS['L8TOA']: Collection.Landsat8TOA,
+               IDS['L8USGS']: Collection.Landsat8USGS,
+               IDS['S2']: Collection.Sentinel2,
+               IDS['MODT']: Collection.ModisTerra,
+               IDS['MODAQ']: Collection.ModisAqua
                }
 
         try:
@@ -366,7 +366,7 @@ class Collection(object):
                   family="Landsat", ini=1972, end=1978, bandID=1,
                   short="L1")
 
-        obj.ID = "LANDSAT/LM1_L1T"
+        obj.ID = IDS[obj.short]  # "LANDSAT/LM1_L1T"
         return obj
 
     @classmethod
@@ -379,7 +379,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LM2_L1T"
+        # obj.ID = IDS['L2']  # "LANDSAT/LM2_L1T"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -394,7 +395,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LM3_L1T"
+        # obj.ID = "LANDSAT/LM3_L1T"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -409,8 +411,9 @@ class Collection(object):
                   short="L4TOA")
 
         obj.clouds_band = "fmask"
-        obj.fclouds = cld.fmask(obj.clouds_band),
-        obj.ID = "LANDSAT/LT4_L1T_TOA_FMASK"
+        obj.fclouds = cld.landsatTOA,
+        # obj.ID = "LANDSAT/LT4_L1T_TOA_FMASK"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -426,7 +429,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LT04/C01/T1_SR"
+        # obj.ID = "LANDSAT/LT04/C01/T1_SR"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -439,7 +443,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LT5_L1T_TOA_FMASK"
+        # obj.ID = "LANDSAT/LT5_L1T_TOA_FMASK"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -456,7 +461,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LT05/C01/T1_SR"
+        # obj.ID = "LANDSAT/LT05/C01/T1_SR"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -473,7 +479,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIOS
-        obj.ID = "LEDAPS/LT5_L1T_SR"
+        # obj.ID = "LEDAPS/LT5_L1T_SR"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -487,7 +494,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LE7_L1T_TOA_FMASK"
+        # obj.ID = "LANDSAT/LE7_L1T_TOA_FMASK"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -504,7 +512,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LANDSAT/LE07/C01/T1_SR"
+        # obj.ID = "LANDSAT/LE07/C01/T1_SR"
+        obj.ID = IDS[obj.short]
 
         return obj
 
@@ -520,7 +529,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "LEDAPS/LE7_L1T_SR"
+        # obj.ID = "LEDAPS/LE7_L1T_SR"
+        obj.ID = IDS[obj.short]
 
         return obj
 
@@ -544,7 +554,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIOS
-        obj.ID = "LANDSAT/LC8_L1T_TOA_FMASK"
+        # obj.ID = "LANDSAT/LC8_L1T_TOA_FMASK"
+        obj.ID = IDS[obj.short]
 
         return obj
 
@@ -563,7 +574,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIOS
-        obj.ID = "LANDSAT/LC08/C01/T1_SR"
+        # obj.ID = "LANDSAT/LC08/C01/T1_SR"
+        obj.ID = IDS[obj.short]
 
         return obj
 
@@ -581,7 +593,8 @@ class Collection(object):
                   bandmask="B2", family="Sentinel", ini=2015, short="S2",
                   col_id=13)
 
-        obj.ID = "COPERNICUS/S2"
+        # obj.ID = "COPERNICUS/S2"
+        obj.ID = IDS[obj.short]
 
         return obj
 
@@ -600,7 +613,8 @@ class Collection(object):
                   family="Modis", ini=1999, col_id=14, short="MODT",
                   to_scale=escalables, fclouds=cld.modis,)
 
-        obj.ID = "MODIS/006/MOD09GA"
+        # obj.ID = "MODIS/006/MOD09GA"
+        obj.ID = IDS[obj.short]
         return obj
 
     @classmethod
@@ -612,7 +626,8 @@ class Collection(object):
         obj = cls(**copy.kws)
 
         # CAMBIO
-        obj.ID = "MODIS/006/MYD09GA"
+        # obj.ID = "MODIS/006/MYD09GA"
+        obj.ID = IDS[obj.short]
 
         return obj
 
