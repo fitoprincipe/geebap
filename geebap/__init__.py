@@ -14,7 +14,7 @@ __title__ = "BestAvailablePixel"
 __summary__ = "Generate a 'Best Available Pixel' image in Google Earth Engine"
 __uri__ = "https://github.com/fitoprincipe/geebap"
 
-__version__ = "0.1.2"
+__version__ = "0.1.2.0"
 
 __author__ = "Rodrigo E. Principe"
 __email__ = "rprincipe@ciefap.org.ar"

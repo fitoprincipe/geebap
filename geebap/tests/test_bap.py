@@ -4,12 +4,15 @@ import unittest
 import ee
 from .. import satcol, scores, bap, season, masks, filters, functions
 from geetools import tools
+from .. import __version__
 
 ee.Initialize()
 
 class TestBAP(unittest.TestCase):
 
     def setUp(self):
+
+        print('Testing Best Available Pixel Composite version {}'.format(__version__))
         # FILTERS
         self.filtro = filters.CloudsPercent()
 
