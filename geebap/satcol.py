@@ -273,7 +273,6 @@ class Collection(object):
         :rtype: function
         """
         # drop = drop
-
         # Redefine self.bandsrel
         # self.bandsrel = {v: k for k, v in self.bandsrel.iteritems() if v is not None}
 
@@ -410,8 +409,8 @@ class Collection(object):
                   ini=1982, end=1993, bandID=4,
                   short="L4TOA")
 
-        obj.clouds_band = "fmask"
-        obj.fclouds = cld.landsatTOA,
+        obj.clouds_band = "BQA"
+        obj.fclouds = cld.landsatTOA(),
         # obj.ID = "LANDSAT/LT4_L1T_TOA_FMASK"
         obj.ID = IDS[obj.short]
         return obj
@@ -425,7 +424,7 @@ class Collection(object):
         copy.kws["fclouds"] = cld.cfmask_bits
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT4_L1T_TOA_FMASK"
-        copy.kws["clouds_band"] = "cfmask"
+        copy.kws["clouds_band"] = "pixel_qa"
         obj = cls(**copy.kws)
 
         # CAMBIO
@@ -455,7 +454,7 @@ class Collection(object):
         copy.kws["fclouds"] = cld.cfmask_bits
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT5_L1T_TOA_FMASK"
-        copy.kws["clouds_band"] = "cfmask"
+        copy.kws["clouds_band"] = "pixel_qa"
         copy.kws["col_id"] = 6
         copy.kws["short"] = "L5USGS"
         obj = cls(**copy.kws)
@@ -506,7 +505,7 @@ class Collection(object):
         copy.kws["max"] = 10000
         copy.kws["fclouds"] = cld.cfmask_bits
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
-        copy.kws["clouds_band"] = "cfmask"
+        copy.kws["clouds_band"] = "pixel_qa"
         copy.kws["col_id"] = 9
         copy.kws["short"] = "L7USGS"
         obj = cls(**copy.kws)
@@ -571,6 +570,7 @@ class Collection(object):
         copy.kws["bandscale"] = copy.bandscale
         copy.kws["col_id"] = 12
         copy.kws["short"] = "L8USGS"
+        copy.kws["clouds_band"] = "pixel_qa"
         obj = cls(**copy.kws)
 
         # CAMBIOS
