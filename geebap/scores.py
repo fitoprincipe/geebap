@@ -136,9 +136,9 @@ class CloudDist(Score):
                }
 
     def __init__(self, dmax=600, dmin=0, unit="meters", name="score-cld-dist",
-                 **kwargs):
+                 kernel='euclidean', **kwargs):
         super(CloudDist, self).__init__(**kwargs)
-        self.kernel = kwargs.get("kernel", "euclidean")
+        self.kernel = kernel  # kwargs.get("kernel", "euclidean")
         self.unit = unit
         self.dmax = dmax
         self.dmin = dmin
@@ -158,6 +158,48 @@ class CloudDist(Score):
     def kernelEE(self):
         fkernel = CloudDist.kernels[self.kernel]
         return fkernel(radius=self.dmax, units=self.unit)
+
+    def generate_score(self, image, bandmask):
+        # ceros = image.select([0]).eq(0).Not()
+
+        cloud_mask = image.mask().select(bandmask)
+
+        # COMPUTO LA DISTANCIA A LA MASCARA DE NUBES (A LA INVERSA)
+        distancia = cloud_mask.Not().distance(self.kernelEE())
+
+        # BORRA LOS DATOS > d_max (ESTO ES PORQUE EL KERNEL TOMA LA DIST
+        # DIAGONAL TAMB)
+        clip_max_masc = distancia.lte(self.dmaxEE)
+        distancia = distancia.updateMask(clip_max_masc)
+
+        # BORRA LOS DATOS = 0
+        distancia = distancia.updateMask(cloud_mask)
+
+        # AGREGO A LA IMG LA BANDA DE DISTANCIAS
+        # img = img.addBands(distancia.select([0],["dist"]).toFloat())
+
+        # COMPUTO EL PUNTAJE (WHITE)
+
+        c = self.dmaxEE.subtract(self.dminEE).divide(ee.Image(2))
+        b = distancia.min(self.dmaxEE)
+        a = b.subtract(c).multiply(ee.Image(-0.2)).exp()
+        e = ee.Image(1).add(a)
+
+        pjeDist = ee.Image(1).divide(e)
+
+        # TOMA LA MASCARA INVERSA PARA SUMARLA DESP
+        masc_inv = pjeDist.mask().Not()
+
+        # TRANSFORMA TODOS LOS VALORES ENMASCARADOS EN 0
+        pjeDist = pjeDist.mask().where(1, pjeDist)
+
+        # SUMO LA MASC INVERSA A LA IMG DE DISTANCIAS
+        pjeDist = pjeDist.add(masc_inv)
+
+        # VUELVO A ENMASCARAR LAS NUBES
+        pjeDist = pjeDist.updateMask(cloud_mask)
+
+        return pjeDist
 
     def map(self, col, **kwargs):
         """ Mapping function
@@ -226,7 +268,10 @@ class CloudDist(Score):
             # DE ESTA FORMA OBTENGO VALORES = 1 SOLO DONDE LA DIST ES > 50
             # DONDE LA DIST = 0 ESTA ENMASCARADO
 
-            return ajuste(img.addBands(pjeDist.select([0], [nombre]).toFloat()).updateMask(ceros))
+            newimg = img.addBands(pjeDist.select([0], [nombre]).toFloat())
+            newimg_masked = newimg.updateMask(ceros)
+
+            return ajuste(newimg_masked)
         return wrap
 
     def mask_kernel(self, img):
@@ -446,13 +491,16 @@ class MaskPercent(Score):
     :type band: str
     :param maxPixels: same param of ee.Reducer
     :type maxPixels: int
+    :param include_zero: include pixels with zero value as mask
+    :type include_zero: bool
     """
     def __init__(self, band=None, name="score-maskper", maxPixels=1e13,
-                 **kwargs):
+                 include_zero=True, **kwargs):
         super(MaskPercent, self).__init__(**kwargs)
         self.band = band
         self.maxPixels = maxPixels
         self.name = name
+        self.include_zero = include_zero  # TODO
         self.sleep = kwargs.get("sleep", 30)
 
     # TODO: ver param geom, cambiar por el área de la imagen
