@@ -391,6 +391,7 @@ class Bap(object):
                         sleep = p.sleep
                         for t in range(sleep):
                             sys.stdout.write(str(t+1)+".")
+                            if (t+1) == sleep: sys.stdout.write('\n')
                             time.sleep(1)
                         c = c.map(p.map(col=col, year=anio, colEE=c, geom=site))
 
