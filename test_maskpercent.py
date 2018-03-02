@@ -1,4 +1,4 @@
-from geebap.tests import test_outliers
+from geebap.tests import test_maskpercent
 import unittest
 
-unittest.main(test_outliers)
+unittest.main(test_maskpercent)

@@ -37,7 +37,7 @@ class TestMaskPercent(unittest.TestCase):
         newimg = score.map(self.col, self.pol)(self.image)
 
         maskpercent_prop = newimg.get(score.name).getInfo()
-        maskpercent_pix = tools.get_value(newimg, self.p, 'client')[score.name]
+        maskpercent_pix = tools.get_value(newimg, self.p, side='client')[score.name]
 
         self.assertEqual(maskpercent_prop, 0,5625)
         self.assertEqual(maskpercent_pix, 0,5625)
