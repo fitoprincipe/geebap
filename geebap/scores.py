@@ -543,6 +543,9 @@ class MaskPercent(Score):
                 numpor = ee.Number(imagen).divide(total)
                 # por = ee.Number(1).subtract(numpor)
 
+                # Set 'maskpercent' property
+                img = img.set('maskpercent', numpor)
+
                 # CALCULO EL PORCENTAJE DE PIXELES ENMASCARADOS (imagen / total)
                 imgpor = ee.Image(ee.Image.constant(imagen)).divide(ee.Image.constant(total))
                 # imgpor = ee.Image.constant(1).subtract(imgpor)
@@ -842,6 +845,12 @@ class MultiYear(Score):
 class Threshold(Score):
     def __init__(self, band=None, threshold=None, name='score-thres',
                  **kwargs):
+        """
+
+        :param band:
+        :param threshold:
+        :type threshold: tuple or list
+        """
         super(Threshold, self).__init__(**kwargs)
 
         self.band = band
@@ -854,17 +863,15 @@ class Threshold(Score):
 
         # TODO: handle percentage values like ('10%', '20%')
 
-        if isinstance(min, int) or isinstance(min, float):
-            min = ee.Number(int(min))
-        elif isinstance(min, str):
-            conversion = int(min)
-            min = ee.Number(conversion)
+        def create_number(value):
+            if isinstance(value, int) or isinstance(value, float):
+                return ee.Number(int(value))
+            elif isinstance(value, str):
+                conversion = int(value)
+                return ee.Number(conversion)
 
-        if isinstance(max, int) or isinstance(max, float):
-            max = ee.Number(int(max))
-        elif isinstance(max, str):
-            conversion = int(max)
-            max = ee.Number(conversion)
+        min = create_number(min)
+        max = create_number(max)
 
         def wrap_minmax(img):
             selected_band = img.select(self.band)
@@ -877,7 +884,7 @@ class Threshold(Score):
 
             score = score.select([0], [self.name])
             
-            return img.addBands(score)           
+            return img.addBands(score)
 
         def wrap_min(img):
             selected_band = img.select(self.band)            
@@ -905,3 +912,83 @@ class Threshold(Score):
             return wrap_max
         else:
             return wrap_min
+
+class Threshold_test(Score):
+    def __init__(self, bands=None, name='score-thres',
+                 **kwargs):
+        """
+
+        :param bands: Dict of dicts as follows
+
+            {'band_name':{'min':value, 'max':value}, 'band_name2'...}
+
+            :values: must be numbers
+
+        :type bands: dict
+        :param threshold:
+        :type threshold: tuple or list
+        """
+        super(Threshold_test, self).__init__(**kwargs)
+
+        # As each band must have a 'min' and 'max' if it is not specified,
+        # it is completed with None. This way, it can be catched by ee.Algorithms.If
+        for key, val in bands.iteritems():
+            val.setdefault('min', None)
+            val.setdefault('max', None)
+
+        self.bands_relation = bands
+        self.name = name
+
+        self.bands = self.bands_relation.keys()
+
+        # bands and band's relation in GEE objects
+        self.bands_ee = ee.List(self.bands)
+        self.relation_ee = ee.Dictionary(self.bands_relation)
+        self.length = ee.Number(self.bands_ee.size())
+        self.step = ee.Number(1).divide(self.length)
+
+    def compute(self, **kwargs):
+        # TODO: handle percentage values like ('10%', '20%')
+        score = tools.empty_image(1, self.bands)
+        def wrap(img):
+            def compute_score(band, first):
+                score_complete = ee.Image(first)
+                score_img = score_complete.select([band])
+                img_band = img.select([band])
+                min = ee.Dictionary(self.relation_ee.get(band)).get('min')  # could be None
+                max = ee.Dictionary(self.relation_ee.get(band)).get('max')  # could be None
+
+                # use If because min or max can be None
+
+                # if min exists: 1 if greater than min thres, 0 if not
+                # if min doesn't exists: 1
+                score_min = ee.Image(
+                    ee.Algorithms.If(min,
+                                     img_band.gte(ee.Image.constant(min)),
+                                     score_img))
+
+                # same as min
+                score_max = ee.Image(
+                    ee.Algorithms.If(max,
+                                     img_band.lte(ee.Image.constant(max)),
+                                     score_img))
+
+                final_score = score_min.And(score_max)  # Image with one band
+
+                #
+                return tools.replace(score_complete, band, final_score)
+
+            scores = ee.Image(self.bands_ee.iterate(compute_score, score))
+            # parametrized = scores.multiply(self.step)
+            final_score = tools.sumBands(name=self.name)(scores) \
+                .divide(ee.Image.constant(self.length))
+
+            return final_score
+        return wrap
+
+    def map(self, **kwargs):
+        def wrap(img):
+            score = self.compute(**kwargs)(img)
+            return img.addBands(score)
+
+        return wrap
