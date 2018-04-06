@@ -44,7 +44,7 @@ class TestBAP(unittest.TestCase):
     def test_bap2016_0(self):
         pmulti = scores.MultiYear(2016, self.temporada)
         objbap = bap.Bap(year=2016,
-                         colgroup=self.coleccion,
+                         # colgroup=self.coleccion,
                          season=self.temporada,
                          scores=(self.pindice, self.pmascpor, self.psat,
                                  self.pout, self.pop, self.pdoy, pmulti),
@@ -71,6 +71,7 @@ class TestBAP(unittest.TestCase):
         print(value)
 
         self.assertIsInstance(value, dict)
-        # self.assertEqual(value["BLUE"], 0.008500000461935997)
-        # self.assertEqual(value["col_id"], 12.0)
-        # self.assertEqual(value["ndvi"], 0.872759222984314)
+
+        visual = img.visualize(bands=['NIR','SWIR','RED'], min=0, max=0.5)
+        url = visual.getThumbUrl({'region':tools.getRegion(img)})
+        print('Result:', url)

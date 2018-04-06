@@ -77,7 +77,7 @@ class Collection(object):
         self.__ID = None
 
         # bandid para crear una band que identifique a la col
-        self.col_id = kwargs.get("col_id", None)
+        # self.col_id = kwargs.get("col_id", None)
 
         # IDENTIFICADOR DEL PROCESO
         self.process = kwargs.get("process", None)
@@ -97,6 +97,9 @@ class Collection(object):
         # NOMBRE ABREVIADO PARA AGREGAR A LAS PROPIEDADES DE LAS IMGS
         self.short = kwargs.get("short", None)
 
+        # Collection id
+        self.col_id = SAT_CODES[self.short]
+
         # BANDAS IMPORTANTES
         self.NIR = kwargs.get("NIR", None)
         self.SWIR = kwargs.get("SWIR", None)
@@ -109,6 +112,9 @@ class Collection(object):
         # UMBRALES
         self.cloud_th = kwargs.get("cloud_th", None)
         self.shadow_th = kwargs.get("shadow_th", None)
+
+        # THRESHOLD
+        self.threshold = kwargs.get('threshold', None)
 
         # BANDAS ESCALABLES
         self.to_scale = kwargs.get("to_scale", None)
@@ -228,7 +234,18 @@ class Collection(object):
     def colEE(self):
         """ Original Earth Engine Collection """
         if initialized:
-            return ee.ImageCollection(self.ID)
+            ''' TODO
+            if not self.renamed:
+                self.proxyColEE = ee.ImageCollection(self.ID).map(self.rename())
+                return self.proxyColEE
+            else:
+                return self.proxyColEE
+            '''
+            try:
+                return self.colEE_proxy
+            except:
+                self.colEE_proxy = ee.ImageCollection(self.ID)
+                return self.colEE_proxy
         else:
             return None
 
@@ -362,7 +379,7 @@ class Collection(object):
         obj = cls(GREEN="B4", RED="B5", NIR="B6", SWIR="B7", process="RAW",
                   to_scale=escalables, clouds_fld="CLOUD_COVER",
                   max=255, scale=80, bandscale=bandscale, bandmask="B4",
-                  family="Landsat", ini=1972, end=1978, bandID=1,
+                  family="Landsat", ini=1972, end=1978, #bandID=1,
                   short="L1")
 
         obj.ID = IDS[obj.short]  # "LANDSAT/LM1_L1T"
@@ -373,7 +390,7 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat1())  # L1
         copy.kws["ini"] = 1975
         copy.kws["end"] = 1983
-        copy.kws["col_id"] = 2
+        # copy.kws["col_id"] = 2
         copy.kws["short"] = "L2"
         obj = cls(**copy.kws)
 
@@ -389,7 +406,7 @@ class Collection(object):
         copy.kws["scale"] = 40
         copy.kws["ini"] = 1978
         copy.kws["end"] = 1983
-        copy.kws["col_id"] = 3
+        # copy.kws["col_id"] = 3
         copy.kws["short"] = "L3"
         obj = cls(**copy.kws)
 
@@ -406,22 +423,28 @@ class Collection(object):
                   SWIR2="B7", to_scale=escalables, clouds_fld="CLOUD_COVER",
                   process="TOA", max=1, scale=30,
                   bandscale=bandscale, bandmask="B1", family="Landsat",
-                  ini=1982, end=1993, bandID=4,
+                  ini=1982, end=1993, # bandID=4,
                   short="L4TOA")
 
         obj.clouds_band = "BQA"
-        obj.fclouds = cld.landsatTOA(),
+        obj.fclouds = cld.landsatTOA()
         # obj.ID = "LANDSAT/LT4_L1T_TOA_FMASK"
         obj.ID = IDS[obj.short]
+        obj.threshold = {'NIR': {'min':0.07, 'max':0.45},
+                         'RED':{'min':0.005, 'max':0.2},
+                         'SWIR':{'min':0.04, 'max':0.35},
+                         'SWIR2':{'min':0.015, 'max':0.28},
+                         'BLUE':{'min':0, 'max':0.1},
+                         'GREEN':{'min':0.01, 'max':0.15}}
         return obj
 
     @classmethod
     def Landsat4USGS(cls):
         copy = deepcopy(Collection.Landsat4TOA())
-        copy.kws["col_id"] = 16
+        # copy.kws["col_id"] = 16
         copy.kws["short"] = "L4USGS"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = cld.cfmask_bits
+        copy.kws["fclouds"] = cld.landsatSR()
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT4_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "pixel_qa"
@@ -430,6 +453,12 @@ class Collection(object):
         # CAMBIO
         # obj.ID = "LANDSAT/LT04/C01/T1_SR"
         obj.ID = IDS[obj.short]
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
         return obj
 
     @classmethod
@@ -437,9 +466,15 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat4TOA())
         copy.kws["ini"] = 1984
         copy.kws["end"] = 2013
-        copy.kws["col_id"] = 5
+        # copy.kws["col_id"] = 5
         copy.kws["short"] = "L5TOA"
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':0.07, 'max':0.45},
+                         'RED':{'min':0.005, 'max':0.2},
+                         'SWIR':{'min':0.04, 'max':0.35},
+                         'SWIR2':{'min':0.015, 'max':0.28},
+                         'BLUE':{'min':0, 'max':0.1},
+                         'GREEN':{'min':0.01, 'max':0.15}}
 
         # CAMBIO
         # obj.ID = "LANDSAT/LT5_L1T_TOA_FMASK"
@@ -451,13 +486,19 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat5TOA())  # L5 TOA
         copy.kws["process"] = "SR"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = cld.cfmask_bits
+        copy.kws["fclouds"] = cld.landsatSR()
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = "LANDSAT/LT5_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "pixel_qa"
-        copy.kws["col_id"] = 6
+        # copy.kws["col_id"] = 6
         copy.kws["short"] = "L5USGS"
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
 
         # CAMBIO
         # obj.ID = "LANDSAT/LT05/C01/T1_SR"
@@ -473,9 +514,16 @@ class Collection(object):
         copy.kws["fclouds"] = cld.ledaps
         copy.kws["equiv"] = "LANDSAT/LT5_L1T_TOA_FMASK"
         copy.kws["clouds_band"] = "QA"
-        copy.kws["col_id"] = 7
+        # copy.kws["col_id"] = 7
         copy.kws["short"] = "L5LEDAPS"
+
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
 
         # CAMBIOS
         # obj.ID = "LEDAPS/LT5_L1T_SR"
@@ -488,9 +536,15 @@ class Collection(object):
         copy.kws["bandscale"] = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=60,
                                      B7=30, B8=15)
         copy.kws["ini"] = 1999
-        copy.kws["col_id"] = 8
+        # copy.kws["col_id"] = 8
         copy.kws["short"] = "L7TOA"
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':0.07, 'max':0.45},
+                         'RED':{'min':0.005, 'max':0.2},
+                         'SWIR':{'min':0.04, 'max':0.35},
+                         'SWIR2':{'min':0.015, 'max':0.28},
+                         'BLUE':{'min':0, 'max':0.1},
+                         'GREEN':{'min':0.01, 'max':0.15}}
 
         # CAMBIO
         # obj.ID = "LANDSAT/LE7_L1T_TOA_FMASK"
@@ -503,12 +557,18 @@ class Collection(object):
         copy.kws["equiv"] = "LANDSAT/LE7_L1T_TOA_FMASK"
         copy.kws["process"] = "SR"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = cld.cfmask_bits
+        copy.kws["fclouds"] = cld.landsatSR()
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["clouds_band"] = "pixel_qa"
-        copy.kws["col_id"] = 9
+        # copy.kws["col_id"] = 9
         copy.kws["short"] = "L7USGS"
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
 
         # CAMBIO
         # obj.ID = "LANDSAT/LE07/C01/T1_SR"
@@ -523,9 +583,15 @@ class Collection(object):
         copy.kws["equiv"] = copy_TOA.equiv
         copy.kws["bandscale"] = copy_TOA.bandscale
         copy.kws["ini"] = copy_TOA.ini
-        copy.kws["col_id"] = 10
+        # copy.kws["col_id"] = 10
         copy.kws["short"] = "L7LEDAPS"
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
 
         # CAMBIO
         # obj.ID = "LEDAPS/LE7_L1T_SR"
@@ -547,10 +613,16 @@ class Collection(object):
         copy.kws["SWIR2"] = "B7"
         copy.kws["ini"] = 2013
         copy.kws["bandmask"] = "B2"
-        copy.kws["col_id"] = 11
+        # copy.kws["col_id"] = 11
         copy.kws["short"] = "L8TOA"
         # copy.kws["ID"] = "LANDSAT/LC8_L1T_TOA_FMASK"
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':0.07, 'max':0.45},
+                         'RED':{'min':0.005, 'max':0.2},
+                         'SWIR':{'min':0.04, 'max':0.35},
+                         'SWIR2':{'min':0.015, 'max':0.28},
+                         'BLUE':{'min':0, 'max':0.1},
+                         'GREEN':{'min':0.01, 'max':0.15}}
 
         # CAMBIOS
         # obj.ID = "LANDSAT/LC8_L1T_TOA_FMASK"
@@ -564,14 +636,20 @@ class Collection(object):
         copy_usgs = deepcopy(Collection.Landsat5USGS())  # L5 USGS
         copy.kws["process"] = copy_usgs.process
         copy.kws["max"] = copy_usgs.max
-        copy.kws["fclouds"] = cld.cfmask_bits
+        copy.kws["fclouds"] = cld.landsatSR()
         # copy.kws["ATM_OP"] = copy_usgs.ATM_OP
         copy.kws["equiv"] = "LANDSAT/LC8_L1T_TOA_FMASK"
         copy.kws["bandscale"] = copy.bandscale
-        copy.kws["col_id"] = 12
+        # copy.kws["col_id"] = 12
         copy.kws["short"] = "L8USGS"
         copy.kws["clouds_band"] = "pixel_qa"
         obj = cls(**copy.kws)
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
 
         # CAMBIOS
         # obj.ID = "LANDSAT/LC08/C01/T1_SR"
@@ -589,9 +667,16 @@ class Collection(object):
         obj = cls(BLUE="B2", GREEN="B3", RED="B4", NIR="B8", SWIR="B11",
                   SWIR2="B12", to_scale=escalables, process="TOA",
                   clouds_fld="CLOUD_COVERAGE_ASSESSMENT", max=10000,
-                  fclouds=cld.sentinel2, scale=10, bandscale=bandscale,
+                  fclouds=cld.sentinel2(), scale=10, bandscale=bandscale,
                   bandmask="B2", family="Sentinel", ini=2015, short="S2",
-                  col_id=13)
+                  #col_id=13
+                  )
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
 
         # obj.ID = "COPERNICUS/S2"
         obj.ID = IDS[obj.short]
@@ -610,8 +695,14 @@ class Collection(object):
                   RED="sur_refl_b01", NIR="sur_refl_b02", SWIR="sur_refl_b06",
                   SWIR2="sur_refl_b07", process="SR", scale=500, max=5000,
                   bandscale=bandscale, bandmask="sur_refl_b06",
-                  family="Modis", ini=1999, col_id=14, short="MODT",
+                  family="Modis", ini=1999, short="MODT",# col_id=14,
                   to_scale=escalables, fclouds=cld.modis,)
+        obj.threshold = {'NIR': {'min':700, 'max':4500},
+                         'RED':{'min':50, 'max':2000},
+                         'SWIR':{'min':400, 'max':3500},
+                         'SWIR2':{'min':150, 'max':2800},
+                         'BLUE':{'min':0, 'max':1000},
+                         'GREEN':{'min':100, 'max':1500}}
 
         # obj.ID = "MODIS/006/MOD09GA"
         obj.ID = IDS[obj.short]
@@ -622,7 +713,7 @@ class Collection(object):
         copy = deepcopy(Collection.ModisTerra())
         copy.kws["ini"] = 2002
         copy.kws["short"] = "MODAQ"
-        copy.kws["col_id"] = 15
+        # copy.kws["col_id"] = 15
         obj = cls(**copy.kws)
 
         # CAMBIO
