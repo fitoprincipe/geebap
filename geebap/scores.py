@@ -503,8 +503,88 @@ class MaskPercent(Score):
         self.include_zero = include_zero  # TODO
         self.sleep = kwargs.get("sleep", 30)
 
-    # TODO: ver param geom, cambiar por el área de la imagen
+        self.zero = ee.Number(1) if self.include_zero else ee.Number(0)
+
+    def compute(self, col, geom=None, **kwargs):
+        """ Compute MaskPercent score
+
+        :param col: collection
+        :type col: satcol.Collection
+        :param geom: geometry of the area
+        :type geom: ee.Geometry, ee.Feature
+        :return:
+        """
+        scale = col.scale
+        nombre = self.name
+        banda = self.band if self.band else col.bandmask
+        ajuste = self.adjust()
+
+        # region = tools.getRegion(geom)
+        # print(region)
+
+        if banda:
+            def wrap(img):
+
+                def if_true():
+                    # Select pixels with value different to zero
+                    ceros = img.select(banda).neq(0)
+                    return tools.mask2zero(ceros)
+
+                def if_false():
+                    return img.select(banda).mask()
+
+                themask = ee.Algorithms.If(self.zero,
+                                           if_true(),
+                                           if_false())
+
+                # g = region if region else img.geometry()
+                g = geom if geom else img.geometry()
+
+                mask = ee.Image(themask)
+
+                image = img.select(banda).updateMask(mask)
+
+                total = mask.reduceRegion(reducer= ee.Reducer.count(),
+                                          geometry= g,
+                                          scale= scale,
+                                          maxPixels= self.maxPixels).get(banda)
+
+                total = ee.Number(total)
+
+                # COUNT UNMASKED PIXELS
+                imagen = image.reduceRegion(reducer= ee.Reducer.count(),
+                                            geometry= g,
+                                            scale= scale,
+                                            maxPixels= self.maxPixels).get(banda)
+                imagen = ee.Number(imagen)
+
+                # EN UN NUMERO
+                numpor = imagen.divide(total)
+
+                # CALCULO EL PORCENTAJE DE PIXELES ENMASCARADOS (imagen / total)
+                imgpor = ee.Image(ee.Image.constant(imagen)).divide(ee.Image.constant(total))
+
+                # RENOMBRO LA BANDA PARA QUE SE LLAME pnube Y LA CONVIERTO A Float
+                imgpor = imgpor.select([0], [nombre]).toFloat()
+
+                # Set 'maskpercent' property
+                imgpor = imgpor.set(self.name, numpor)
+
+                return ajuste(imgpor)
+        else:
+            wrap = self.empty
+
+        return wrap
+
     def map(self, col, geom=None, **kwargs):
+        def wrap(img):
+            score = self.compute(col, geom, **kwargs)(img)
+            prop = score.get(self.name)
+            return img.addBands(score).set(self.name, prop)
+        return wrap
+
+    # TODO: ver param geom, cambiar por el área de la imagen
+    def map_old(self, col, geom=None, **kwargs):
         """
         :param col: collection
         :type col: satcol.Collection
@@ -842,7 +922,7 @@ class MultiYear(Score):
 
 @register(factory)
 @register_all(__all__)
-class Threshold(Score):
+class Threshold_old(Score):
     def __init__(self, band=None, threshold=None, name='score-thres',
                  **kwargs):
         """
@@ -851,7 +931,7 @@ class Threshold(Score):
         :param threshold:
         :type threshold: tuple or list
         """
-        super(Threshold, self).__init__(**kwargs)
+        super(Threshold_old, self).__init__(**kwargs)
 
         self.band = band
         self.threshold = threshold
@@ -913,7 +993,7 @@ class Threshold(Score):
         else:
             return wrap_min
 
-class Threshold_test(Score):
+class Threshold(Score):
     def __init__(self, bands=None, name='score-thres',
                  **kwargs):
         """
@@ -924,71 +1004,62 @@ class Threshold_test(Score):
 
             :values: must be numbers
 
+            If 'min' is not set, will be automatically set to 0 and if 'max'
+            is not set, will be automatically set to 1.
+
         :type bands: dict
         :param threshold:
         :type threshold: tuple or list
         """
-        super(Threshold_test, self).__init__(**kwargs)
+        super(Threshold, self).__init__(**kwargs)
+
+        self.bands = bands
+        self.name = name
+
+    def compute(self, col, **kwargs):
+        # TODO: handle percentage values like ('10%', '20%')
+
+        band_relation = self.bands if self.bands else col.threshold
 
         # As each band must have a 'min' and 'max' if it is not specified,
         # it is completed with None. This way, it can be catched by ee.Algorithms.If
-        for key, val in bands.iteritems():
-            val.setdefault('min', None)
-            val.setdefault('max', None)
+        for key, val in band_relation.iteritems():
+            val.setdefault('min', 0)
+            val.setdefault('max', 1)
 
-        self.bands_relation = bands
-        self.name = name
+        bands = band_relation.keys()
+        bands_ee = ee.List(bands)
+        relation_ee = ee.Dictionary(band_relation)
+        length = ee.Number(bands_ee.size())
+        # step = ee.Number(1).divide(length)
 
-        self.bands = self.bands_relation.keys()
-
-        # bands and band's relation in GEE objects
-        self.bands_ee = ee.List(self.bands)
-        self.relation_ee = ee.Dictionary(self.bands_relation)
-        self.length = ee.Number(self.bands_ee.size())
-        self.step = ee.Number(1).divide(self.length)
-
-    def compute(self, **kwargs):
-        # TODO: handle percentage values like ('10%', '20%')
-        score = tools.empty_image(1, self.bands)
+        score = tools.empty_image(0, bands)
         def wrap(img):
             def compute_score(band, first):
                 score_complete = ee.Image(first)
-                score_img = score_complete.select([band])
+                # score_img = score_complete.select([band])
                 img_band = img.select([band])
-                min = ee.Dictionary(self.relation_ee.get(band)).get('min')  # could be None
-                max = ee.Dictionary(self.relation_ee.get(band)).get('max')  # could be None
+                min = ee.Dictionary(relation_ee.get(band)).get('min')  # could be None
+                max = ee.Dictionary(relation_ee.get(band)).get('max')  # could be None
 
-                # use If because min or max can be None
-
-                # if min exists: 1 if greater than min thres, 0 if not
-                # if min doesn't exists: 1
-                score_min = ee.Image(
-                    ee.Algorithms.If(min,
-                                     img_band.gte(ee.Image.constant(min)),
-                                     score_img))
-
-                # same as min
-                score_max = ee.Image(
-                    ee.Algorithms.If(max,
-                                     img_band.lte(ee.Image.constant(max)),
-                                     score_img))
+                score_min = img_band.gte(ee.Image.constant(min))
+                score_max = img_band.lte(ee.Image.constant(max))
 
                 final_score = score_min.And(score_max)  # Image with one band
 
-                #
                 return tools.replace(score_complete, band, final_score)
 
-            scores = ee.Image(self.bands_ee.iterate(compute_score, score))
+            scores = ee.Image(bands_ee.iterate(compute_score, score))
             # parametrized = scores.multiply(self.step)
             final_score = tools.sumBands(name=self.name)(scores) \
-                .divide(ee.Image.constant(self.length))
+                               .divide(ee.Image.constant(length))
 
             return final_score
         return wrap
 
-    def map(self, **kwargs):
+    def map(self, col, **kwargs):
         def wrap(img):
-            score = self.compute(**kwargs)(img)
+            score = self.compute(col, **kwargs)(img)
             return img.addBands(score)
 
         return wrap
