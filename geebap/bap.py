@@ -233,8 +233,7 @@ class Bap(object):
         # NamedTuple for the OUTPUT
         output = namedtuple("ColBap", ("col", "dictprop"))
 
-        # Si no se pasa una funcion para aplicar antes de los puntajes, se
-        # crea una que devuelva la misma imagen
+        # If there is no fmap, an empty function is made
         if self.fmap is None:
             fmap = lambda x: x
         else:
@@ -243,7 +242,7 @@ class Bap(object):
         # colfinal = ee.ImageCollection()
         colfinal = ee.List([])
 
-        # Obtengo la region del site
+        # Get site's region
         try:
             region = site.geometry().bounds().getInfo()['coordinates'][0]
         except AttributeError:
@@ -251,15 +250,17 @@ class Bap(object):
         except:
             raise AttributeError
 
-        # lista de nombres de los puntajes para sumarlos al final
+        # score's names (to sum all at the end)
         scores = self.score_names
+
+        # max score that it can get
         maxpunt = reduce(
             lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
 
-        # Diccionario de cant de imagenes para incluir en las propiedades
+        # dict to include in the Metadata
         toMetadata = dict()
 
-        # collist = self.collist()
+        # list of collections
         collist = self.colgroup.collections
 
         if self.verbose:
@@ -269,13 +270,13 @@ class Bap(object):
 
         for colobj in collist:
 
-            # Obtengo el ID de la coleccion
+            # Collection ID
             cid = colobj.ID
 
-            # Obtengo el name abreviado para agregar a los metadatos
+            # short name of the collection to add to Metadata
             short = colobj.short
 
-            # Imagen del col_id de la coleccion
+            # col_id
             bid = colobj.bandIDimg
 
             # Add col_id to metadata.
@@ -283,7 +284,7 @@ class Bap(object):
             # etc..
             toMetadata["col_id_"+str(colobj.col_id)] = short
 
-            # Collection completa de EE
+            # EE Collection
             c = colobj.colEE
 
             # Filtro por el site
@@ -296,37 +297,36 @@ class Bap(object):
             if self.verbose: print("\nSatellite:", colobj.ID)
             if self.debug:
                 pp.pprint(colobj.kws)
-                print("SIZE AFTER FILTER SITE:", c2.size().getInfo())
+                print("SIZE AFTER FILTER SITE:")
+                print(c2.size().getInfo())
 
-            # Filtro por los años
-            for anio in self.date_range:
-                # Creo un nuevo objeto de coleccion con el id
+            # Iterate over the years. There will be more than 1 year if
+            # param `range` is not (0, 0)
+
+            for year in self.date_range:
+                # Create a new Collection object
                 col = satcol.Collection.from_id(cid)
-                # puntajes = []
 
-                ini = self.season.add_year(anio)[0]
-                end = self.season.add_year(anio)[1]
+                ini = self.season.add_year(year)[0]
+                end = self.season.add_year(year)[1]
 
                 if self.verbose: print("ini:", ini, ",end:", end)
 
-                # Filtro por fecha
+                # Filter Date
                 c = c2.filterDate(ini, end)
-
-                if self.debug:
-                    n = c.size().getInfo()
-                    print("SIZE AFTER FILTER DATE:", n)
 
                 ## FILTROS ESTABAN ACA
 
-                # Si despues de los filters no quedan imgs, saltea..
+                # If after filter the collection there is no image, continue
                 size = c.size().getInfo()
                 if self.verbose: print("size after filters:", size)
                 if size == 0: continue  # 1
 
                 if self.debug:
-                    print("INITIAL CENTROID VALUES", get_col_val(c))
+                    print("INITIAL CENTROID VALUES")
+                    print(get_col_val(c))
 
-                # corto la imagen con la region para minimizar los calculos
+                # apply a boundry box over the region
                 if bbox == 0:
                     def cut(img):
                         return img.clip(site)
@@ -338,52 +338,69 @@ class Bap(object):
                 c = c.map(cut)
 
                 if self.debug:
-                    print("AFTER CLIPPING WITH REGION", get_col_val(c))
+                    print("AFTER CLIPPING WITH REGION")
+                    print(get_col_val(c))
+
+                # Before appling the cloud mask, if collection is Landsat 7
+                # with slc-off, then convert the mask to zero so the gap
+                # does not affect cloud dist score and maskpercent score
+
+                slcoff = False
+
+                if short == 'L7USGS' or short == 'L7TOA':
+                    if year in temp.SeasonPriority.l7_slc_off:
+                        # Convert masked values to zero
+                        c = c.map(tools.mask2zero)
+                        slcoff = True
+
+                if self.debug:
+                    print('AFTER MASK 2 ZERO')
+                    print(get_col_val(c))
 
                 # MASKS
                 if self.masks:
                     for m in self.masks:
                         c = c.map(
-                            m.map(col=col, year=anio, colEE=c))
+                            m.map(col=col, year=year, colEE=c))
                         if self.debug:
-                            print("AFTER THE MASK "+m.nombre,
-                                get_col_val(c))
+                            print("AFTER THE MASK ")
+                            print(m.nombre)
+                            print(get_col_val(c))
 
-                # Transformo los valores enmascarados a cero
+                # Convert masked values to zero
                 # c = c.map(tools.mask2zero)
-                c = c.map(tools.mask2zero)
 
-                # Renombra las bandas con los datos de la coleccion
+                # Rename the bands to match all collections
                 c = c.map(col.rename(drop=True))
 
                 # Cambio las bandas en comun de las collections
                 bandasrel = []
 
                 if self.debug:
-                    print("AFTER RENAMING BANDS:",
-                        get_col_val(c))
+                    print("AFTER RENAMING BANDS:")
+                    print(get_col_val(c))
 
-                # Escalo a 0-1
+                # Scale from 0 to 1
                 c = c.map(col.do_scale())
 
                 if self.debug:
                     if c.size().getInfo() > 0:
-                        print("AFTER SCALING:",
-                            get_col_val(c))
+                        print("AFTER SCALING:")
+                        print(get_col_val(c))
 
-                # Indices
+                # Indixes
                 if indices:
                     for i in indices:
                         f = col.INDICES[i]
                         c = c.map(f)
-                        if self.debug: print("SIZE AFTER COMPUTE "+i,
-                                             c.size().getInfo())
+                        if self.debug:
+                            print("SIZE AFTER COMPUTE "+i)
+                            print(c.size().getInfo())
 
-                # Antes de aplicar los puntajes, aplico la funcion que pasa
-                # el usuario
+                # Before appling scores, apply fmap
                 c = c.map(fmap)
 
-                # Puntajes
+                # Apply scores
                 if self.scores:
                     for p in self.scores:
                         if self.verbose: print("** "+p.name+" **")
@@ -393,12 +410,16 @@ class Bap(object):
                             sys.stdout.write(str(t+1)+".")
                             if (t+1) == sleep: sys.stdout.write('\n')
                             time.sleep(1)
-                        c = c.map(p.map(col=col, year=anio, colEE=c, geom=site))
+
+                        if slcoff and p.name == "score-maskper":
+                            c = c.map(p.map(col=col, year=year, colEE=c, geom=site, include_zero=False))
+                        else:
+                            c = c.map(p.map(col=col, year=year, colEE=c, geom=site))
 
                         # DEBUG
-                        if self.debug and n > 0:
-                            print("value:",
-                                  get_col_val(c))
+                        if self.debug: # and n > 0:
+                            print("value:")
+                            print(get_col_val(c))
 
                 # Filtros
                 if self.filters:
@@ -410,29 +431,30 @@ class Bap(object):
 
                 if self.debug:
                     if c.size().getInfo() > 0:
-                        print("AFTER SELECTING COMMON BANDS:",
-                            get_col_val(c))
+                        print("AFTER SELECTING COMMON BANDS:")
+                        print(get_col_val(c))
 
-                # Convierto los valores de las mascaras a 0
+                # Convert masked values to zero
                 c = c.map(tools.mask2zero)
 
-                # Agrego la band de fecha a la imagen
+                # Add date band
                 c = c.map(date.Date.map())
 
-                # Agrego la band col_id de la coleccion
+                # Add col_id band
                 def addBandID(img):
                     return img.addBands(bid)
                 c = c.map(addBandID)
 
-                if self.debug: print("AFTER ADDING col_id BAND:",
-                    get_col_val(c))
+                if self.debug:
+                    print("AFTER ADDING col_id BAND:")
+                    print(get_col_val(c))
 
                 # Convierto a lista para agregar a la coleccion anterior
                 c_list = c.toList(2500)
                 colfinal = colfinal.cat(c_list)
 
                 # Agrego col id y year al diccionario para propiedades
-                n_imgs = "n_imgs_{cid}_{a}".format(cid=short, a=anio)
+                n_imgs = "n_imgs_{cid}_{a}".format(cid=short, a=year)
                 toMetadata[n_imgs] = functions.get_size(c)
 
         # comprueba que la lista final tenga al menos un elemento
@@ -448,21 +470,26 @@ class Bap(object):
             # Selecciono las bandas en comun de todas las imagenes
             newcol = functions.select_match(newcol)
 
-            if self.debug: print("BEFORE score:", scores, "\n", get_col_val(c))
+            if self.debug:
+                print("BEFORE score:")
+                print(scores)
+                print(get_col_val(c))
 
             # Calcula el puntaje total sumando los puntajes
             ftotal = tools.sumBands("score", scores)
             newcol = newcol.map(ftotal)
 
             if self.debug:
-                print("AFTER score:", get_col_val(c))
+                print("AFTER score:")
+                print(get_col_val(c))
 
             if normalize:
                 newcol = newcol.map(
                     tools.parametrize((0, maxpunt), (0, 1), ("score",)))
 
             if self.debug:
-                print("AFTER parametrize:", get_col_val(c))
+                print("AFTER parametrize:")
+                print(get_col_val(c))
 
             return output(newcol, toMetadata)
         elif force:
