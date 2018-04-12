@@ -164,24 +164,23 @@ class CloudDist(Score):
 
         cloud_mask = image.mask().select(bandmask)
 
-        # COMPUTO LA DISTANCIA A LA MASCARA DE NUBES (A LA INVERSA)
-        distancia = cloud_mask.Not().distance(self.kernelEE())
+        # Compute distance to the mask (inverse)
+        distance = cloud_mask.Not().distance(self.kernelEE())
 
-        # BORRA LOS DATOS > d_max (ESTO ES PORQUE EL KERNEL TOMA LA DIST
-        # DIAGONAL TAMB)
-        clip_max_masc = distancia.lte(self.dmaxEE)
-        distancia = distancia.updateMask(clip_max_masc)
+        # Mask out pixels that are further than d_max
+        clip_max_masc = distance.lte(self.dmaxEE)
+        distance = distance.updateMask(clip_max_masc)
 
-        # BORRA LOS DATOS = 0
-        distancia = distancia.updateMask(cloud_mask)
+        # Mask out initial mask
+        distance = distance.updateMask(cloud_mask)
 
         # AGREGO A LA IMG LA BANDA DE DISTANCIAS
         # img = img.addBands(distancia.select([0],["dist"]).toFloat())
 
-        # COMPUTO EL PUNTAJE (WHITE)
+        # Compute score
 
         c = self.dmaxEE.subtract(self.dminEE).divide(ee.Image(2))
-        b = distancia.min(self.dmaxEE)
+        b = distance.min(self.dmaxEE)
         a = b.subtract(c).multiply(ee.Image(-0.2)).exp()
         e = ee.Image(1).add(a)
 
@@ -559,10 +558,11 @@ class MaskPercent(Score):
                 imagen = ee.Number(imagen)
 
                 # EN UN NUMERO
-                numpor = imagen.divide(total)
+                numpor = tools.trim_decimals(4)(imagen.divide(total))
 
                 # CALCULO EL PORCENTAJE DE PIXELES ENMASCARADOS (imagen / total)
-                imgpor = ee.Image(ee.Image.constant(imagen)).divide(ee.Image.constant(total))
+                # imgpor = ee.Image(ee.Image.constant(imagen)).divide(ee.Image.constant(total))
+                imgpor = ee.Image.constant(numpor)
 
                 # RENOMBRO LA BANDA PARA QUE SE LLAME pnube Y LA CONVIERTO A Float
                 imgpor = imgpor.select([0], [nombre]).toFloat()
