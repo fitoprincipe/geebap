@@ -488,6 +488,8 @@ class SeasonPriority(object):
 
     ee_relation = ee.Dictionary(relation)
 
+    l7_slc_off = range(2003, date.today().year+1)
+
     def __init__(self, year):
         self.year = year
 
