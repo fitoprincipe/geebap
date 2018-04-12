@@ -13,7 +13,7 @@ from abc import ABCMeta, abstractmethod
 
 class Mask(object):
     __metaclass__ = ABCMeta
-    """ Clase base para las mascaras """
+    """ Base Class for masks """
     def __init__(self, nombre="masks", **kwargs):
         self.nombre = nombre
 
@@ -32,15 +32,17 @@ class Clouds(Mask):
 
     def map(self, col, **kwargs):
         """
-        :param col: Coleccion
+        :param col: Collection
         :type col: satcol.Collection
+        :param algorithm: algorithm to use. Default: all. See
+            satcol.Collection.NNN.fclouds
         :param kwargs:
-        :return: la funcion para enmascarar la/s imagen/es con la mascara de
-            nubes que indica el objeto Coleccion
+        :return: the function to apply the mask
         :rtype: function
         """
+        algorithm = kwargs.get('algorithm', 'computed_ee')
         if col.fclouds:
-            return col.fclouds
+            return col.fclouds[algorithm]
         else:
             return lambda x: x
 
