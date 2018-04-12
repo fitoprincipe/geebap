@@ -48,7 +48,7 @@ class Site(object):
 
         :param id: id to filter
         :type id: int
-        :return: (ee.Geometry, region as a list of lists)
+        :return: ee.Feature, region (as a list of lists)
         :rtype: tuple
         """
         try:
@@ -120,30 +120,3 @@ def from_gsheet(url, sheet, name=None, id_ft=None, id_fld=None, name_fld=None):
         sites.append(site)
 
     return dict(sites)
-
-if __name__ == "__main__":
-    '''
-    list = from_gsheet("https://script.google.com/macros/s/AKfycbygukdW3tt8sCPcFDlkM" \
-                       "nMuNu9bH5fpt7bKV50p2bM/exec?id=11hMJ-rI_VtRxcUl3GSpUtLQ1L3yfIj" \
-                       "eApRAaZczHK28&sheet=Hoja1", "Hoja1", "NOMBRE", "ID_FT", "ID")
-
-    for site in list:
-        print site.name, site.id_ft
-    '''
-    import os
-    path =  os.path.dirname(__file__)
-    p = path.split("/")[:-1]
-    path = "/"+os.path.join(os.path.join(*p), "data", "sites.csv")
-
-    list2 = from_csv(path)
-
-    for site in list2:
-        s = list2[site]
-        print site, list2[site].id_ft
-        #print s.ft
-        feat, region = s.filter_id(5000)
-        print feat, region
-
-        feat, region = s.filter_id(1)
-        print region
-
