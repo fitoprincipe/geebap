@@ -186,21 +186,31 @@ class CloudDist(Score):
 
         pjeDist = ee.Image(1).divide(e)
 
-        # TOMA LA MASCARA INVERSA PARA SUMARLA DESP
+        # Inverse mask to add later
         masc_inv = pjeDist.mask().Not()
 
-        # TRANSFORMA TODOS LOS VALORES ENMASCARADOS EN 0
-        pjeDist = pjeDist.mask().where(1, pjeDist)
+        # apply mask2zero (all masked pixels are converted to 0)
+        pjeDist = tools.mask2zero(pjeDist)
+        #pjeDist = pjeDist.mask().where(1, pjeDist)
 
-        # SUMO LA MASC INVERSA A LA IMG DE DISTANCIAS
+        # Add the inverse mask to the distance image
         pjeDist = pjeDist.add(masc_inv)
 
-        # VUELVO A ENMASCARAR LAS NUBES
+        # Apply the original mask
         pjeDist = pjeDist.updateMask(cloud_mask)
 
         return pjeDist
 
     def map(self, col, **kwargs):
+        bandmask = col.bandmask if col.bandmask else 0
+        def wrap(img):
+            score_img = self.generate_score(img, bandmask)
+            adjusted_score = self.adjust()(score_img)
+            renamed_image = adjusted_score.select([0], [self.name])
+            return img.addBands(renamed_image)
+        return wrap
+
+    def map_old(self, col, **kwargs):
         """ Mapping function
 
         :param col: Collection
