@@ -198,6 +198,154 @@ class Bap(object):
                 print("Intersection:", intersect)
             return [satcol.Collection.from_id(ID) for ID in intersect]
 
+    def fast_collection(self, site, indices=None, normalize=True, bbox=0):
+        # score's names (to sum all at the end)
+        scores = self.score_names
+
+        # max score that it can get
+        maxpunt = reduce(lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
+
+        # list of collections
+        collist = self.colgroup.collections
+
+        if self.verbose:
+            print(self.colgroup.ids)
+
+        # empty dict for metadata
+        toMetadata = {}
+
+        # list of all images
+        colfinal = ee.List([])
+
+        # iterate over the collections (satcol.Collection)
+        for colobj in collist:
+
+            # Collection ID
+            cid = colobj.ID
+
+            # print process
+            if self.verbose:
+                print(cid)
+
+            # short name of the collection to add to Metadata
+            short = colobj.short
+
+            # Add col_id to metadata.
+            # col_id_11 = 'L8TAO'
+            # etc..
+            col_id = colobj.col_id
+            toMetadata["col_id_"+str(col_id)] = short
+
+            # EE Collection
+            c = colobj.colEE
+
+            # filter bounds
+            if isinstance(site, ee.Feature): site = site.geometry()
+            c = c.filterBounds(site)
+
+            # iterate over the years (for multiyear composite)
+            for year in self.date_range:
+                # print process
+                if self.verbose:
+                    print(year)
+
+                # Create a new Collection object
+                col = satcol.Collection.from_id(cid)
+
+                ini = self.season.add_year(year)[0]
+                end = self.season.add_year(year)[1]
+
+                # Filter Date
+                c = c.filterDate(ini, end)
+
+                # apply a boundry box over the region
+                if bbox == 0:
+                    def cut(img):
+                        return img.clip(site)
+                else:
+                    def cut(img):
+                        bounds = site.buffer(bbox)
+                        return img.clip(bounds)
+
+                c = c.map(cut)
+
+                slcoff = False
+
+                if short == 'L7USGS' or short == 'L7TOA':
+                    if year in temp.SeasonPriority.l7_slc_off:
+                        # Convert masked values to zero
+                        c = c.map(tools.mask2zero)
+                        slcoff = True
+
+                # MASKS
+                if self.masks:
+                    for m in self.masks:
+                        map_function = m.map(col=col, year=year, colEE=c)
+                        c = c.map(map_function)
+
+                # Rename the bands to match all collections
+                c = c.map(col.rename(drop=True))
+
+                # Scale from 0 to 1
+                c = c.map(col.do_scale())
+
+                # Indixes
+                if indices:
+                    for i in indices:
+                        f = col.INDICES[i]
+                        c = c.map(f)
+
+                # Apply scores
+                if self.scores:
+                    for p in self.scores:
+                        if slcoff and p.name == "score-maskper":
+                            c = c.map(p.map(col=col, year=year, colEE=c, geom=site, include_zero=False))
+                        else:
+                            c = c.map(p.map(col=col, year=year, colEE=c, geom=site))
+
+                # Filters
+                if self.filters:
+                    for filter in self.filters:
+                        c = filter.apply(c, col=col, anio=self.year)
+
+                # Add date band
+                c = c.map(date.Date.map())
+
+                # Add col_id band
+                def addBandID(img):
+                    col_id_img = ee.Image.constant(col_id).rename('col_id')
+                    return img.addBands(col_id_img)
+                c = c.map(addBandID)
+
+                # Convert collection to list to add altogether
+                c_list = c.toList(2500)
+                colfinal = colfinal.cat(c_list)
+
+                # Agrego col id y year al diccionario para propiedades
+                n_imgs = "n_imgs_{cid}_{a}".format(cid=short, a=year)
+                toMetadata[n_imgs] = functions.get_size(c)
+
+        size = colfinal.size()
+
+        newcol = ee.ImageCollection(colfinal)
+
+        # Select common bands
+        newcol = functions.select_match(newcol)
+
+        # Compute final score
+        ftotal = tools.sumBands("score", scores)
+        newcol = newcol.map(ftotal)
+
+        if normalize:
+            newcol = newcol.map(
+                tools.parametrize((0, maxpunt), (0, 1), ("score",)))
+
+        finalcol = ee.ImageCollection(
+            ee.Algorithms.If(size, newcol, ee.ImageCollection([]))
+        )
+
+        return finalcol.set(toMetadata)
+
     def collection(self, site, indices=None, normalize=True, bbox=0,
                    force=True):
         """ Apply masks, filters and scores to the given collection group and
@@ -510,21 +658,64 @@ class Bap(object):
             return output(None, toMetadata)
 
     @staticmethod
-    def calcUnpix_generic(col, score):
-        """ DO NOT USE. It's a test method """
-        imgCol = col
-        # tamcol = funciones.execli(imgCol.size().getInfo)()
+    def bestpixel_core(collection, properties, name='score'):
+        """ Generate the BAP composite using the pixels that have higher
+        final score.
 
-        img = imgCol.qualityMosaic(score)
+        :param collection: image collection in which every image holds a final
+            score
+        :type collection: ee.ImageCollection
+        :param properties: properties to set to the final composite
+        :type properties: dict
+        :param name: name of the band that holds the final score
+        :type name: str
+        :return: the Best Available Pixel composite
+        :rtype: ee.Image
+        """
 
-        if Bap.debug:
-            print(" AFTER qualityMosaic:", img.bandNames().getInfo())
+        imgCol = collection
 
-        # CONVIERTO LOS VALORES ENMASCARADOS EN 0
-        # img = tools.mask2zero(img)
-        img = tools.mask2zero(img)
+        # Collection size
+        size = imgCol.size()
 
-        return img
+        # Get band names
+        first = ee.Image(imgCol.first())
+        listbands = first.bandNames()
+
+        img0 = tools.empty_image(bandnames=listbands)
+
+        def final(img, maxx):
+            maxx = ee.Image(maxx)
+            ptotal0 = maxx.select(name)
+            ptotal0 = ptotal0.mask().where(1, ptotal0)
+
+            ptotal1 = img.select(name)
+            ptotal1 = ptotal1.mask().where(1, ptotal1)
+
+            masc0 = ptotal0.gt(ptotal1)
+            masc1 = masc0.Not()
+
+            maxx = maxx.updateMask(masc0)
+            maxx = maxx.mask().where(1, maxx)
+
+            img = img.updateMask(masc1)
+            img = img.mask().where(1, img)
+
+            maxx = maxx.add(img)
+
+            return ee.Image(maxx)
+
+        img = ee.Image(imgCol.iterate(final, img0))
+
+        # print 'in best pixel 2', img.select('date').getInfo()['bands']
+
+        # Get rid of '/' in properties dict
+        properties = {k.replace("/", "_"):v for k, v in properties.iteritems()}
+
+        final_image = ee.Image(
+            ee.Algorithms.If(size, img, ee.Image.constant(0).rename(name)))
+
+        return final_image.set(properties)
 
     def calcUnpix(self, site, name="score", bands=None, **kwargs):
         """ Generate the BAP composite using the pixels that have higher
@@ -556,7 +747,45 @@ class Bap(object):
         prop.update(fechaprop)
         return img.set(prop)
 
-    def bestpixel(self, site, name="score", bands=None,
+    def fast_composite(self, site, indices=None, normalize=True, bbox=0):
+        col = self.fast_collection(site, indices, normalize, bbox)
+        size = col.size()
+        properties = col.getInfo()['properties']
+
+        scores = self.score_names
+        bands = self.colgroup.bandsrel()
+
+        composite = ee.Algorithms.If(size,
+                                     self.bestpixel_core(col, properties),
+                                     tools.empty_image(0, scores+bands))
+
+        composite = ee.Image(composite)
+
+        return self.setprop(composite)
+
+    def bestpixel(self, site, name='score', indices=None, normalize=True,
+                  bbox=0, force=True):
+
+        colbap = self.collection(site=site, indices=indices,
+                                 normalize=normalize, bbox=bbox, force=force)
+
+        imgCol = colbap.col
+        prop = colbap.dictprop
+
+        output = namedtuple("bestpixel", ("image", "col"))
+
+        # If collection has images
+        if imgCol is not None:
+            composite = self.bestpixel_core(imgCol, prop, name=name)
+        else:
+            scores = self.score_names
+            bands = self.colgroup.bandsrel()
+            composite = tools.empty_image(0, scores+bands)
+
+        return output(self.setprop(composite, **prop), imgCol)
+
+
+    def bestpixel_(self, site, name="score", bands=None,
                   indices=None, normalize=True, bbox=0, force=True):
         """ Generate the BAP composite using the pixels that have higher
         final score. This is a custom method
@@ -664,6 +893,7 @@ class Bap(object):
         """
         d = {"ini_date": date.Date.local(self.ini_date),
              "end_date": date.Date.local(self.end_date),
+             "system:time_start": self.date_to_set,
              }
 
         # Agrega los argumentos como propiedades
