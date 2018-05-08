@@ -73,8 +73,5 @@ class Date(object):
         if unit == "days":
             mili = ee.Number(date).multiply(Date.oneday)
             d = ee.Date(mili)
-            dstr = d.format()
-
-            print "{0} days corresponds to the date: {1}".format(
-                date, dstr.getInfo())
+            # dstr = d.format()
         return d
