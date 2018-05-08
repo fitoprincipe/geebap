@@ -23,11 +23,13 @@ from collections import namedtuple
 from geetools import tools
 import json
 import pprint
+from . import __version__
 
 pp = pprint.PrettyPrinter(indent=2)
 
 MIN_YEAR = 1970
 MAX_YEAR = datetime.date.today().year
+MAX_SIZE = 2e5
 
 def check_type(name, param, type):
     """ Wrapper to check parameter's type """
@@ -198,9 +200,23 @@ class Bap(object):
                 print("Intersection:", intersect)
             return [satcol.Collection.from_id(ID) for ID in intersect]
 
-    def fast_collection(self, site, indices=None, normalize=True, bbox=0):
+    def fast_collection(self, site, indices=None, normalize=True, bbox=0,
+                        general_wait=0, max_size=MAX_SIZE):
+
+        site_size = site.area().getInfo()/10000
+
+        if site_size > max_size:
+            raise ValueError("Site's size is too big. Has {} has and must have at maximum {}".format(site_size, max_size))
+
         # score's names (to sum all at the end)
         scores = self.score_names
+
+        # Compute general waiting time
+        default_times = [s.sleep for s in self.scores]
+        max_default = max(default_times)
+        factor = max_default*general_wait
+        new_defaults = [n+factor for n in default_times]
+        new_times = [(n/max_default if (general_wait>0 and max_default>0) else 0) for n in new_defaults]
 
         # max score that it can get
         maxpunt = reduce(lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
@@ -209,7 +225,7 @@ class Bap(object):
         collist = self.colgroup.collections
 
         if self.verbose:
-            print(self.colgroup.ids)
+            print('\n{}'.format(self.colgroup.ids))
 
         # empty dict for metadata
         toMetadata = {}
@@ -230,7 +246,7 @@ class Bap(object):
             # short name of the collection to add to Metadata
             short = colobj.short
 
-            # Add col_id to metadata.
+            # Add col_id to BAP's metadata.
             # col_id_11 = 'L8TAO'
             # etc..
             col_id = colobj.col_id
@@ -297,11 +313,13 @@ class Bap(object):
 
                 # Apply scores
                 if self.scores:
-                    for p in self.scores:
-                        if slcoff and p.name == "score-maskper":
-                            c = c.map(p.map(col=col, year=year, colEE=c, geom=site, include_zero=False))
+                    for t, score in zip(new_times, self.scores):
+                        if slcoff and score.name == "score-maskper":
+                            c = c.map(score.map(col=col, year=year, colEE=c, geom=site, include_zero=False))
                         else:
-                            c = c.map(p.map(col=col, year=year, colEE=c, geom=site))
+                            c = c.map(score.map(col=col, year=year, colEE=c, geom=site))
+                        if self.verbose: sys.stdout.write(str(t)+'.')
+                        time.sleep(t)
 
                 # Filters
                 if self.filters:
@@ -312,9 +330,10 @@ class Bap(object):
                 c = c.map(date.Date.map())
 
                 # Add col_id band
+                # Add col_id to the image as a property
                 def addBandID(img):
                     col_id_img = ee.Image.constant(col_id).rename('col_id')
-                    return img.addBands(col_id_img)
+                    return img.addBands(col_id_img).set('col_id', col_id)
                 c = c.map(addBandID)
 
                 # Convert collection to list to add altogether
@@ -748,9 +767,23 @@ class Bap(object):
         return img.set(prop)
 
     def fast_composite(self, site, indices=None, normalize=True, bbox=0):
-        col = self.fast_collection(site, indices, normalize, bbox)
-        size = col.size()
-        properties = col.getInfo()['properties']
+        # Try to get collection properties. Using getInfo() makes the collection
+        # to be actually computed on server.
+        def get_info(sleep):
+            if sleep == 10:
+                raise RuntimeError('BAP cannot be retrived from Server')
+            col = self.fast_collection(site, indices, normalize, bbox, sleep)
+            size = col.size()
+            try:
+                prop = col.getInfo()['properties']
+                return col, size, prop
+            except:
+                sleep += 1
+                sys.stdout.flush()
+                get_info(sleep)
+
+        initime = 0
+        col, size, properties = get_info(initime)
 
         scores = self.score_names
         bands = self.colgroup.bandsrel()
@@ -761,7 +794,14 @@ class Bap(object):
 
         composite = ee.Image(composite)
 
-        return self.setprop(composite)
+        # Set Vesion Property to the composite
+        composite = composite.set('BAP_version', __version__)
+
+        # Difine namedtuple for output
+        output = namedtuple("FastComposite", ("image", "collection"))
+
+        return output(self.setprop(composite), col)
+
 
     def bestpixel(self, site, name='score', indices=None, normalize=True,
                   bbox=0, force=True):
