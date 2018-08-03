@@ -203,7 +203,7 @@ class Bap(object):
     def fast_collection(self, site, indices=None, normalize=True, bbox=0,
                         general_wait=0, max_size=MAX_SIZE):
 
-        site_size = site.area().getInfo()/10000
+        site_size = site.area().getInfo()/10000  # Request 1
 
         if site_size > max_size:
             raise ValueError("Site's size is too big. Has {} has and must have at maximum {}".format(site_size, max_size))
@@ -362,6 +362,11 @@ class Bap(object):
         finalcol = ee.ImageCollection(
             ee.Algorithms.If(size, newcol, ee.ImageCollection([]))
         )
+
+        # Convert to float
+        def tofloat(img):
+            return img.toFloat()
+        finalcol = finalcol.map(tofloat)
 
         return finalcol.set(toMetadata)
 
@@ -677,6 +682,15 @@ class Bap(object):
             return output(None, toMetadata)
 
     @staticmethod
+    def bestpixel_core_array(collection, properties, name='score'):
+        # Convert masked values to 0 so they are included in the array
+        collection = collection.map(tools.mask2zero)
+
+        # Create array
+        array = collection.toArray()
+        pass
+
+    @staticmethod
     def bestpixel_core(collection, properties, name='score'):
         """ Generate the BAP composite using the pixels that have higher
         final score.
@@ -691,20 +705,25 @@ class Bap(object):
         :return: the Best Available Pixel composite
         :rtype: ee.Image
         """
-
-        imgCol = collection
-
         # Collection size
-        size = imgCol.size()
+        size = collection.size()
 
+        # Get quality mosaic
+        img = collection.qualityMosaic(name)
+
+        ''' # OLD CODE
         # Get band names
-        first = ee.Image(imgCol.first())
+        first = ee.Image(collection.first())
         listbands = first.bandNames()
 
+        # First empty image with all band names
         img0 = tools.empty_image(bandnames=listbands)
 
         def final(img, maxx):
+            # Cast max image
             maxx = ee.Image(maxx)
+
+            # select the score band
             ptotal0 = maxx.select(name)
             ptotal0 = ptotal0.mask().where(1, ptotal0)
 
@@ -724,10 +743,10 @@ class Bap(object):
 
             return ee.Image(maxx)
 
-        img = ee.Image(imgCol.iterate(final, img0))
+        img = ee.Image(collection.iterate(final, img0))
 
         # print 'in best pixel 2', img.select('date').getInfo()['bands']
-
+        '''
         # Get rid of '/' in properties dict
         properties = {k.replace("/", "_"):v for k, v in properties.iteritems()}
 
@@ -793,9 +812,6 @@ class Bap(object):
                                      tools.empty_image(0, scores+bands))
 
         composite = ee.Image(composite)
-
-        # Set Vesion Property to the composite
-        composite = composite.set('BAP_version', __version__)
 
         # Difine namedtuple for output
         output = namedtuple("FastComposite", ("image", "collection"))
@@ -934,12 +950,127 @@ class Bap(object):
         d = {"ini_date": date.Date.local(self.ini_date),
              "end_date": date.Date.local(self.end_date),
              "system:time_start": self.date_to_set,
+             "BAP_version": __version__,
              }
 
         # Agrega los argumentos como propiedades
         d.update(kwargs)
 
         return img.set(d)
+
+    def reduce_pixels(self, site, set=5, reducer='mean', scoreband='score',
+                      indices=None, normalize=True, bbox=0, general_wait=0):
+        """ Reduce the collection and get a statistic from a set of pixels
+        See `reduce_pixels_core` """
+
+        collection = self.fast_collection(site, indices, normalize,
+                                          bbox, general_wait)
+
+        composite = self.reduce_pixels_core(collection, set, reducer, scoreband)
+
+        # Set general properties
+        composite = self.setprop(composite, method='reduce_pixels')
+
+        result = namedtuple('Reduce_pixels',('image', 'collection'))
+
+        return result(composite, collection)
+
+    @staticmethod
+    def reduce_pixels_core(collection, set=5, reducer='mean',
+                           scoreband='score'):
+        """ Reduce the collection and get a statistic from a set of pixels
+
+        Transform the collection to a 2D array
+
+        * axis 1 (horiz) -> bands
+        * axis 0 (vert) -> images
+
+        ====== ====== ===== ===== ======== =========
+           \     B2    B3    B4     index    score
+        ------ ------ ----- ----- -------- ---------
+         img1
+         img2
+         img3
+        ====== ====== ===== ===== ======== =========
+
+        :param reducer: Reducer to use for the set of images. Options are:
+            'mean', 'median', 'mode', 'intervalMean'(default)
+        :type reducer: str || ee.Reducer
+        :param collection: collection that holds the score
+        :type collection: ee.ImageCollection
+        :return: An image in which every pixel is the reduction of the set of
+            images with best score
+        :rtype: ee.Image
+        """
+        reducers = {'mean': ee.Reducer.mean(),
+                    'median': ee.Reducer.median(),
+                    'mode': ee.Reducer.mode(),
+                    'intervalMean': ee.Reducer.intervalMean(50, 90),
+                    'first': ee.Reducer.first(),
+                    }
+
+        selected_reducer = reducers[reducer]
+
+        # Convert masked pixels to 0 value
+        collection = collection.map(tools.mask2zero)
+
+        array = collection.toArray()
+
+        # Axis
+        bands_axis = 1
+        images_axis = 0
+
+        # band names
+        bands = ee.Image(collection.first()).bandNames()
+
+        # index of score
+        score_index = bands.indexOf(scoreband)
+
+        # size =  collection.size().getInfo
+
+        # get only scores band
+        score = array.arraySlice(axis= bands_axis,
+                                 start= score_index,
+                                 end= score_index.add(1))
+
+        # Sort the array (ascending) by the score band
+        arrayOrdenado = array.arraySort(score)
+
+        # total longitud of the array image (number of images)
+        longitud = arrayOrdenado.arrayLength(0)
+
+        # Cut the Array
+        # lastvalues = arrayOrdenado.arraySlice(self.ejeImg,
+        # longitud.subtract(self.set), longitud)
+        lastvalues = arrayOrdenado.arraySlice(axis=images_axis,
+                                              start=longitud.subtract(set),
+                                              end=longitud)
+        '''
+        # IMPRIMO LOS VALORES DEL CENTROIDE PARA CONTROL
+        centroide = self.ROI.geometry().bounds().centroid(10)
+        val = lastvalues.reduceRegion(ee.Reducer.first(), centroide, 30).get("array")
+        import pandas as pd
+        df = pd.DataFrame(val.getInfo(), columns=bandas.getInfo())
+        print df
+        '''
+
+        # Cut score axis
+        solopjes = lastvalues.arraySlice(axis=bands_axis,
+                                         start=score_index,
+                                         end= score_index.add(1))
+
+        # fCIE.exportar(solopjes.arrayFlatten([listaImgs, bandaPje]),
+        # "solo_puntajes_"+str(anioDOY))
+
+        #### Process ####
+        processed = lastvalues.arrayReduce(selected_reducer,
+                                           ee.List([images_axis]))
+
+        # Transform the array to an Image
+        result_image = processed.arrayProject([bands_axis])\
+              .arrayFlatten([bands])
+
+        return result_image
 
     @classmethod
     def White(cls, year, range, season):
