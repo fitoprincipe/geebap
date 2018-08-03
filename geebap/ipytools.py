@@ -36,14 +36,10 @@ def info_handler(**kwargs):
     themap = kwargs['map']
     widget = kwargs['widget']
     # Get click coordinates
-    coords = maptool.inverse_coordinates(kwargs['coordinates'])
+    coords = kwargs['coordinates']
 
     event = kwargs['type'] # event type
     if event == 'click':  # If the user clicked
-        # Clear children // Loading
-        widget.children = [HTML('wait a second please..')]
-        widget.set_title(0, 'Loading...')
-
         # create a point where the user clicked
         point = ee.Geometry.Point(coords)
 
@@ -54,44 +50,57 @@ def info_handler(**kwargs):
         namelist = [first]
         wids4acc = [HTML('')] # first row has no content
 
+        length = len(themap.EELayers.keys())
+        i = 1
+
         for name, obj in themap.EELayers.items(): # for every added layer
-            # name = obj['name']
+            # Clear children // Loading
+            widget.children = [HTML('wait a second please..')]
+            widget.set_title(0, 'Click on {}. Loading {} of {}'.format(coords, i, length))
+            i += 1
+
             # IMAGES
             if obj['type'] == 'Image':
                 # Get the image's values
                 image = obj['object']
-                values = tools.get_value(image, point, 10, 'client')
-                values = tools.sort_dict(values)
                 properties = image.propertyNames().getInfo()
 
                 if 'BAP_version' in properties:  # Check if it's a BAP composite
-                    col_id = int(values['col_id'])
-                    thedate = int(values['date'])
-                    codes = {val: key for key, val in satcol.SAT_CODES.items()}
-                    collection = satcol.IDS[codes[col_id]]
-                    realdate = date.Date.get(thedate).format().getInfo()
+                    try:
+                        values = tools.get_value(image, point, 10, 'client')
+                        values = tools.sort_dict(values)
+                        col_id = int(values['col_id'])
+                        thedate = int(values['date'])
+                        codes = {val: key for key, val in satcol.SAT_CODES.items()}
+                        collection = satcol.IDS[codes[col_id]]
+                        realdate = date.Date.get(thedate).format().getInfo()
 
-                    # Get properties of the composite
-                    inidate = int(image.get('ini_date').getInfo())
-                    inidate = date.Date.get(inidate).format().getInfo()
-                    enddate = int(image.get('end_date').getInfo())
-                    enddate = date.Date.get(enddate).format().getInfo()
+                        # Get properties of the composite
+                        inidate = int(image.get('ini_date').getInfo())
+                        inidate = date.Date.get(inidate).format().getInfo()
+                        enddate = int(image.get('end_date').getInfo())
+                        enddate = date.Date.get(enddate).format().getInfo()
 
-                    # Create the content
-                    img_html = '''
-                        <h3>General Properties</h3>
-                        <b>Season starts at:</b> {ini}</br>
-                        <b>Season ends at:</b> {end}</br>
-                        <h3>Information at point</h3>
-                        <b>Collection:</b> {col}</br>
-                        <b>Date:</b> {thedate} ({date})'''.format(ini=inidate,
-                        end=enddate, col=collection, date=realdate, p=coords,
-                        thedate=thedate)
+                        # Create the content
+                        img_html = '''
+                            <h3>General Properties</h3>
+                            <b>Season starts at:</b> {ini}</br>
+                            <b>Season ends at:</b> {end}</br>
+                            <h3>Information at point</h3>
+                            <b>Collection:</b> {colid} ({col})</br>
+                            <b>Date:</b> {thedate} ({date})'''.format(ini=inidate,
+                            end=enddate, col=collection, date=realdate, p=coords,
+                            thedate=thedate, colid=col_id)
 
-                    wid = HTML(img_html)
-                    # append widget to list of widgets
-                    wids4acc.append(wid)
-                    namelist.append(name)
+                        wid = HTML(img_html)
+                        # append widget to list of widgets
+                        wids4acc.append(wid)
+                        namelist.append(name)
+                    except Exception as e:
+                        widget = HTML(str(e).replace('<','{').replace('>','}'))
+                        text = 'ERROR in layer {}'.format(name)
+                        wids4acc.append(widget)
+                        namelist.append(text)
                 else:
                     continue
             # GEOMETRIES
