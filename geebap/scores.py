@@ -1069,7 +1069,7 @@ class Threshold(Score):
 
     def map(self, col, **kwargs):
         def wrap(img):
-            score = self.compute(col, **kwargs)(img)
+            score = self.compute(col, **kwargs)(img).select(self.name)
             return img.addBands(score)
 
         return wrap
