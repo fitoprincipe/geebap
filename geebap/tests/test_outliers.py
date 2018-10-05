@@ -74,7 +74,7 @@ class TestOuliers(unittest.TestCase):
         # print(json.dumps(val_dict.values(), indent=2))
 
         # OUTLIER SCORE
-        compare = [(str(int(round(val[self.band]*10000))), val["score-outlier"]) for key, val in val_dict.iteritems()]
+        compare = [(str(int(round(val[self.band]*10000))), val["score-outlier"]) for key, val in val_dict.items()]
         compare = dict(compare)
 
         self.assertDictEqual(to_compare, compare)
@@ -94,7 +94,7 @@ class TestOuliers(unittest.TestCase):
         # print(json.dumps(val_dict.values(), indent=2))
 
         # OUTLIER SCORE
-        compare = [(str(int(round(val[self.band]*10000))), val[score.name]) for key, val in val_dict.iteritems()]
+        compare = [(str(int(round(val[self.band]*10000))), val[score.name]) for key, val in val_dict.items()]
         compare = dict(compare)
 
         self.assertDictEqual(to_compare, compare)

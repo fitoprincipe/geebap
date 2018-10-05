@@ -13,7 +13,7 @@ cloud_S2 = ee.Image(tests.TEST_CLOUD_IMAGES['S2'])
 def output(image, name, vis_params):
 
     visimage = image.visualize(**vis_params)
-    url = visimage.getThumbUrl({'region':tools.getRegion(cloud_S2)})
+    url = visimage.getThumbUrl({'region':tools.geometry.getRegion(cloud_S2)})
 
     print(name, url)
 
@@ -22,7 +22,7 @@ def export(image, folder, score, scale=30):
     task = ee.batch.Export.image.toAsset(image,
            assetId='{}/{}/{}'.format(user, folder, score),
            scale=30,
-           region=tools.getRegion(image))
+           region=tools.geometry.getRegion(image))
     task.start()
 
 class TestCloudDist(unittest.TestCase):
@@ -31,13 +31,13 @@ class TestCloudDist(unittest.TestCase):
 
     def test_generate_mask(self):
         band = 'B1'
-        mask = cloud_mask.sentinel2(cloud_S2)
+        mask = cloud_mask.sentinel2()(cloud_S2)
         cld_score = self.score.generate_score(mask, band)
         vis = cld_score.visualize(min=0, max=1, palette=['b9936c', 'dac292',
                                                          'e6e2d3', 'c4b7a6'])
 
         region = cloud_S2.geometry().centroid().buffer(5000)
-        url = vis.getThumbUrl({'region':tools.getRegion(region)})
+        url = vis.getThumbUrl({'region':tools.geometry.getRegion(region)})
 
         print('\nCloud Distance Score: {}\n'.format(url))
         self.assertEqual(cld_score.getInfo()['type'], 'Image')
@@ -53,8 +53,8 @@ class TestMaskPercent(unittest.TestCase):
         computed = score.map(col, bounds)(image)
 
         maskprop = computed.get(score.name).getInfo()
-        maskband = tools.get_value(computed, image.geometry().centroid(), 10, 'client')[score.name]
-        print(maskband, maskprop)
+        maskband = tools.image.get_value(
+            computed, image.geometry().centroid(), 10, 'client')[score.name]
 
         self.assertEqual(maskband, maskprop)
 
@@ -62,11 +62,15 @@ class TestMaskPercent(unittest.TestCase):
 class TestThreshold(unittest.TestCase):
     def test_threshold(self):
         # test_image = ee.Image(LANDSAT/LC08/C01/T1_SR/LC08_231090_20170103)
-        score = Threshold({'B8':{'min': 100,'max':2000}, 'B11':{'min':100, 'max':2000}})
-        result = score.map()(cloud_S2)
+        score = Threshold({'B8':{'min': 100,'max':2000},
+                           'B11':{'min':100, 'max':2000}})
+        col = Collection.Sentinel2()
+        result = score.map(col)(cloud_S2)
         self.assertEqual(result.getInfo()['type'], 'Image')
-        output(result, 'test threshold', {'bands':['score-thres'], 'min':0, 'max':1})
-        output(cloud_S2, 'original', {'bands':['B8','B11','B4'], 'min':0, 'max':5000})
+        output(result, 'test threshold', {'bands':['score-thres'],
+                                          'min':0, 'max':1})
+        output(cloud_S2, 'original', {'bands':['B8','B11','B4'],
+                                      'min':0, 'max':5000})
 
         export(result.select([score.name]), 'test_scores', 'threshold', 10)
 
@@ -82,8 +86,8 @@ class TestThreshold(unittest.TestCase):
 
         image = ee.Image(colEE_score.first())
 
-        p1_val = tools.get_value(image, p1, 30,'client')['score-thres']
-        p0_val = tools.get_value(image, p0, 30,'client')['score-thres']
+        p1_val = tools.image.get_value(image, p1, 30,'client')['score-thres']
+        p0_val = tools.image.get_value(image, p0, 30,'client')['score-thres']
 
         self.assertEqual(float(p1_val), 1)
         self.assertEqual(float(p0_val), 0)
