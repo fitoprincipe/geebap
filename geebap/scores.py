@@ -6,15 +6,12 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import satcol
-import functions
+from . import satcol, functions, season
 from geetools import tools
-import season
-# from functions import execli
-from geetools.tools import execli
-from expressions import Expression
+
+from .expressions import Expression
 from abc import ABCMeta, abstractmethod
-from regdec import *
+from .regdec import *
 
 __all__ = []
 factory = {}
@@ -58,7 +55,7 @@ class Score(object):
 
     def adjust(self):
         if self.range_out != (0, 1):
-            return tools.parameterize((0, 1), self.range_out, [self.name])
+            return tools.Mapping.parameterize((0, 1), self.range_out, [self.name])
         else:
             return lambda x: x
 
@@ -190,7 +187,7 @@ class CloudDist(Score):
         masc_inv = pjeDist.mask().Not()
 
         # apply mask2zero (all masked pixels are converted to 0)
-        pjeDist = tools.mask2zero(pjeDist)
+        pjeDist = pjeDist.unmask()
         #pjeDist = pjeDist.mask().where(1, pjeDist)
 
         # Add the inverse mask to the distance image
@@ -435,9 +432,9 @@ class Doy(Score):
         :param year: central year
         :type year: int
         """
-        media = execli(self.mean(year).getInfo)()
-        std = execli(self.std(year).getInfo)()
-        ran = execli(self.doy_range(year).getInfo)()
+        media = self.mean(year).getInfo()
+        std = self.std(year).getInfo()
+        ran = self.doy_range(year).getInfo()
         self.rango_in = (1, ran)
 
         # exp = Expression.Normal(mean=mean, std=std)
@@ -503,6 +500,69 @@ class MaskPercent(Score):
     :param include_zero: include pixels with zero value as mask
     :type include_zero: bool
     """
+    @staticmethod
+    def core(mask_image, geometry, scale=1000, band_name='score-maskper',
+             max_pixels=1e13):
+        """ Core function for Mask Percent Score. Has no dependencies in geebap
+        module
+
+        :param mask_image: ee.Image holding the mask
+        :type mask_image: ee.Image
+        :param geometry: the score will be computed inside this geometry
+        :type geometry: ee.Geometry or ee.Feature
+        :param scale: the scale of the mask
+        :type scale: int
+        :param band_name: the name of the resulting band
+        :type band_name: str
+        :return: An image with one band that holds the percentage of pixels
+            with value 0 (not 1) over the total pixels inside the geometry, and
+            a property with the same name as the assigned for the band with the
+            same percentage
+        :rtype: ee.Image
+        """
+        # get projection
+        projection = mask_image.projection()
+
+        # get band name
+        band = ee.String(mask_image.bandNames().get(0))
+
+        # Make an image with all ones
+        ones_i = ee.Image.constant(1).reproject(projection).rename(band)
+
+        # manage geometry types
+        if isinstance(geometry, (ee.Feature, ee.FeatureCollection)):
+            geometry = geometry.geometry()
+
+        # Get total number of pixels
+        ones = ones_i.reduceRegion(
+            reducer= ee.Reducer.count(),
+            geometry= geometry,
+            scale= scale,
+            maxPixels= max_pixels).get(band)
+        ones = ee.Number(ones)
+
+        # select first band, unmask and get the inverse
+        mask_image = mask_image.select([0])
+        mask = mask_image.mask()
+        mask_not = mask.Not()
+        image_to_compute = mask.updateMask(mask_not)
+
+        # Get number of zeros in the given mask_image
+        zeros_in_mask =  image_to_compute.reduceRegion(
+            reducer= ee.Reducer.count(),
+            geometry= geometry,
+            scale= scale,
+            maxPixels= max_pixels).get(band)
+        zeros_in_mask = ee.Number(zeros_in_mask)
+
+        percentage = tools.number.trim_decimals(zeros_in_mask.divide(ones), 4)
+
+        percent_image = ee.Image.constant(percentage) \
+            .select([0], [band_name]).set(band_name, percentage)
+
+        return percent_image.clip(geometry)
+
+
     def __init__(self, band=None, name="score-maskper", maxPixels=1e13,
                  include_zero=True, **kwargs):
         super(MaskPercent, self).__init__(**kwargs)
@@ -523,13 +583,10 @@ class MaskPercent(Score):
         :type geom: ee.Geometry, ee.Feature
         :return:
         """
-        scale = col.scale
         nombre = self.name
         banda = self.band if self.band else col.bandmask
         ajuste = self.adjust()
-
-        # region = tools.getRegion(geom)
-        # print(region)
+        scale = col.bandscale.get(banda)
 
         if banda:
             def wrap(img):
@@ -537,7 +594,7 @@ class MaskPercent(Score):
                 def if_true():
                     # Select pixels with value different to zero
                     ceros = img.select(banda).neq(0)
-                    return tools.mask2zero(ceros)
+                    return ceros.unmask()
 
                 def if_false():
                     return img.select(banda).mask()
@@ -553,32 +610,8 @@ class MaskPercent(Score):
 
                 image = img.select(banda).updateMask(mask)
 
-                total = mask.reduceRegion(reducer= ee.Reducer.count(),
-                                          geometry= g,
-                                          scale= scale,
-                                          maxPixels= self.maxPixels).get(banda)
-
-                total = ee.Number(total)
-
-                # COUNT UNMASKED PIXELS
-                imagen = image.reduceRegion(reducer= ee.Reducer.count(),
-                                            geometry= g,
-                                            scale= scale,
-                                            maxPixels= self.maxPixels).get(banda)
-                imagen = ee.Number(imagen)
-
-                # EN UN NUMERO
-                numpor = tools.trim_decimals(4)(imagen.divide(total))
-
-                # CALCULO EL PORCENTAJE DE PIXELES ENMASCARADOS (imagen / total)
-                # imgpor = ee.Image(ee.Image.constant(imagen)).divide(ee.Image.constant(total))
-                imgpor = ee.Image.constant(numpor)
-
-                # RENOMBRO LA BANDA PARA QUE SE LLAME pnube Y LA CONVIERTO A Float
-                imgpor = imgpor.select([0], [nombre]).toFloat()
-
-                # Set 'maskpercent' property
-                imgpor = imgpor.set(self.name, numpor)
+                imgpor = MaskPercent.core(image, g, scale, nombre,
+                                          self.maxPixels)
 
                 return ajuste(imgpor)
         else:
@@ -591,62 +624,6 @@ class MaskPercent(Score):
             score = self.compute(col, geom, **kwargs)(img)
             prop = score.get(self.name)
             return img.addBands(score).set(self.name, prop)
-        return wrap
-
-    # TODO: ver param geom, cambiar por el área de la imagen
-    def map_old(self, col, geom=None, **kwargs):
-        """
-        :param col: collection
-        :type col: satcol.Collection
-        :param geom: geometry of the area
-        :type geom: ee.Geometry, ee.Feature
-        :return:
-        """
-        scale = col.scale
-        nombre = self.name
-        banda = self.band if self.band else col.bandmask
-        ajuste = self.adjust()
-
-        if banda:
-            def wrap(img):
-
-                # Selecciono los pixeles con valor distinto de cero
-                ceros = img.select([0]).eq(0).Not()
-
-                g = geom if geom else img.geometry()
-                img0 = img.select(banda)
-
-                # OBTENGO LA MASCARA
-                mask = img0.neq(0)
-                # i = img0.updateMask(mask)
-
-                total = g.area(10).divide(
-                    ee.Number(scale).multiply(ee.Number(scale)))
-
-                # CUENTO LA CANT DE PIXELES SIN ENMASCARAR
-                imagen = mask.reduceRegion(reducer= ee.Reducer.sum(),
-                                           geometry= g,
-                                           scale= scale,
-                                           maxPixels= self.maxPixels).get(banda)
-
-                # EN UN NUMERO
-                numpor = ee.Number(imagen).divide(total)
-                # por = ee.Number(1).subtract(numpor)
-
-                # Set 'maskpercent' property
-                img = img.set('maskpercent', numpor)
-
-                # CALCULO EL PORCENTAJE DE PIXELES ENMASCARADOS (imagen / total)
-                imgpor = ee.Image(ee.Image.constant(imagen)).divide(ee.Image.constant(total))
-                # imgpor = ee.Image.constant(1).subtract(imgpor)
-
-                # RENOMBRO LA BANDA PARA QUE SE LLAME pnube Y LA CONVIERTO A Float
-                imgpor = imgpor.select([0], [nombre]).toFloat()
-
-                return ajuste(img.addBands(imgpor).updateMask(ceros).set(nombre, numpor))
-        else:
-            wrap = self.empty
-
         return wrap
 
 
@@ -845,12 +822,12 @@ class Outliers(Score):
 
             pout = functions.simple_rename(condicion_adentro, suffix="pout")
 
-            suma = tools.sumBands(nombre)(pout)
+            suma = tools.image.sumBands(pout, nombre)
 
             final = suma.select(nombre).multiply(ee.Image(incremento))
 
-            parametrizada = tools.parametrize(rango_orig,
-                                              rango_fin)(final)
+            parametrizada = tools.image.parametrize(final, rango_orig,
+                                                    rango_fin)
 
             return img_orig.addBands(parametrizada)#.updateMask(ceros)
         return wrap
@@ -875,7 +852,7 @@ class Index(Score):
         ajuste = self.adjust()
         def wrap(img):
             ind = img.select([self.index])
-            p = tools.parametrize(self.range_in, self.range_out)(ind)
+            p = tools.image.parametrize(ind, self.range_in, self.range_out)
             p = p.select([0], [self.name])
             return ajuste(img.addBands(p))
         return wrap
@@ -930,8 +907,7 @@ class MultiYear(Score):
             return ajuste(img.addBands(imgpje).updateMask(ceros))
         return wrap
 
-@register(factory)
-@register_all(__all__)
+
 class Threshold_old(Score):
     def __init__(self, band=None, threshold=None, name='score-thres',
                  **kwargs):
@@ -1003,10 +979,14 @@ class Threshold_old(Score):
         else:
             return wrap_min
 
+
+@register(factory)
+@register_all(__all__)
 class Threshold(Score):
     def __init__(self, bands=None, name='score-thres',
                  **kwargs):
-        """
+        """ Compute a threshold score, where values less than the min value or
+        greater than the max value will have zero score
 
         :param bands: Dict of dicts as follows
 
@@ -1029,11 +1009,12 @@ class Threshold(Score):
     def compute(self, col, **kwargs):
         # TODO: handle percentage values like ('10%', '20%')
 
+        # If no bands relation is passed, uses the one stored in the collection
         band_relation = self.bands if self.bands else col.threshold
 
         # As each band must have a 'min' and 'max' if it is not specified,
         # it is completed with None. This way, it can be catched by ee.Algorithms.If
-        for key, val in band_relation.iteritems():
+        for key, val in band_relation.items():
             val.setdefault('min', 0)
             val.setdefault('max', 1)
 
@@ -1043,7 +1024,6 @@ class Threshold(Score):
         length = ee.Number(bands_ee.size())
         # step = ee.Number(1).divide(length)
 
-        score = tools.empty_image(0, bands)
         def wrap(img):
             def compute_score(band, first):
                 score_complete = ee.Image(first)
@@ -1057,11 +1037,12 @@ class Threshold(Score):
 
                 final_score = score_min.And(score_max)  # Image with one band
 
-                return tools.replace(score_complete, band, final_score)
+                return tools.image.replace(score_complete, band, final_score)
 
-            scores = ee.Image(bands_ee.iterate(compute_score, score))
+            scores = ee.Image(bands_ee.iterate(compute_score,
+                                               tools.image.empty(0, bands)))
             # parametrized = scores.multiply(self.step)
-            final_score = tools.sumBands(name=self.name)(scores) \
+            final_score = tools.image.sumBands(scores, name=self.name)\
                                .divide(ee.Image.constant(length))
 
             return final_score
