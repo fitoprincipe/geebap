@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """ Module holding custom filters for image collections """
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import satcol
+from . import satcol
 from abc import ABCMeta, abstractmethod
-from regdec import *
+from .regdec import *
 
 __all__ = []
 factory = {}
 
 
 class Filter(object):
-    ''' Abstract Base class for filters '''
+    """ Abstract Base class for filters """
     __metaclass__ = ABCMeta
     def __init__(self, **kwargs):
         pass

@@ -8,8 +8,6 @@ if not ee.data._initialized: ee.Initialize()
 
 import csv
 import requests
-import functions
-from geetools import tools
 
 
 class Site(object):
@@ -59,16 +57,16 @@ class Site(object):
             try:
                 region = place.geometry().bounds().getInfo()['coordinates'][0]
             except AttributeError as ae:
-                print ae
+                print(ae)
                 region = place.getInfo()['coordinates'][0]
             except Exception as e:
-                print e
+                print(e)
                 return None, None
 
             return place, region
         except Exception as e:
             # print "Hubo un error al filtrar el ID"
-            print e
+            print(e)
             return None, None
 
 
@@ -105,7 +103,7 @@ def from_gsheet(url, sheet, name=None, id_ft=None, id_fld=None, name_fld=None):
     :param name_fld:
     """
     content = requests.get(url)
-    json = tools.execli(content.json, 10, 5)()
+    json = content.json()
     sheet = json[sheet]
     sites = []
 

@@ -162,7 +162,7 @@ def replace_many(listEE, toreplace):
     :return: list with replaced values
     :rtype: ee.List
     """
-    for key, val in toreplace.iteritems():
+    for key, val in toreplace.items():
         if val:
             listEE = listEE.replace(key, val)
     return listEE
@@ -246,11 +246,11 @@ def get_size(col, sleep=0, step=5, limit=RETRY_LIMIT):
         s = col.size().getInfo()
         return s
     except Exception as e:
-        print str(e)
+        print(str(e))
         # cond = str(e) in "Too many concurrent aggregations."
         # if cond and sleep<limit:
         if sleep<limit:
-            print "esperando {} segundos".format(sleep)
+            print("esperando {} segundos".format(sleep))
             for r in range(sleep+1):
                 sys.stdout.write(str(r+1)+".")
                 time.sleep(1)

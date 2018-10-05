@@ -93,23 +93,3 @@ class SvalEE(sval.SimpleEval):
         self.operators = DEFAULT_OPERATORS
         self.functions = DEFAULT_FUNCTIONS
         self.names = DEFAULT_NAMES
-
-if __name__ == "__main__":
-
-    '''
-    print "{a}+b".format(a=ExpGen.max("a", 2))
-
-    expr = "maxEE(1, 4)*2"
-    print expr.strip()
-    for b in ast.parse(expr.strip()).body:
-        print dir(b.value.left)
-        print dir(b.value.right)
-        print b.value.op
-    # print ExpGen.parse(expr)
-    '''
-    expr = "sqrt(2*4)+min(b('B1'), 3)*2*b('B2')"
-    expr2 = "1.0-(1.0/(exp((({var}-'mean')*(1/'max'*'a')))+1.0))"
-    expr3 = "(3+2)*5"
-    #s = SvalEE()
-    #print s.eval(expr)
-    print ExpGen.parse(expr2)

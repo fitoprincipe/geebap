@@ -9,19 +9,15 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import satcol
-import season as temp
-import functions
+from . import satcol, functions, date, scores, masks, filters
+from . import season as temp
+
 import datetime
-import date
-import scores
-import masks
-import filters
 import time
 import sys
 from collections import namedtuple
 from geetools import tools
-import json
+
 import pprint
 from . import __version__
 
@@ -748,7 +744,7 @@ class Bap(object):
         # print 'in best pixel 2', img.select('date').getInfo()['bands']
         '''
         # Get rid of '/' in properties dict
-        properties = {k.replace("/", "_"):v for k, v in properties.iteritems()}
+        properties = {k.replace("/", "_"):v for k, v in properties.items()}
 
         final_image = ee.Image(
             ee.Algorithms.If(size, img, ee.Image.constant(0).rename(name)))
@@ -920,7 +916,7 @@ class Bap(object):
             prop.update(dateprop)
 
             # Elimino las barras invertidas
-            prop = {k.replace("/","_"):v for k, v in prop.iteritems()}
+            prop = {k.replace("/","_"):v for k, v in prop.items()}
 
             img = img if bands is None else img.select(*bands)
 

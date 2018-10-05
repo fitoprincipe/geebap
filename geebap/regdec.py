@@ -6,8 +6,9 @@ import functools
 
 __all__ = ('register', 'register_all')
 
+
 def register(holder):
-    ''' Make a registry of the decorated Class in the given holder
+    """ Make a registry of the decorated Class in the given holder
 
     :Usage:
 
@@ -25,7 +26,7 @@ def register(holder):
 
     :param holder: dict that will hold the classes
     :type holder: dict
-    '''
+    """
     # @functools.wraps(holder)
     def wrap(cls):
         name = cls.__name__
@@ -33,8 +34,9 @@ def register(holder):
         return cls
     return wrap
 
+
 def register_all(holder):
-    ''' Make a registry of the decorated Class in the given holder to use in
+    """ Make a registry of the decorated Class in the given holder to use in
     module's __all__ variable
 
     :Usage:
@@ -53,7 +55,7 @@ def register_all(holder):
 
     :param holder: list that will hold the classe's names
     :type holder: list
-    '''
+    """
     # @functools.wraps(holder)
     def wrap(cls):
         name = cls.__name__
