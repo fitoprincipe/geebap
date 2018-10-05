@@ -3,7 +3,8 @@
 """ Tools to use in IPython """
 
 import ee
-from geetools import maptool, tools
+from geetools.ui import maptool
+from geetools import tools
 from . import satcol, date
 
 try:
@@ -14,8 +15,10 @@ except:
 
 ee.Initialize()
 
+
 def information():
     pass
+
 
 def info2map(map):
     """ Add an information Tab to a map displayed with `geetools.ipymap`
@@ -26,6 +29,7 @@ def info2map(map):
     :return:
     """
     map.addTab('BAP Inspector', info_handler, Accordion())
+
 
 def info_handler(**kwargs):
     """ Handler for the Bap Inspector Tab of the Map
@@ -67,8 +71,8 @@ def info_handler(**kwargs):
 
                 if 'BAP_version' in properties:  # Check if it's a BAP composite
                     try:
-                        values = tools.get_value(image, point, 10, 'client')
-                        values = tools.sort_dict(values)
+                        values = tools.image.get_value(image, point, 10, 'client')
+                        values = tools.dictionary.sort(values)
                         col_id = int(values['col_id'])
                         thedate = int(values['date'])
                         codes = {val: key for key, val in satcol.SAT_CODES.items()}

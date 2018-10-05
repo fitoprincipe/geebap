@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """ Collections module. Add some needed parameters to collections and create
 collection groups to generate a Best Available Pixel Composite """
 import ee
@@ -8,11 +7,10 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import indices
+from geetools import indices, tools
 from geetools import cloud_mask as cld
 from copy import deepcopy
-import functions
-from geetools import tools
+from . import functions
 from datetime import date
 
 initialized = True
@@ -52,6 +50,7 @@ SAT_CODES = {'L1': 1,
              'S2': 14,
              'MODT': 15,
              'MODAQ': 16}
+
 
 def info(col):
     """ Pritty prints information about the given collection
@@ -152,7 +151,7 @@ class Collection(object):
                                    "SWIR2": self.SWIR2,
                                    "ATM_OP": self.ATM_OP}
 
-        self.bandsrel = {v: k for k, v in self.bandasrel_original.iteritems() if v is not None}
+        self.bandsrel = {v: k for k, v in self.bandasrel_original.items() if v is not None}
         # self._bandasrel = None
 
         # Launch and end year
@@ -175,7 +174,7 @@ class Collection(object):
         :return: diccionario invertido de bands presentes en la coleccion
         :rtype: dict
         """
-        self.bandsrel = {v: k for k, v in self.bandsrel.iteritems() if v is not None}
+        self.bandsrel = {v: k for k, v in self.bandsrel.items() if v is not None}
 
     @property
     def bandIDimg(self):
@@ -292,7 +291,7 @@ class Collection(object):
         """
         # drop = drop
         # Redefine self.bandsrel
-        # self.bandsrel = {v: k for k, v in self.bandsrel.iteritems() if v is not None}
+        # self.bandsrel = {v: k for k, v in self.bandsrel.items() if v is not None}
 
         # indica que el objeto tiene las bands renombradas
         self._renamed = not self._renamed
@@ -312,8 +311,9 @@ class Collection(object):
         self.to_scale = [self.bandsrel[i] for i in self.to_scale]
         self.bandmask = self.bandsrel[self.bandmask]
 
-        # obtiene la funcion para renombrar las bands antes de inveritrlas
+        # function to rename bands before invert them
         frename = functions.rename_bands(self.bandsrel, drop)
+        # frename = tools.Mapping.renameDict(self.bandsrel)
 
         # Invierte la relation entre las bands
         self.invert_bandsrel()
@@ -329,11 +329,11 @@ class Collection(object):
         if self.max:
             rango_orig = (self.min, self.max)
             def wrap(img):
-                escalables = functions.list_intersection(
+                escalables = tools.ee_list.intersection(
                     img.bandNames(), ee.List(self.to_scale))
 
-                return tools.parametrize(
-                    rango_orig, final_range, escalables)(img)
+                return tools.image.parametrize(img,
+                    rango_orig, final_range, escalables)
             return wrap
         else:
             return lambda x: x
@@ -431,7 +431,7 @@ class Collection(object):
                   SWIR2="B7",
                   to_scale=["B1", "B2", "B3", "B4", "B5", "B7"],
                   clouds_fld="CLOUD_COVER",
-                  fclouds={'computed_ee': cld.landsatTOA()},
+                  fclouds={'computed_ee': cld.landsat457TOA_BQA()},
                   clouds_band='BQA',
                   process="TOA",
                   max=1,
@@ -457,7 +457,7 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat4TOA())
         copy.kws["short"] = "L4USGS"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = {'computed_ee': cld.landsatSR()}
+        copy.kws["fclouds"] = {'computed_ee': cld.landsat457SR_pixelQA()}
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = IDS['L4TOA']
         copy.kws["clouds_band"] = "pixel_qa"
@@ -499,7 +499,7 @@ class Collection(object):
         copy = deepcopy(Collection.Landsat5TOA())  # L5 TOA
         copy.kws["process"] = "SR"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = {'computed_ee': cld.landsatSR()}
+        copy.kws["fclouds"] = {'computed_ee': cld.landsat457SR_pixelQA()}
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["equiv"] = IDS['L5TOA']
         copy.kws["clouds_band"] = "pixel_qa"
@@ -514,30 +514,6 @@ class Collection(object):
 
         # CAMBIO
         # obj.ID = "LANDSAT/LT05/C01/T1_SR"
-        obj.ID = IDS[obj.short]
-        return obj
-
-    @classmethod
-    def Landsat5LEDAPS(cls):
-        # LEDAPS/LT5_L1T_SR
-        copy = deepcopy(Collection.Landsat5TOA())  # L5 TOA
-        copy.kws["ATM_OP"] = "atmos_opacity"
-        copy.kws["process"] = "SR"
-        copy.kws["max"] = 10000
-        copy.kws["fclouds"] = {'computed_ee': cld.ledaps}
-        copy.kws["equiv"] = IDS['L5TOA']
-        copy.kws["clouds_band"] = "QA"
-        copy.kws["short"] = "L5LEDAPS"
-        copy.kws["threshold"] = {'NIR': {'min':700, 'max':4500},
-                                 'RED':{'min':50, 'max':2000},
-                                 'SWIR':{'min':400, 'max':3500},
-                                 'SWIR2':{'min':150, 'max':2800},
-                                 'BLUE':{'min':0, 'max':1000},
-                                 'GREEN':{'min':100, 'max':1500}}
-
-        obj = cls(**copy.kws)
-
-        # CAMBIOS
         obj.ID = IDS[obj.short]
         return obj
 
@@ -567,32 +543,10 @@ class Collection(object):
         copy.kws["equiv"] = IDS['L7TOA']
         copy.kws["process"] = "SR"
         copy.kws["max"] = 10000
-        copy.kws["fclouds"] = {'computed_ee': cld.landsatSR()}
+        copy.kws["fclouds"] = {'computed_ee': cld.landsat457SR_pixelQA()}
         copy.kws["ATM_OP"] = "sr_atmos_opacity"
         copy.kws["clouds_band"] = "pixel_qa"
         copy.kws["short"] = "L7USGS"
-        copy.kws["threshold"] = {'NIR': {'min':700, 'max':4500},
-                                 'RED':{'min':50, 'max':2000},
-                                 'SWIR':{'min':400, 'max':3500},
-                                 'SWIR2':{'min':150, 'max':2800},
-                                 'BLUE':{'min':0, 'max':1000},
-                                 'GREEN':{'min':100, 'max':1500}}
-        obj = cls(**copy.kws)
-
-        # CAMBIO
-        obj.ID = IDS[obj.short]
-
-        return obj
-
-    @classmethod
-    def Landsat7LEDAPS(cls):
-        copy = deepcopy(Collection.Landsat5LEDAPS())  # L5 LEDAPS
-        copy_usgs = deepcopy(Collection.Landsat7USGS())  # L7 USGS
-        copy.kws["equiv"] = copy_usgs.equiv
-        copy.kws["bandscale"] = copy_usgs.bandscale
-        copy.kws["ini"] = copy_usgs.ini
-        copy.kws["end"] = copy_usgs.end
-        copy.kws["short"] = "L7LEDAPS"
         copy.kws["threshold"] = {'NIR': {'min':700, 'max':4500},
                                  'RED':{'min':50, 'max':2000},
                                  'SWIR':{'min':400, 'max':3500},
@@ -618,7 +572,7 @@ class Collection(object):
                   SWIR2="B7",
                   to_scale=["B2", "B3", "B4", "B5", "B6", "B7"],
                   clouds_fld="CLOUD_COVER",
-                  fclouds={'computed_ee': cld.landsatTOA()},
+                  fclouds={'computed_ee': cld.landsat8TOA_BQA()},
                   clouds_band='BQA',
                   process="TOA",
                   max=1,
@@ -647,7 +601,7 @@ class Collection(object):
         copy_usgs = deepcopy(Collection.Landsat5USGS())  # L5 USGS
         copy.kws["process"] = copy_usgs.process
         copy.kws["max"] = copy_usgs.max
-        copy.kws["fclouds"] = {'computed_ee': cld.landsatSR()}
+        copy.kws["fclouds"] = {'computed_ee': cld.landsat8SR_pixelQA()}
         copy.kws["equiv"] = IDS['L8TOA']
         copy.kws["bandscale"] = copy.bandscale
         copy.kws["short"] = "L8USGS"
@@ -722,7 +676,7 @@ class Collection(object):
                   short="MODT",
                   to_scale=["sur_refl_b01", "sur_refl_b02", "sur_refl_b03",
                             "sur_refl_b04", "sur_refl_b06", "sur_refl_b07"],
-                  fclouds={'computed_ee':cld.modis},
+                  fclouds={'computed_ee':cld.modis09ga()},
                   threshold = {'NIR': {'min':700, 'max':4500},
                                'RED':{'min':50, 'max':2000},
                                'SWIR':{'min':400, 'max':3500},
@@ -798,13 +752,13 @@ class ColGroup(object):
         rel = self.collections[0].bandasrel_original
 
         # Bandas
-        bandas = [k for k, v in rel.iteritems() if v is not None]
+        bandas = [k for k, v in rel.items() if v is not None]
         s = set(bandas)
 
         for i, c in enumerate(self.collections):
             if i == 0: continue
             rel = c.bandasrel_original
-            bandas = [k for k, v in rel.iteritems() if v is not None]
+            bandas = [k for k, v in rel.items() if v is not None]
             s2 = set(bandas)
             s = s.intersection(s2)
 
