@@ -6,7 +6,8 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import functions
+# from geetools import tools
+# import functions
 
 
 class Date(object):
@@ -39,7 +40,9 @@ class Date(object):
             days_since_70 = ee.Date(dateadq).millis().divide(Date.oneday)  # days since 1970
             dateimg = ee.Image(days_since_70).select([0], [name]).toUint16()
             final = img.addBands(dateimg).set(name, days_since_70.toInt())
-            return functions.pass_date(img, final)
+            # return functions.pass_date(img, final)
+            # return tools.passProperty(img, final, 'system:time_start')
+            return final.copyProperties(img, ['system:time_start'])
         return wrap
 
     @staticmethod
