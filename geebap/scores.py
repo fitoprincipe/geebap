@@ -491,7 +491,7 @@ class AtmosOpacity(Score):
 @register_all(__all__)
 class MaskPercent(Score):
     """ This score represents the 'masked pixels cover' for a given area.
-    It uses a ee.Reducer so it can be consume much EE capacity
+    It uses a ee.Reducer so it can consume much EE capacity
 
     :param band: band of the image that holds the masked pixels
     :type band: str
@@ -557,8 +557,11 @@ class MaskPercent(Score):
 
         percentage = tools.number.trim_decimals(zeros_in_mask.divide(ones), 4)
 
-        percent_image = ee.Image.constant(percentage) \
-            .select([0], [band_name]).set(band_name, percentage)
+        # Make score inverse to percentage
+        score = ee.Number(1).subtract(percentage)
+
+        percent_image = ee.Image.constant(score) \
+            .select([0], [band_name]).set(band_name, score)
 
         return percent_image.clip(geometry)
 
