@@ -215,7 +215,12 @@ class Bap(object):
         new_times = [(n/max_default if (general_wait>0 and max_default>0) else 0) for n in new_defaults]
 
         # max score that it can get
-        maxpunt = reduce(lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
+        if self.scores:
+            maxpunt = 0
+            for score in self.scores:
+                maxpunt += score.max
+        else:
+            maxpunt = 1
 
         # list of collections
         collist = self.colgroup.collections
@@ -286,7 +291,8 @@ class Bap(object):
                 if short == 'L7USGS' or short == 'L7TOA':
                     if year in temp.SeasonPriority.l7_slc_off:
                         # Convert masked values to zero
-                        c = c.map(tools.mask2zero)
+                        # c = c.map(tools.mask2zero)
+                        c = c.map(lambda img: img.unmask())
                         slcoff = True
 
                 # MASKS
@@ -348,12 +354,14 @@ class Bap(object):
         newcol = functions.select_match(newcol)
 
         # Compute final score
-        ftotal = tools.sumBands("score", scores)
+        # ftotal = tools.image.sumBands("score", scores)
+        ftotal = tools.imagecollection.wrapper(tools.image.sumBands, "score", scores)
         newcol = newcol.map(ftotal)
 
         if normalize:
             newcol = newcol.map(
-                tools.parametrize((0, maxpunt), (0, 1), ("score",)))
+                tools.imagecollection.wrapper(
+                    tools.image.parametrize, (0, maxpunt), (0, 1), ("score",)))
 
         finalcol = ee.ImageCollection(
             ee.Algorithms.If(size, newcol, ee.ImageCollection([]))
@@ -394,7 +402,7 @@ class Bap(object):
         def get_col_val(col):
             ''' Values of the first image in the centroid '''
 
-            values = tools.get_values(col, centroid, 30, 'client')
+            values = tools.imagecollection.get_values(col, centroid, 30, 'client')
             pp.pprint(values)
         #################################################################
 
@@ -518,7 +526,8 @@ class Bap(object):
                 if short == 'L7USGS' or short == 'L7TOA':
                     if year in temp.SeasonPriority.l7_slc_off:
                         # Convert masked values to zero
-                        c = c.map(tools.mask2zero)
+                        # c = c.map(tools.mask2zero)
+                        c = c.map(lambda img: img.unmask())
                         slcoff = True
 
                 if self.debug:
@@ -603,7 +612,8 @@ class Bap(object):
                         print(get_col_val(c))
 
                 # Convert masked values to zero
-                c = c.map(tools.mask2zero)
+                # c = c.map(tools.mask2zero)
+                c = c.map(lambda img: img.unmask())
 
                 # Add date band
                 c = c.map(date.Date.map())
@@ -644,7 +654,7 @@ class Bap(object):
                 print(get_col_val(c))
 
             # Calcula el puntaje total sumando los puntajes
-            ftotal = tools.sumBands("score", scores)
+            ftotal = tools.imagecollection.wrapper(tools.image.sumBands, "score", scores)
             newcol = newcol.map(ftotal)
 
             if self.debug:
@@ -653,7 +663,7 @@ class Bap(object):
 
             if normalize:
                 newcol = newcol.map(
-                    tools.parametrize((0, maxpunt), (0, 1), ("score",)))
+                    tools.image.parametrize((0, maxpunt), (0, 1), ("score",)))
 
             if self.debug:
                 print("AFTER parametrize:")
@@ -680,7 +690,8 @@ class Bap(object):
     @staticmethod
     def bestpixel_core_array(collection, properties, name='score'):
         # Convert masked values to 0 so they are included in the array
-        collection = collection.map(tools.mask2zero)
+        # collection = collection.map(tools.mask2zero)
+        collection = collection.map(lambda img: img.unmask())
 
         # Create array
         array = collection.toArray()
@@ -805,7 +816,7 @@ class Bap(object):
 
         composite = ee.Algorithms.If(size,
                                      self.bestpixel_core(col, properties),
-                                     tools.empty_image(0, scores+bands))
+                                     tools.image.empty(0, scores+bands))
 
         composite = ee.Image(composite)
 
@@ -832,7 +843,8 @@ class Bap(object):
         else:
             scores = self.score_names
             bands = self.colgroup.bandsrel()
-            composite = tools.empty_image(0, scores+bands)
+            # composite = tools.empty_image(0, scores+bands)
+            composite = tools.image.empty(0, scores+bands)
 
         return output(self.setprop(composite, **prop), imgCol)
 
@@ -874,7 +886,8 @@ class Bap(object):
 
             listbands = first.bandNames()
             # nbands = tools.execli(listbands.size().getInfo)()
-            nbands = tools.execli(listbands.size().getInfo)()
+            # nbands = tools.execli(listbands.size().getInfo)()
+            nbands = listbands.size().getInfo()
 
             thelist = []
 
@@ -1008,7 +1021,8 @@ class Bap(object):
         selected_reducer = reducers[reducer]
 
         # Convert masked pixels to 0 value
-        collection = collection.map(tools.mask2zero)
+        # collection = collection.map(tools.mask2zero)
+        collection = collection.map(lambda img: img.unmask())
 
         array = collection.toArray()
 
