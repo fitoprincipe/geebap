@@ -184,7 +184,7 @@ def rename_bands(names, drop=False):
         newnames = replace_many(bandnames, names)
         newimg = img.select(bandnames, newnames)
         if drop:
-            return newimg.select(names.values())
+            return newimg.select(list(names.values()))
         else:
             return newimg
     return wrap

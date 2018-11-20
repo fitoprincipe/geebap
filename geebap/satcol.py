@@ -202,7 +202,7 @@ class Collection(object):
             # raise Collection.VERROR
             raise ValueError(
                 "ID must be one of: {}".format(
-                    IDS.values()))
+                    list(IDS.values())))
 
     @property
     def bands(self):
@@ -228,7 +228,7 @@ class Collection(object):
             return SAT_CODES[self.short]
         except:
             raise ValueError(
-                "{} is not in {}".format(self.ID, IDS.values()))
+                "{} is not in {}".format(self.ID, list(IDS.values())))
 
     @property
     def colEE(self):
@@ -354,10 +354,10 @@ class Collection(object):
                IDS['L4USGS']: Collection.Landsat4USGS,
                IDS['L5TOA']: Collection.Landsat5TOA,
                IDS['L5USGS']: Collection.Landsat5USGS,
-               IDS['L5LED']: Collection.Landsat5LEDAPS,
+               # IDS['L5LED']: Collection.Landsat5LEDAPS,
                IDS['L7TOA']: Collection.Landsat7TOA,
                IDS['L7USGS']: Collection.Landsat7USGS,
-               IDS['L7LED']: Collection.Landsat7LEDAPS,
+               # IDS['L7LED']: Collection.Landsat7LEDAPS,
                IDS['L8TOA']: Collection.Landsat8TOA,
                IDS['L8USGS']: Collection.Landsat8USGS,
                IDS['S2']: Collection.Sentinel2,
