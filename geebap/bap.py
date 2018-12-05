@@ -208,11 +208,16 @@ class Bap(object):
         scores = self.score_names
 
         # Compute general waiting time
-        default_times = [s.sleep for s in self.scores]
-        max_default = max(default_times)
-        factor = max_default*general_wait
-        new_defaults = [n+factor for n in default_times]
+        default_times = [s.sleep for s in self.scores]  # list of sleep times
+        max_default = max(default_times)  # max sleep time
+        factor = max_default*general_wait  # general_wait is a param
+        new_defaults = [n+factor for n in default_times]  # increase all sleep times by general wait (list)
         new_times = [(n/max_default if (general_wait>0 and max_default>0) else 0) for n in new_defaults]
+
+        if self.verbose:
+            print('Waiting times:')
+            for name, t in dict(zip(scores, new_times)).items():
+                print(name, t)
 
         # max score that it can get
         if self.scores:
@@ -242,7 +247,7 @@ class Bap(object):
 
             # print process
             if self.verbose:
-                print(cid)
+                print('ImageCollection:', cid)
 
             # short name of the collection to add to Metadata
             short = colobj.short
@@ -264,7 +269,7 @@ class Bap(object):
             for year in self.date_range:
                 # print process
                 if self.verbose:
-                    print(year)
+                    print('year:', year)
 
                 # Create a new Collection object
                 col = satcol.Collection.from_id(cid)
@@ -320,7 +325,7 @@ class Bap(object):
                             c = c.map(score.map(col=col, year=year, colEE=c, geom=site, include_zero=False))
                         else:
                             c = c.map(score.map(col=col, year=year, colEE=c, geom=site))
-                        if self.verbose: sys.stdout.write(str(t)+'.')
+                        # if self.verbose: sys.stdout.write(str(t)+'.')
                         time.sleep(t)
 
                 # Filters
