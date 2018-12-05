@@ -61,16 +61,13 @@ class Score(object):
 
     @abstractmethod
     def map(self, **kwargs):
-        """ Funcion para usar en ImageCollection.map(), que se deberá
-        sobreescribir en los puntjaes personalizados """
+        """ Abstract map method to use in ImageCollection.map() """
         def wrap(img):
             return img
         return wrap
 
     def empty(self, img):
-        """ Metodo comun para todos los puntajes. Agrega una band a cada
-        imagen con el name del puntaje y ceros en todos sus pixeles
-        """
+        """ Make an empty score band. All pixels will have zero value """
         i = ee.Image.constant(0).select([0], [self.name]).toFloat()
         return img.addBands(i)
 
