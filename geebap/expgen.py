@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Modulo para generar expresiones compatibles con GEE """
+""" Generate expression compatible with Google Earth Engine """
 import simpleeval as sval
 import ast
 import math
+
 
 class ExpGen(object):
     def __init__(self):
@@ -41,21 +42,24 @@ class ExpGen(object):
         return s.eval(expr)
 
 
-def cat(op, agrupar=True):
+def cat(op, group=True):
     def wrap(a, b):
-        if agrupar:
-            return "("+str(a)+str(op)+str(b)+")"
+        if group:
+            return "({}{}{})".format(a, op, b)
         else:
-            return str(a)+str(op)+str(b)
+            return "{}{}{}".format(a, op, b)
     return wrap
+
 
 def cat_fun(nom_fun):
     def wrap(arg):
-        return str(nom_fun)+"("+str(arg)+")"
+        return "{}({})".format(nom_fun, arg)
     return wrap
 
-def cat_band(banda):
-    return "b('"+str(banda)+"')"
+
+def cat_band(band):
+    return "b('{}')".format(band)
+
 
 # CLEAN sval
 DEFAULT_NAMES = {"pi": math.pi,
@@ -66,7 +70,9 @@ DEFAULT_FUNCTIONS = {"max": ExpGen.max,
                      "exp": cat_fun("exp"),
                      "sqrt": cat_fun("sqrt")}
 DEFAULT_OPERATORS = {ast.Add: cat("+"),
+                     ast.UAdd: lambda a: '+{}'.format(a),
                      ast.Sub: cat("-"),
+                     ast.USub: lambda a: '-{}'.format(a),
                      ast.Mult: cat("*"),
                      ast.Div: cat("/"),
                      ast.FloorDiv: cat("//"),
@@ -85,6 +91,7 @@ DEFAULT_OPERATORS = {ast.Add: cat("+"),
                      # ast.NotIn: lambda x, y: not op.contains(y, x),
                      # ast.Is: lambda x, y: x is y,
                      # ast.IsNot: lambda x, y: x is not y,}
+
 
 class SvalEE(sval.SimpleEval):
     def __init__(self, **kwargs):
