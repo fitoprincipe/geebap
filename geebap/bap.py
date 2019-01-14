@@ -239,6 +239,12 @@ class Bap(object):
         # list of all images
         colfinal = ee.List([])
 
+        # If there is no fmap, an empty function is made
+        if self.fmap is None:
+            fmap = lambda x: x
+        else:
+            fmap = self.fmap
+
         # iterate over the collections (satcol.Collection)
         for colobj in collist:
 
@@ -317,6 +323,9 @@ class Bap(object):
                     for i in indices:
                         f = col.INDICES[i]
                         c = c.map(f)
+
+                # Before appling scores, apply fmap
+                c = c.map(fmap)
 
                 # Apply scores
                 if self.scores:
