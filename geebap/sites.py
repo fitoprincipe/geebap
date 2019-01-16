@@ -59,16 +59,16 @@ class Site(object):
             try:
                 region = place.geometry().bounds().getInfo()['coordinates'][0]
             except AttributeError as ae:
-                print ae
+                print(ae)
                 region = place.getInfo()['coordinates'][0]
             except Exception as e:
-                print e
+                print(e)
                 return None, None
 
             return place, region
         except Exception as e:
             # print "Hubo un error al filtrar el ID"
-            print e
+            print(e)
             return None, None
 
 
@@ -105,7 +105,7 @@ def from_gsheet(url, sheet, name=None, id_ft=None, id_fld=None, name_fld=None):
     :param name_fld:
     """
     content = requests.get(url)
-    json = tools.execli(content.json, 10, 5)()
+    json = content.json()
     sheet = json[sheet]
     sites = []
 
@@ -139,11 +139,11 @@ if __name__ == "__main__":
 
     for site in list2:
         s = list2[site]
-        print site, list2[site].id_ft
+        print(site, list2[site].id_ft)
         #print s.ft
         feat, region = s.filter_id(5000)
-        print feat, region
+        print(feat, region)
 
         feat, region = s.filter_id(1)
-        print region
+        print(region)
 

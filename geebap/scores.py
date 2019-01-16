@@ -11,7 +11,7 @@ import functions
 from geetools import tools
 import season
 # from functions import execli
-from geetools.tools import execli
+# from geetools.tools import execli
 from expressions import Expression
 from abc import ABCMeta, abstractmethod
 from regdec import *
@@ -58,7 +58,7 @@ class Score(object):
 
     def adjust(self):
         if self.range_out != (0, 1):
-            return tools.parameterize((0, 1), self.range_out, [self.name])
+            return tools.image.parameterize((0, 1), self.range_out, [self.name])
         else:
             return lambda x: x
 
@@ -426,9 +426,9 @@ class Doy(Score):
         :param year: central year
         :type year: int
         """
-        media = execli(self.mean(year).getInfo)()
-        std = execli(self.std(year).getInfo)()
-        ran = execli(self.doy_range(year).getInfo)()
+        media = self.mean(year).getInfo()
+        std = self.std(year).getInfo()
+        ran = self.doy_range(year).getInfo()
         self.rango_in = (1, ran)
 
         # exp = Expression.Normal(mean=mean, std=std)
@@ -528,7 +528,7 @@ class MaskPercent(Score):
                 def if_true():
                     # Select pixels with value different to zero
                     ceros = img.select(banda).neq(0)
-                    return tools.mask2zero(ceros)
+                    return ceros.unmask()
 
                 def if_false():
                     return img.select(banda).mask()
@@ -835,12 +835,13 @@ class Outliers(Score):
 
             pout = functions.simple_rename(condicion_adentro, suffix="pout")
 
-            suma = tools.sumBands(nombre)(pout)
+            suma = tools.image.sumBands(pout, nombre)
 
             final = suma.select(nombre).multiply(ee.Image(incremento))
 
-            parametrizada = tools.parametrize(rango_orig,
-                                              rango_fin)(final)
+            parametrizada = tools.image.parametrize(final,
+                                                    rango_orig,
+                                                    rango_fin)
 
             return img_orig.addBands(parametrizada)#.updateMask(ceros)
         return wrap
@@ -865,7 +866,7 @@ class Index(Score):
         ajuste = self.adjust()
         def wrap(img):
             ind = img.select([self.index])
-            p = tools.parametrize(self.range_in, self.range_out)(ind)
+            p = tools.image.parametrize(ind, self.range_in, self.range_out)
             p = p.select([0], [self.name])
             return ajuste(img.addBands(p))
         return wrap
@@ -1033,7 +1034,7 @@ class Threshold(Score):
         length = ee.Number(bands_ee.size())
         # step = ee.Number(1).divide(length)
 
-        score = tools.empty_image(0, bands)
+        score = tools.image.empty(0, bands)
         def wrap(img):
             def compute_score(band, first):
                 score_complete = ee.Image(first)
@@ -1047,11 +1048,11 @@ class Threshold(Score):
 
                 final_score = score_min.And(score_max)  # Image with one band
 
-                return tools.replace(score_complete, band, final_score)
+                return tools.image.replace(score_complete, band, final_score)
 
             scores = ee.Image(bands_ee.iterate(compute_score, score))
             # parametrized = scores.multiply(self.step)
-            final_score = tools.sumBands(name=self.name)(scores) \
+            final_score = tools.image.sumBands(scores, name=self.name)\
                                .divide(ee.Image.constant(length))
 
             return final_score

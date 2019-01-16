@@ -22,7 +22,7 @@ class TestOuliers(unittest.TestCase):
         def mask(img):
             m = img.select(self.band).lte(0.11)
             return img.updateMask(m.Not())
-        self.col = self.col.map(mask).map(tools.mask2zero)
+        self.col = self.col.map(mask).map(lambda img: img.unmask())
         ##############
 
     def test_median(self):
@@ -70,7 +70,7 @@ class TestOuliers(unittest.TestCase):
             "1341": 1, "1249": 1, "1866": 1}
 
         # OUTLIERS SCORE
-        val_dict = tools.get_values(self.newcol, self.p, 30, 'client')
+        val_dict = tools.imagecollection.get_values(self.newcol, self.p, 30, 'client')
         # print(json.dumps(val_dict.values(), indent=2))
 
         # OUTLIER SCORE
@@ -90,7 +90,7 @@ class TestOuliers(unittest.TestCase):
             "1341": 1, "1249": 1, "1866": 1}
 
         # OUTLIERS SCORE
-        val_dict = tools.get_values(self.newcol, self.p, 30, 'client')
+        val_dict = tools.imagecollection.get_values(self.newcol, self.p, 30, 'client')
         # print(json.dumps(val_dict.values(), indent=2))
 
         # OUTLIER SCORE

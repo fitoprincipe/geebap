@@ -225,8 +225,14 @@ class Bap(object):
         # its centroid
         def get_col_val(col):
             ''' Values of the first image in the centroid '''
+            import time
 
-            values = tools.get_values(col, centroid, 30, 'client')
+            values = tools.imagecollection.get_values(col, centroid, 30,
+                                                      side='client')
+
+            for i in range(3):
+                time.sleep(1)
+
             pp.pprint(values)
         #################################################################
 
@@ -347,11 +353,14 @@ class Bap(object):
                             m.map(col=col, year=anio, colEE=c))
                         if self.debug:
                             print("AFTER THE MASK "+m.nombre,
-                                get_col_val(c))
+                                  get_col_val(c))
 
                 # Transformo los valores enmascarados a cero
-                # c = c.map(tools.mask2zero)
-                c = c.map(tools.mask2zero)
+                c = c.map(lambda image: image.unmask())
+
+                if self.debug:
+                    print("AFTER UNMASKING:",
+                          get_col_val(c))
 
                 # Renombra las bandas con los datos de la coleccion
                 c = c.map(col.rename(drop=True))
@@ -414,7 +423,7 @@ class Bap(object):
                             get_col_val(c))
 
                 # Convierto los valores de las mascaras a 0
-                c = c.map(tools.mask2zero)
+                c = c.map(lambda img: img.unmask())
 
                 # Agrego la band de fecha a la imagen
                 c = c.map(date.Date.map())
@@ -448,21 +457,23 @@ class Bap(object):
             # Selecciono las bandas en comun de todas las imagenes
             newcol = functions.select_match(newcol)
 
-            if self.debug: print("BEFORE score:", scores, "\n", get_col_val(c))
+            if self.debug: print("BEFORE score:", scores, "\n", get_col_val(newcol))
 
             # Calcula el puntaje total sumando los puntajes
-            ftotal = tools.sumBands("score", scores)
-            newcol = newcol.map(ftotal)
+            newcol = newcol.map(
+                lambda img: tools.image.sumBands(img, "score", scores))
 
             if self.debug:
-                print("AFTER score:", get_col_val(c))
+                print("AFTER score:", get_col_val(newcol))
 
             if normalize:
                 newcol = newcol.map(
-                    tools.parametrize((0, maxpunt), (0, 1), ("score",)))
+                    lambda img: tools.image.parametrize(img,
+                                                        (0, maxpunt),
+                                                        (0, 1), ("score",)))
 
             if self.debug:
-                print("AFTER parametrize:", get_col_val(c))
+                print("AFTER parametrize:", get_col_val(newcol))
 
             return output(newcol, toMetadata)
         elif force:
@@ -495,7 +506,7 @@ class Bap(object):
 
         # CONVIERTO LOS VALORES ENMASCARADOS EN 0
         # img = tools.mask2zero(img)
-        img = tools.mask2zero(img)
+        img = img.unmask()
 
         return img
 
@@ -566,7 +577,7 @@ class Bap(object):
 
             listbands = first.bandNames()
             # nbands = tools.execli(listbands.size().getInfo)()
-            nbands = tools.execli(listbands.size().getInfo)()
+            nbands = listbands.size().getInfo()
 
             thelist = []
 

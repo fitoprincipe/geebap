@@ -67,11 +67,11 @@ class TestBAP(unittest.TestCase):
         self.assertIsInstance(idict, dict)
         self.assertIsInstance(cdict, dict)
 
-        value = tools.get_value(img, self.centroid, 30, 'client')
+        value = tools.image.get_value(img, self.centroid, 30, 'client')
         print(value)
 
         self.assertIsInstance(value, dict)
 
         visual = img.visualize(bands=['NIR','SWIR','RED'], min=0, max=0.5)
-        url = visual.getThumbUrl({'region':tools.getRegion(img)})
+        url = visual.getThumbUrl({'region':tools.geometry.getRegion(img)})
         print('Result:', url)

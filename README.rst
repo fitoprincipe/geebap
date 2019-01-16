@@ -174,7 +174,7 @@ paste the following code:
     # image is a ee.Image object, so you can do anything
     # from here..
     
-    one_value = tools.get_value(image,
+    one_value = tools.image.get_value(image,
                                 site.centroid(),
                                 30, 'client')
     

@@ -32,9 +32,9 @@ class TestThreshold(unittest.TestCase):
         thres = scores.Threshold(self.band, (min, max))
         newimg = thres.map()(self.img)
 
-        val1 = tools.get_value(img=newimg, point=self.p1, scale=30, side='client')['score-thres']
-        val2 = tools.get_value(img=newimg, point=self.p2, scale=30, side='client')['score-thres']
-        val3 = tools.get_value(img=newimg, point=self.p3, scale=30, side='client')['score-thres']
+        val1 = tools.image.get_value(img=newimg, point=self.p1, scale=30, side='client')['score-thres']
+        val2 = tools.image.get_value(img=newimg, point=self.p2, scale=30, side='client')['score-thres']
+        val3 = tools.image.get_value(img=newimg, point=self.p3, scale=30, side='client')['score-thres']
 
         self.assertEqual(val1, 1)
         self.assertEqual(val2, 0)
