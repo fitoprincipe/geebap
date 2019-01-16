@@ -623,6 +623,9 @@ class Bap(object):
 
             img = img if bands is None else img.select(*bands)
 
+            # clip with site
+            img = img.clip(site)
+
             return output(self.setprop(img, **prop), imgCol)
         else:
             if self.verbose:
