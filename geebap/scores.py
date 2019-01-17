@@ -1,13 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-""" Module to implement scores in the Bap Image Composition """
+"""
+Module to implement scores in the Bap Image Composition.
+
+Scores can be computed using a single image, for example a score for percentage
+of masked pixels, or using a collection, for example a score for outliers.
+
+Each score must have an `apply` method which first argument must be an
+ImageCollection and must return the collection with score computed in each
+image. This method should be an staticmethod and not depend on any external
+library except Earth Engine API.
+
+Each score must have an `compute` method which first argument must be an Image
+and return the same Image with the score computed. This method should be an
+staticmethod and not depend on any external library except Earth Engine API.
+
+If the `compute` method is borrowed from another package it can be passed by
+overwriting it. It should be use only internally by `apply` method, and `apply`
+method should be the only one used by the BAP process.
+"""
 import ee
 
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
 from . import satcol, functions, season
-from geetools import tools
+from geetools import tools, composite
 
 from .expressions import Expression
 from abc import ABCMeta, abstractmethod
@@ -20,6 +38,7 @@ factory = {}
 class Score(object):
     ''' Abstract Base class for scores '''
     __metaclass__ = ABCMeta
+
     def __init__(self, name="score", range_in=None, formula=None,
                  range_out=(0, 1), sleep=0, **kwargs):
         """ Abstract Base Class for scores
@@ -55,7 +74,9 @@ class Score(object):
 
     def adjust(self):
         if self.range_out != (0, 1):
-            return tools.Mapping.parameterize((0, 1), self.range_out, [self.name])
+            return lambda img: tools.image.parametrize(img, (0, 1),
+                                                       self.range_out,
+                                                       [self.name])
         else:
             return lambda x: x
 
@@ -65,6 +86,19 @@ class Score(object):
         def wrap(img):
             return img
         return wrap
+
+    @staticmethod
+    def compute(img, **kwargs):
+        """ Abstract compute method. This method is supposed to be the one to
+        compute the score
+        """
+        def wrap(img):
+            return img
+        return wrap
+
+    @staticmethod
+    def apply(collection, **kwargs):
+        return collection
 
     def empty(self, img):
         """ Make an empty score band. All pixels will have zero value """
@@ -83,8 +117,6 @@ class CloudScene(Score):
     """
     def __init__(self, name="score-cld-esc", **kwargs):
         super(CloudScene, self).__init__(**kwargs)
-        # self.normalize = normalize  # heredado
-        # self.adjust = adjust  # heredado
         self.range_in = (0, 100)
         self.name = name
 
@@ -92,19 +124,33 @@ class CloudScene(Score):
                                               normalizar=self.normalize,
                                               **kwargs)
 
+    @staticmethod
+    def compute(img, **kwargs):
+        formula = kwargs.get('formula')
+        fmap = kwargs.get('fmap')
+        name = kwargs.get('name')
+        cloud_cover = kwargs.get('cloud_cover')
+
+        if cloud_cover:
+            func = formula.map(name,
+                               prop=cloud_cover,
+                               map=fmap)
+            return func(img)
+        else:
+            return img
+
+    @staticmethod
+    def apply(collection, **kwargs):
+        return collection.map(lambda img: CloudScene.compute(img, **kwargs))
+
     def map(self, col, **kwargs):
         """
 
         :param col: collection
         :type col: satcol.Collection
         """
-        if col.nubesFld:
-            # fmap = Expression.adjust(self.name, self.adjust)
-            fmap = self.adjust()
-            return self.formula.map(self.name,
-                                    prop=col.nubesFld,
-                                    map=fmap,
-                                    **kwargs)
+        if col.clouds_fld:
+            return lambda img: self.compute(img, col.clouds_fld)
         else:
             return self.empty
 
@@ -1054,3 +1100,13 @@ class Threshold(Score):
             return img.addBands(score)
 
         return wrap
+
+
+@register(factory)
+@register_all(__all__)
+class Medoid(Score):
+    def __init__(self, name='score-medoid'):
+        self.name = name
+
+    def compute(self, *args, **kwargs):
+        return composite.medoid_score()
