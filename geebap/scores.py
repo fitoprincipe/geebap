@@ -12,12 +12,22 @@ image. This method should be an staticmethod and not depend on any external
 library except Earth Engine API.
 
 Each score must have an `compute` method which first argument must be an Image
-and return the same Image with the score computed. This method should be an
-staticmethod and not depend on any external library except Earth Engine API.
+and return the resulting score as an Image with one band. This method should be
+an staticmethod and not depend on any external library except Earth Engine API.
 
 If the `compute` method is borrowed from another package it can be passed by
 overwriting it. It should be use only internally by `apply` method, and `apply`
 method should be the only one used by the BAP process.
+
+The `map` method is designed to be used in the BAP method only, it takes an
+ImageCollections as first argument and can use the following keyword arguments
+(kwargs):
+
+- col: a satcol.Collection object instance
+- year: the given year
+- geom: a geometry
+- any other keyword argument
+
 """
 import ee
 
@@ -25,11 +35,13 @@ import ee.data
 if not ee.data._initialized: ee.Initialize()
 
 from . import satcol, functions, season
-from geetools import tools, composite
+from geetools import tools, composite, algorithms
 
 from .expressions import Expression
 from abc import ABCMeta, abstractmethod
 from .regdec import *
+
+from uuid import uuid4
 
 __all__ = []
 factory = {}
@@ -59,10 +71,15 @@ class Score(object):
         self.formula = formula
         self.range_out = range_out
         self.sleep = sleep
+        self._normalize = True
 
     @property
     def normalize(self):
-        return True
+        return self._normalize
+
+    @normalize.setter
+    def normalize(self, value):
+         self._normalize = value
 
     @property
     def max(self):
@@ -81,15 +98,13 @@ class Score(object):
             return lambda x: x
 
     @abstractmethod
-    def map(self, **kwargs):
+    def map(self, collection, **kwargs):
         """ Abstract map method to use in ImageCollection.map() """
-        def wrap(img):
-            return img
-        return wrap
+        return collection
 
     @staticmethod
     def compute(img, **kwargs):
-        """ Abstract compute method. This method is supposed to be the one to
+        """ Compute method. This method is supposed to be the one to
         compute the score
         """
         def wrap(img):
@@ -104,6 +119,12 @@ class Score(object):
         """ Make an empty score band. All pixels will have zero value """
         i = ee.Image.constant(0).select([0], [self.name]).toFloat()
         return img.addBands(i)
+
+    def _map(self, collection, **kwargs):
+        """ Internal map function for applying adjust """
+        newcollection = self.map(collection, **kwargs)
+
+        return newcollection.map(self.adjust())
 
 
 @register(factory)
@@ -131,28 +152,26 @@ class CloudScene(Score):
         name = kwargs.get('name')
         cloud_cover = kwargs.get('cloud_cover')
 
-        if cloud_cover:
-            func = formula.map(name,
-                               prop=cloud_cover,
-                               map=fmap)
-            return func(img)
-        else:
-            return img
+        func = formula.map(name, prop=cloud_cover, map=fmap)
+        return func(img)
 
     @staticmethod
     def apply(collection, **kwargs):
         return collection.map(lambda img: CloudScene.compute(img, **kwargs))
 
-    def map(self, col, **kwargs):
+    def map(self, collection, **kwargs):
         """
 
         :param col: collection
         :type col: satcol.Collection
         """
+        col = kwargs.get('col')
+
         if col.clouds_fld:
-            return lambda img: self.compute(img, col.clouds_fld)
+            return collection.map(
+                lambda img: self.compute(img, cloud_cover=col.clouds_fld))
         else:
-            return self.empty
+            return collection.map(self.empty)
 
 
 @register(factory)
@@ -199,28 +218,31 @@ class CloudDist(Score):
         fkernel = CloudDist.kernels[self.kernel]
         return fkernel(radius=self.dmax, units=self.unit)
 
-    def generate_score(self, image, bandmask):
-        # ceros = image.select([0]).eq(0).Not()
+    @staticmethod
+    def compute(img, **kwargs):
+        kernel = kwargs.get('kernel')
+        dmax = kwargs.get('dmax')
+        dmin = kwargs.get('dmin')
+        bandmask = kwargs.get('bandmask', 0)
+        bandname = kwargs.get('bandname', 'cloud_dist')
 
-        cloud_mask = image.mask().select(bandmask)
+        cloud_mask = img.mask().select([bandmask])
 
         # Compute distance to the mask (inverse)
-        distance = cloud_mask.Not().distance(self.kernelEE())
+        distance = cloud_mask.Not().distance(kernel)
 
         # Mask out pixels that are further than d_max
-        clip_max_masc = distance.lte(self.dmaxEE)
+        clip_max_masc = distance.lte(dmax)
         distance = distance.updateMask(clip_max_masc)
 
         # Mask out initial mask
         distance = distance.updateMask(cloud_mask)
 
         # AGREGO A LA IMG LA BANDA DE DISTANCIAS
-        # img = img.addBands(distancia.select([0],["dist"]).toFloat())
-
         # Compute score
 
-        c = self.dmaxEE.subtract(self.dminEE).divide(ee.Image(2))
-        b = distance.min(self.dmaxEE)
+        c = dmax.subtract(dmin).divide(ee.Image(2))
+        b = distance.min(dmax)
         a = b.subtract(c).multiply(ee.Image(-0.2)).exp()
         e = ee.Image(1).add(a)
 
@@ -231,7 +253,6 @@ class CloudDist(Score):
 
         # apply mask2zero (all masked pixels are converted to 0)
         pjeDist = pjeDist.unmask()
-        #pjeDist = pjeDist.mask().where(1, pjeDist)
 
         # Add the inverse mask to the distance image
         pjeDist = pjeDist.add(masc_inv)
@@ -239,113 +260,25 @@ class CloudDist(Score):
         # Apply the original mask
         pjeDist = pjeDist.updateMask(cloud_mask)
 
-        return pjeDist
+        return pjeDist.rename(bandname)
 
-    def map(self, col, **kwargs):
-        bandmask = col.bandmask if col.bandmask else 0
+    @staticmethod
+    def apply(collection, **kwargs):
+        return collection.map(lambda img: CloudDist.compute(img, **kwargs))
+
+    def map(self, collection, **kwargs):
+        col = kwargs.get('col')
         def wrap(img):
-            score_img = self.generate_score(img, bandmask)
+            score_img = CloudDist.compute(img, bandmask=col.bandmask,
+                                          kernel=self.kernelEE(),
+                                          dmin=self.dminEE,
+                                          dmax=self.dmaxEE,
+                                          bandname=self.name)
+
             adjusted_score = self.adjust()(score_img)
-            renamed_image = adjusted_score.select([0], [self.name])
-            return img.addBands(renamed_image)
-        return wrap
+            return img.addBands(adjusted_score)
 
-    def map_old(self, col, **kwargs):
-        """ Mapping function
-
-        :param col: Collection
-        :type col: satcol.Collection
-        """
-        nombre = self.name
-        # bandmask = self.bandmask
-        bandmask = col.bandmask
-        kernelEE = self.kernelEE()
-        dmaxEE = self.dmaxEE
-        dminEE = self.dminEE
-        ajuste = self.adjust()
-
-        def wrap(img):
-            """ calcula el puntaje de distancia a la nube.
-
-            Cuando d >= dmax --> pdist = 1
-            Propósito: para usar en la función map() de GEE
-            Objetivo:
-
-            :return: la propia imagen con una band agregada llamada 'pdist'
-            :rtype: ee.Image
-            """
-            # Selecciono los pixeles con valor distinto de cero
-            ceros = img.select([0]).eq(0).Not()
-
-            masc_nub = img.mask().select(bandmask)
-
-            # COMPUTO LA DISTANCIA A LA MASCARA DE NUBES (A LA INVERSA)
-            distancia = masc_nub.Not().distance(kernelEE)
-
-            # BORRA LOS DATOS > d_max (ESTO ES PORQUE EL KERNEL TOMA LA DIST
-            # DIAGONAL TAMB)
-            clip_max_masc = distancia.lte(dmaxEE)
-            distancia = distancia.updateMask(clip_max_masc)
-
-            # BORRA LOS DATOS = 0
-            distancia = distancia.updateMask(masc_nub)
-
-            # AGREGO A LA IMG LA BANDA DE DISTANCIAS
-            # img = img.addBands(distancia.select([0],["dist"]).toFloat())
-
-            # COMPUTO EL PUNTAJE (WHITE)
-
-            c = dmaxEE.subtract(dminEE).divide(ee.Image(2))
-            b = distancia.min(dmaxEE)
-            a = b.subtract(c).multiply(ee.Image(-0.2)).exp()
-            e = ee.Image(1).add(a)
-
-            pjeDist = ee.Image(1).divide(e)
-
-            # TOMA LA MASCARA INVERSA PARA SUMARLA DESP
-            masc_inv = pjeDist.mask().Not()
-
-            # TRANSFORMA TODOS LOS VALORES ENMASCARADOS EN 0
-            pjeDist = pjeDist.mask().where(1, pjeDist)
-
-            # SUMO LA MASC INVERSA A LA IMG DE DISTANCIAS
-            pjeDist = pjeDist.add(masc_inv)
-
-            # VUELVO A ENMASCARAR LAS NUBES
-            pjeDist = pjeDist.updateMask(masc_nub)
-
-            # DE ESTA FORMA OBTENGO VALORES = 1 SOLO DONDE LA DIST ES > 50
-            # DONDE LA DIST = 0 ESTA ENMASCARADO
-
-            newimg = img.addBands(pjeDist.select([0], [nombre]).toFloat())
-            newimg_masked = newimg.updateMask(ceros)
-
-            return ajuste(newimg_masked)
-        return wrap
-
-    def mask_kernel(self, img):
-        """ Mask out pixels within `dmin` and `dmax` properties of the score."""
-        masc_nub = img.mask().select(self.bandmask)
-
-        # COMPUTO LA DISTANCIA A LA MASCARA DE NUBES (A LA INVERSA)
-        distancia = masc_nub.Not().distance(self.kernelEE())
-
-        # BORRA LOS DATOS > d_max (ESTO ES PORQUE EL KERNEL TOMA LA DIST
-        # DIAGONAL TAMB)
-        # clip_max_masc = distancia.lte(self.dmaxEE())
-        # distancia = distancia.updateMask(clip_max_masc)
-
-        # BORRA LOS DATOS = 0
-        distancia = distancia.updateMask(masc_nub)
-
-        # TRANSFORMO TODOS LOS PIX DE LA DISTANCIA EN 0 PARA USARLO COMO
-        # MASCARA BUFFER
-        buff = distancia.gte(ee.Image(0))
-        buff = buff.mask().where(1, buff)
-        buff = buff.Not()
-
-        # APLICO LA MASCARA BUFFER
-        return img.updateMask(buff)
+        return collection.map(wrap)
 
 
 @register(factory)
@@ -363,17 +296,14 @@ class Doy(Score):
     def __init__(self, formula=Expression.Normal, name="score-doy",
                  season=season.Season.Growing_South(), **kwargs):
         super(Doy, self).__init__(**kwargs)
-        # PARAMETROS
+        self.season = season
+        # PARAMS
         self.doy_month = season.doy_month
         self.doy_day = season.doy_day
 
         self.ini_month = season.ini_month
         self.ini_day = season.ini_day
 
-        # FACTOR DE AGUSADO DE LA CURVA GAUSSIANA
-        # self.ratio = float(ratio)
-
-        # FORMULA QUE SE USARA PARA EL CALCULO
         self.exp = formula
 
         self.name = name
@@ -461,36 +391,57 @@ class Doy(Score):
         ini = self.ini_date(year)
         return date.difference(ini, "day")
 
-    # VARIABLES DE EE
-    # @property
-    # def castigoEE(self):
-    #    return ee.Number(self.castigo)
-
     def ee_year(self, year):
         return ee.Number(year)
 
-    def map(self, year, **kwargs):
+    @staticmethod
+    def apply(collection, **kwargs):
+        doy = kwargs.get('doy')  # ee.Date
+        distribution = kwargs.get('distribution', 'linear')
+        name = kwargs.get('name', 'doy')
+
+        # temporary distance property name
+        uid = uuid4()
+        distance_name = 'distance_{}'.format(uid)
+
+        # function to compute distance
+        def distance(img):
+            idate = ee.Date(img.date())
+            dist = idate.difference(doy, 'day')
+            return img.set(distance_name, dist)
+
+        if distribution == 'linear':
+            # compute distance to doy
+            collection = collection.map(distance)
+
+            result = algorithms.distribution_linear_property(collection,
+                                                             distance_name,
+                                                             0, name=name)
+
+            return result
+
+
+        if distribution == 'normal':
+            # compute distance
+            collection = collection.map(distance)
+
+            result = algorithms.distribution_normal_property(collection,
+                                                             distance_name,
+                                                             0, name=name)
+
+            return result
+
+    def map(self, collection, **kwargs):
         """
 
         :param year: central year
         :type year: int
         """
-        media = self.mean(year).getInfo()
-        std = self.std(year).getInfo()
-        ran = self.doy_range(year).getInfo()
-        self.rango_in = (1, ran)
+        year = kwargs.get('year')
+        print(year)
+        doy = ee.Date(self.season.doy_date(year))
 
-        # exp = Expression.Normal(mean=mean, std=std)
-        expr = self.exp(media=media, std=std,
-                        rango=self.rango_in, normalizar=self.normalize, **kwargs)
-
-        def transform(prop):
-            date = ee.Date(prop)
-            pos = self.distance_to_ini(date, year)
-            return pos
-
-        return expr.map(self.name, prop="system:time_start", eval=transform,
-                        map=self.adjust(), **kwargs)
+        return self.apply(collection, doy=doy)
 
 
 @register(factory)
@@ -515,19 +466,22 @@ class AtmosOpacity(Score):
         expresion = self.formula(rango=self.range_in)
         return expresion
 
-    def map(self, col, **kwargs):
+    def map(self, collection, **kwargs):
         """
 
         :param col: collection
         :type col: satcol.Collection
         """
+        col = kwargs.get('col')
         if col.ATM_OP:
-            return self.expr.map(name=self.name,
+            f = self.expr.map(name=self.name,
                                  band=col.ATM_OP,
                                  map=self.adjust(),
                                  **kwargs)
         else:
-            return self.empty
+            f = self.empty
+
+        return collection.map(f)
 
 
 @register(factory)
@@ -544,13 +498,12 @@ class MaskPercent(Score):
     :type include_zero: bool
     """
     @staticmethod
-    def core(mask_image, geometry, scale=1000, band_name='score-maskper',
-             max_pixels=1e13):
+    def compute(image, **kwargs):
         """ Core function for Mask Percent Score. Has no dependencies in geebap
         module
 
-        :param mask_image: ee.Image holding the mask
-        :type mask_image: ee.Image
+        :param image: ee.Image holding the mask
+        :type image: ee.Image
         :param geometry: the score will be computed inside this geometry
         :type geometry: ee.Geometry or ee.Feature
         :param scale: the scale of the mask
@@ -563,11 +516,16 @@ class MaskPercent(Score):
             same percentage
         :rtype: ee.Image
         """
+        geometry = kwargs.get('geometry')
+        scale = kwargs.get('scale', 1000)
+        band_name = kwargs.get('band_name', 'score-maskper')
+        max_pixels = kwargs.get('max_pixels', 1e13)
+
         # get projection
-        projection = mask_image.projection()
+        projection = image.projection()
 
         # get band name
-        band = ee.String(mask_image.bandNames().get(0))
+        band = ee.String(image.bandNames().get(0))
 
         # Make an image with all ones
         ones_i = ee.Image.constant(1).reproject(projection).rename(band)
@@ -585,7 +543,7 @@ class MaskPercent(Score):
         ones = ee.Number(ones)
 
         # select first band, unmask and get the inverse
-        mask_image = mask_image.select([0])
+        mask_image = image.select([0])
         mask = mask_image.mask()
         mask_not = mask.Not()
         image_to_compute = mask.updateMask(mask_not)
@@ -620,7 +578,7 @@ class MaskPercent(Score):
 
         self.zero = ee.Number(1) if self.include_zero else ee.Number(0)
 
-    def compute(self, col, geom=None, **kwargs):
+    def core(self, col, geom=None):
         """ Compute MaskPercent score
 
         :param col: collection
@@ -656,8 +614,9 @@ class MaskPercent(Score):
 
                 image = img.select(banda).updateMask(mask)
 
-                imgpor = MaskPercent.core(image, g, scale, nombre,
-                                          self.maxPixels)
+                imgpor = self.compute(image, geometry=g, scale=scale,
+                                      band_name=nombre,
+                                      max_pixels=self.maxPixels)
 
                 return ajuste(imgpor)
         else:
@@ -665,12 +624,15 @@ class MaskPercent(Score):
 
         return wrap
 
-    def map(self, col, geom=None, **kwargs):
+    def map(self, collection, **kwargs):
+        col = kwargs.get('col')
+        geom = kwargs.get('geom')
         def wrap(img):
-            score = self.compute(col, geom, **kwargs)(img)
+            score = self.core(col, geom)(img)
             prop = score.get(self.name)
             return img.addBands(score).set(self.name, prop)
-        return wrap
+
+        return collection.map(wrap)
 
 
 @register(factory)
@@ -687,11 +649,12 @@ class Satellite(Score):
         self.name = name
         self.rate = rate
 
-    def map(self, col, **kwargs):
+    def map(self, collection, **kwargs):
         """
         :param col: Collection
         :type col: satcol.Collection
         """
+        col = kwargs.get('col')
         nombre = self.name
         theid = col.ID
         ajuste = self.adjust()
@@ -728,7 +691,8 @@ class Satellite(Score):
             # CREA LA IMAGEN DE PUNTAJES Y LA DEVUELVE COMO RESULTADO
             pjeImg = ee.Image(pje).select([0], [nombre]).toFloat()
             return ajuste(img.addBands(pjeImg).updateMask(ceros))
-        return wrap
+
+        return collection.map(wrap)
 
 
 @register(factory)
@@ -810,13 +774,14 @@ class Outliers(Score):
     def increment(self):
         return float(1 / self.bandslength)
 
-    def map(self, colEE, **kwargs):
+    def map(self, collection, **kwargs):
         """
         :param colEE: Earth Engine collection to process
         :type colEE: ee.ImageCollection
         :return:
         :rtype: ee.Image
         """
+        colEE = kwargs.get('colEE')
         nombre = self.name
         bandas = self.bands_ee
         rango_orig = self.range_in
@@ -876,7 +841,8 @@ class Outliers(Score):
                                                     rango_fin)
 
             return img_orig.addBands(parametrizada)#.updateMask(ceros)
-        return wrap
+
+        return collection.map(wrap)
 
 
 @register(factory)
@@ -894,14 +860,15 @@ class Index(Score):
         self.range_in = kwargs.get("range_in", (-1, 1))
         self.name = name
 
-    def map(self, **kwargs):
+    def map(self, collection, **kwargs):
         ajuste = self.adjust()
         def wrap(img):
             ind = img.select([self.index])
             p = tools.image.parametrize(ind, self.range_in, self.range_out)
             p = p.select([0], [self.name])
             return ajuste(img.addBands(p))
-        return wrap
+
+        return collection.map(wrap)
 
 
 @register(factory)
@@ -930,7 +897,7 @@ class MultiYear(Score):
         self.ratio = ratio
         self.name = name
 
-    def map(self, **kwargs):
+    def map(self, collection, **kwargs):
         a = self.main_year
         ajuste = self.adjust()
 
@@ -951,79 +918,7 @@ class MultiYear(Score):
 
             # return funciones.pass_date(img, img.addBands(imgpje))
             return ajuste(img.addBands(imgpje).updateMask(ceros))
-        return wrap
-
-
-class Threshold_old(Score):
-    def __init__(self, band=None, threshold=None, name='score-thres',
-                 **kwargs):
-        """
-
-        :param band:
-        :param threshold:
-        :type threshold: tuple or list
-        """
-        super(Threshold_old, self).__init__(**kwargs)
-
-        self.band = band
-        self.threshold = threshold
-        self.name = name
-
-    def map(self, **kwargs):
-        min = self.threshold[0]
-        max = self.threshold[1]
-
-        # TODO: handle percentage values like ('10%', '20%')
-
-        def create_number(value):
-            if isinstance(value, int) or isinstance(value, float):
-                return ee.Number(int(value))
-            elif isinstance(value, str):
-                conversion = int(value)
-                return ee.Number(conversion)
-
-        min = create_number(min)
-        max = create_number(max)
-
-        def wrap_minmax(img):
-            selected_band = img.select(self.band)
-            upper = selected_band.gte(max)
-            lower = selected_band.lte(min)
-            
-            score = selected_band.where(upper, 0)
-            score = score.where(lower, 0)
-            score = score.where(score.neq(0), 1)
-
-            score = score.select([0], [self.name])
-            
-            return img.addBands(score)
-
-        def wrap_min(img):
-            selected_band = img.select(self.band)            
-            lower = selected_band.lte(min)
-
-            score = selected_band.where(lower, 0)
-            score = score.select([0], [self.name])
-
-            return img.addBands(score)
-
-        def wrap_max(img):
-            selected_band = img.select(self.band)
-            upper = selected_band.gte(min)
-
-            score = selected_band.where(upper, 0)
-            score = score.select([0], [self.name])
-
-            return img.addBands(score)
-
-        # MULTIPLE DISPATCH?
-
-        if min and max:
-            return wrap_minmax
-        elif not min:
-            return wrap_max
-        else:
-            return wrap_min
+        return collection.map(wrap)
 
 
 @register(factory)
@@ -1052,61 +947,133 @@ class Threshold(Score):
         self.bands = bands
         self.name = name
 
-    def compute(self, col, **kwargs):
-        # TODO: handle percentage values like ('10%', '20%')
-
-        # If no bands relation is passed, uses the one stored in the collection
-        band_relation = self.bands if self.bands else col.threshold
+    @staticmethod
+    def compute(img, **kwargs):
+        thresholds = kwargs.get('thresholds')
+        bandname = kwargs.get('bandname', 'score-threshold')
 
         # As each band must have a 'min' and 'max' if it is not specified,
         # it is completed with None. This way, it can be catched by ee.Algorithms.If
-        for key, val in band_relation.items():
+        for key, val in thresholds.items():
             val.setdefault('min', 0)
             val.setdefault('max', 1)
 
-        bands = band_relation.keys()
+        bands = list(thresholds.keys())
         bands_ee = ee.List(bands)
-        relation_ee = ee.Dictionary(band_relation)
+        relation_ee = ee.Dictionary(thresholds)
         length = ee.Number(bands_ee.size())
-        # step = ee.Number(1).divide(length)
 
+        def compute_score(band, first):
+            score_complete = ee.Image(first)
+            img_band = img.select([band])
+            min = ee.Dictionary(relation_ee.get(band)).get('min')  # could be None
+            max = ee.Dictionary(relation_ee.get(band)).get('max')  # could be None
+
+            score_min = img_band.gte(ee.Image.constant(min))
+            score_max = img_band.lte(ee.Image.constant(max))
+
+            final_score = score_min.And(score_max)  # Image with one band
+
+            return tools.image.replace(score_complete, band, final_score)
+
+        scores = ee.Image(bands_ee.iterate(compute_score,
+                                           tools.image.empty(0, bands)))
+
+        final_score = tools.image.sumBands(scores, name=bandname) \
+            .divide(ee.Image.constant(length))
+
+        return final_score.select(bandname)
+
+    def map(self, collection, **kwargs):
+        col = kwargs.get('col')
+        thresholds = col.threshold
         def wrap(img):
-            def compute_score(band, first):
-                score_complete = ee.Image(first)
-                # score_img = score_complete.select([band])
-                img_band = img.select([band])
-                min = ee.Dictionary(relation_ee.get(band)).get('min')  # could be None
-                max = ee.Dictionary(relation_ee.get(band)).get('max')  # could be None
-
-                score_min = img_band.gte(ee.Image.constant(min))
-                score_max = img_band.lte(ee.Image.constant(max))
-
-                final_score = score_min.And(score_max)  # Image with one band
-
-                return tools.image.replace(score_complete, band, final_score)
-
-            scores = ee.Image(bands_ee.iterate(compute_score,
-                                               tools.image.empty(0, bands)))
-            # parametrized = scores.multiply(self.step)
-            final_score = tools.image.sumBands(scores, name=self.name)\
-                               .divide(ee.Image.constant(length))
-
-            return final_score
-        return wrap
-
-    def map(self, col, **kwargs):
-        def wrap(img):
-            score = self.compute(col, **kwargs)(img).select(self.name)
+            # score = self.core(col, **kwargs)(img).select(self.name)
+            score = self.compute(img, thresholds=thresholds,
+                                 bandname=self.name)
             return img.addBands(score)
 
-        return wrap
+        return collection.map(wrap)
 
 
 @register(factory)
 @register_all(__all__)
 class Medoid(Score):
-    def __init__(self, name='score-medoid'):
+    def __init__(self, bands=None, discard_zeros=True, name='score-medoid',
+                 **kwargs):
+        super(Medoid, self).__init__(**kwargs)
+        self.name = name
+        self.bands = bands
+        self.discard_zeros = discard_zeros
+
+    @staticmethod
+    def apply(collection, **kwargs):
+        return composite.medoid_score(collection, **kwargs)
+
+    def map(self, collection, **kwargs):
+
+        return self.apply(collection, bands=self.bands,
+                          discard_zeros=self.discard_zeros,
+                          bandname=self.name,
+                          normalize=self.normalize)
+
+
+@register(factory)
+@register_all(__all__)
+class Brightness(Score):
+    def __init__(self, bands=None, name='score-brightness', **kwargs):
+        super(Brightness, self).__init__(**kwargs)
+        if not bands:
+            bands = ['GREEN', 'BLUE', 'RED', 'NIR', 'SWIR']
+        self.bands = bands
         self.name = name
 
-    def compute(self, *args, **kwargs):
-        return composite.medoid_score()
+    @staticmethod
+    def compute(img, **kwargs):
+        bands = kwargs.get('bands')
+        min_value = kwargs.get('min_value', 0)
+        max_value = kwargs.get('max_value')
+        name = kwargs.get('name')
+
+        min_value = ee.Number(min_value)
+        max_value = ee.Number(max_value)
+
+        if bands:
+            if isinstance(bands, ee.List):
+                length = ee.Number(bands.size())
+            else:
+                length = ee.Number(len(bands))
+
+            img = img.select(bands)
+
+        allmax = max_value.multiply(length)
+        allmin = min_value.multiply(length)
+
+        sum = img.reduce('sum')
+        range_from = ee.List([allmin, allmax])
+        parametrized = tools.image.parametrize(sum, range_from, (0, 1))
+
+        return parametrized.rename(name)
+
+    def map(self, collection, **kwargs):
+        col = kwargs.get('col')
+        mx = col.max
+
+        def wrap(img):
+            score = self.compute(img, bands=self.bands,
+                                 max_value=mx, name=self.name)
+
+            return img.addBands(score)
+
+        newcol = collection.map(wrap)
+
+        if self.normalize:
+            colmx = ee.Image(newcol.select(self.name).max())
+            colmin = ee.Image(newcol.select(self.name).min())
+            def wrap2(img):
+                parametrized = img.select(self.name).subtract(colmin)\
+                                  .divide(colmx.subtract(colmin))
+                return tools.image.replace(img, self.name, parametrized)
+            newcol = newcol.map(wrap2)
+
+        return newcol

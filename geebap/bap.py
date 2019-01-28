@@ -316,7 +316,7 @@ class Bap(object):
                 c = c.map(col.rename(drop=True))
 
                 # Scale from 0 to 1
-                c = c.map(col.do_scale())
+                # c = c.map(col.do_scale())
 
                 # Indixes
                 if indices:
@@ -331,11 +331,16 @@ class Bap(object):
                 if self.scores:
                     for t, score in zip(new_times, self.scores):
                         if slcoff and score.name == "score-maskper":
-                            c = c.map(score.map(col=col, year=year, colEE=c, geom=site, include_zero=False))
+                            c = score._map(c, col=col, year=year, colEE=c,
+                                          geom=site, include_zero=False)
                         else:
-                            c = c.map(score.map(col=col, year=year, colEE=c, geom=site))
-                        # if self.verbose: sys.stdout.write(str(t)+'.')
+                            c = score._map(c, col=col, year=year, colEE=c,
+                                          geom=site)
+
                         time.sleep(t)
+
+                # Scale from 0 to 1
+                c = c.map(col.do_scale())
 
                 # Filters
                 if self.filters:

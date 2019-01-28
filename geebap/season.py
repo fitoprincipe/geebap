@@ -74,9 +74,9 @@ class Season(object):
         :rtype: tuple
         """
         if not isinstance(date, str):
-            raise ValueError("Dates in Season must be strings with format: "
-                             "MM-dd")
-            # return False
+            mje = "Dates in Season must be strings with format: MM-dd, found "\
+                  "{}"
+            raise ValueError(mje.format(date))
 
         split = date.split("-")
         assert len(split) == 2, \
@@ -375,26 +375,44 @@ class Season(object):
 
     @doy.setter
     def doy(self, value):
+        # Get days between start and end of season
         drange = self.range_in_days
-        if value is None or (isinstance(value, int) and value > drange):
-            doy = drange/2  # doy will be half of range by now
 
-            dini = Season.day_of_year(self.ini, self.leap)
+        # Check valid date
+        if value:
+            value = self.check_valid_date(value, self.leap)
+            value = '{}-{}'.format(*value)
+
+        out_of_range1 = isinstance(value, int) and (value > drange)
+
+        def out_of_range2(value):
+            if isinstance(value, str):
+                month = int(value.split('-')[0])
+                day = int(value.split('-')[1])
+                if month == self.ini_month:
+                    if day < self.ini_day:
+                        return True
+                elif month < self.ini_month:
+                    return True
+            else:
+                return False
+
+        if value is None or out_of_range1 or out_of_range2(value):
+            doy = int(drange/2)  # doy will be half of range by now
+
+            dini = self.day_of_year(self.ini, self.leap)
             new_doy = dini+doy if dini+doy <= self.year_days \
                                else dini+doy-self.year_days
 
-            self._doy = Season.date_for_day(new_doy-1, self.leap)
+            self._doy = self.date_for_day(new_doy-1, self.leap)
         elif isinstance(value, int):
-            dini = Season.day_of_year(self.ini, self.leap)
+            dini = self.day_of_year(self.ini, self.leap)
             ini_plus_doy = dini+value
-            # print ini_plus_doy
             new_doy = ini_plus_doy if ini_plus_doy <= self.year_days \
                                    else ini_plus_doy-self.year_days
-            print('newdoy', new_doy)
-            self._doy = Season.date_for_day(new_doy+1, self.leap)
-            print(self._doy)
+            self._doy = self.date_for_day(new_doy+1, self.leap)
         else:
-            Season.check_valid_date(value, self.leap)
+            self.check_valid_date(value, self.leap)
             self._doy = value
 
     @property
@@ -444,6 +462,13 @@ class Season(object):
     @property
     def doy_day(self):
         return int(self.end.split('-')[1])
+
+    def doy_date(self, year):
+        """ Add a year to DOY """
+        if self.year_factor == 1 and self.doy_month > self.ini_month:
+            year = year-1
+
+        return '{}-{}-{}'.format(year, self.doy_month, self.doy_day)
 
     @classmethod
     def Growing_South(cls):
