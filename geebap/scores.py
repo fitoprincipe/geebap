@@ -194,7 +194,7 @@ class CloudDist(Score):
                "chebyshev": ee.Kernel.chebyshev
                }
 
-    def __init__(self, dmax=600, dmin=0, unit="meters", name="score-cld-dist",
+    def __init__(self, dmin=0, dmax=None, unit="meters", name="score-cld-dist",
                  kernel='euclidean', **kwargs):
         super(CloudDist, self).__init__(**kwargs)
         self.kernel = kernel  # kwargs.get("kernel", "euclidean")
@@ -207,24 +207,43 @@ class CloudDist(Score):
 
     # GEE
     @property
-    def dmaxEE(self):
-        return ee.Image.constant(self.dmax)
-
-    @property
     def dminEE(self):
         return ee.Image.constant(self.dmin)
 
-    def kernelEE(self):
+    def kernelEE(self, radius):
         fkernel = CloudDist.kernels[self.kernel]
-        return fkernel(radius=self.dmax, units=self.unit)
+        return fkernel(radius=radius, units=self.unit)
 
     @staticmethod
     def compute(img, **kwargs):
+        """ Compute Cloud Distance score.
+
+        :param kernel: a kernel
+        :type kernel: ee.Kernel
+        :param dmax: Maximum distance to calculate the score. If the pixel is
+            further than dmax, the score will be 1.
+        :type dmax: int
+        :param dmin: Minimum distance.
+        :type dmin: int
+        :param bandmask: the band that contains the mask. Defaults to the first
+            band of the image
+        :type bandmask: str
+        :param bandname: the name of the resulting band. Defaults to
+            'cloud_dist'
+        :type bandname: str
+        :param units: units for the kernel. Can be 'pixels' or 'meters'. Defaults to the latter
+        :type units: str
+        """
         kernel = kwargs.get('kernel')
-        dmax = kwargs.get('dmax')
-        dmin = kwargs.get('dmin')
+        dmax = ee.Number(kwargs.get('dmax'))
+        dmin = ee.Number(kwargs.get('dmin'))
         bandmask = kwargs.get('bandmask', 0)
         bandname = kwargs.get('bandname', 'cloud_dist')
+        units = kwargs.get('units', 'meters')
+        factor = kwargs.get('factor', 0.2)
+
+        if not kernel:
+            kernel = ee.Kernel.euclidean(radius=dmax, units=units)
 
         cloud_mask = img.mask().select([bandmask])
 
@@ -238,15 +257,18 @@ class CloudDist(Score):
         # Mask out initial mask
         distance = distance.updateMask(cloud_mask)
 
-        # AGREGO A LA IMG LA BANDA DE DISTANCIAS
+        dmaxi = ee.Image(dmax)
+        dmini = ee.Image(dmin)
+        factori = ee.Image(factor)
+
         # Compute score
-
-        c = dmax.subtract(dmin).divide(ee.Image(2))
-        b = distance.min(dmax)
-        a = b.subtract(c).multiply(ee.Image(-0.2)).exp()
-        e = ee.Image(1).add(a)
-
-        pjeDist = ee.Image(1).divide(e)
+        pjeDist = ee.Image().expression('1-exp((-dist+dmin)/(dmax*factor))',
+                                        {
+                                            'dist': distance,
+                                            'dmin': dmini,
+                                            'dmax': dmaxi,
+                                            'factor': factori
+                                        }).rename(bandname)
 
         # Inverse mask to add later
         masc_inv = pjeDist.mask().Not()
@@ -268,14 +290,27 @@ class CloudDist(Score):
 
     def map(self, collection, **kwargs):
         col = kwargs.get('col')
-        def wrap(img):
-            score_img = CloudDist.compute(img, bandmask=col.bandmask,
-                                          kernel=self.kernelEE(),
-                                          dmin=self.dminEE,
-                                          dmax=self.dmaxEE,
-                                          bandname=self.name)
+        scale = col.bandscale[col.bandmask]
+        maxdist = (scale/2)*256
 
+        # Truncate dmax if goes over the 256 pixels limit
+        if self.dmax is None:
+            dmax = maxdist
+        elif self.dmax > maxdist:
+            dmax = maxdist
+        else:
+            dmax = self.dmax
+
+        def wrap(img):
+            score_img = self.compute(img, bandmask=col.bandmask,
+                                     kernel=self.kernelEE(dmax),
+                                     dmin=self.dmin,
+                                     dmax=dmax,
+                                     bandname=self.name)
+
+            # score_img = img
             adjusted_score = self.adjust()(score_img)
+            # adjusted_score = score_img
             return img.addBands(adjusted_score)
 
         return collection.map(wrap)
