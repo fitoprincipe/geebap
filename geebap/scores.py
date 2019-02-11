@@ -328,112 +328,33 @@ class Doy(Score):
     :param name: name for the resulting band
     :type name: str
     """
-    def __init__(self, formula=Expression.Normal, name="score-doy",
-                 season=season.Season.Growing_South(), **kwargs):
+    def __init__(self, name="score-doy", season=None,
+                 **kwargs):
         super(Doy, self).__init__(**kwargs)
+        if season in None:
+            season = season.Season.Growing_South()
         self.season = season
-        # PARAMS
-        self.doy_month = season.doy_month
-        self.doy_day = season.doy_day
-
-        self.ini_month = season.ini_month
-        self.ini_day = season.ini_day
-
-        self.exp = formula
-
         self.name = name
-
-    # DOY
-    def doy(self, year):
-        """ DOY: Day Of Year. Most representative day of the year for the
-        growing season
-
-        :param year: Year
-        :type year: int
-        :return: the doy
-        :rtype: ee.Date
-        """
-        d = "{}-{}-{}".format(year, self.doy_month, self.doy_day)
-        return ee.Date(d)
-
-    def ini_date(self, year):
-        """ Initial date
-
-        :param year: Year
-        :type year: int
-        :return: initial date
-        :rtype: ee.Date
-        """
-        d = "{}-{}-{}".format(year - 1, self.ini_month, self.ini_day)
-        return ee.Date(d)
-
-    def end_date(self, year):
-        """ End date
-
-        :param year: Year
-        :type year: int
-        :return: end date
-        :rtype: ee.Date
-        """
-        dif = self.doy(year).difference(self.ini_date(year), "day")
-        return self.doy(year).advance(dif, "day")
-
-    def doy_range(self, year):
-        """ Number of days since `ini_date` until `end_date`
-
-        :param year: Year
-        :type year: int
-        :return: Doy range
-        :rtype: ee.Number
-        """
-        return self.end_date(year).difference(self.ini_date(year), "day")
-
-    def sequence(self, year):
-        return ee.List.sequence(1, self.doy_range(year).add(1))
-
-    # CANT DE DIAS DEL AÑO ANTERIOR
-    def last_day(self, year):
-        return ee.Date.fromYMD(ee.Number(year - 1), 12, 31).getRelative(
-            "day", "year")
-
-    def mean(self, year):
-        """ Mean
-
-        :return: Valor de la mean en un objeto de Earth Engine
-        :rtype: ee.Number
-        """
-        return ee.Number(self.sequence(year).reduce(ee.Reducer.mean()))
-
-    def std(self, year):
-        """ Standar deviation
-
-        :return:
-        :rtype: ee.Number
-        """
-        return ee.Number(self.sequence(year).reduce(ee.Reducer.stdDev()))
-
-    def distance_to_ini(self, date, year):
-        """ Distance in days between the initial date and the given date for
-        the given year (season)
-
-        :param date: date to compute the 'relative' position
-        :type date: ee.Date
-        :param year: the year of the season
-        :type year: int
-        :return: distance in days between the initial date and the given date
-        :rtype: int
-        """
-        ini = self.ini_date(year)
-        return date.difference(ini, "day")
-
-    def ee_year(self, year):
-        return ee.Number(year)
 
     @staticmethod
     def apply(collection, **kwargs):
+        """ Apply doy score to every image in a collection.
+
+        :param doy: day of year
+        :type doy: ee.Date
+        :param distribution: the distribution to use. Can be one of
+            'linear' or 'normal'
+        :type distribution: str
+        :param normalize: Normalize result to be between 0 and 1
+        :type normalize: bool
+        :return: the parsed collection with a new property called by parameter
+            `name` (defaults to 'doy').
+        :rtype: ee.ImageCollection
+        """
         doy = kwargs.get('doy')  # ee.Date
         distribution = kwargs.get('distribution', 'linear')
         name = kwargs.get('name', 'doy')
+        normalize = kwargs.get('normalize', True)
 
         # temporary distance property name
         uid = uuid4()
@@ -445,38 +366,37 @@ class Doy(Score):
             dist = idate.difference(doy, 'day')
             return img.set(distance_name, dist)
 
-        if distribution == 'linear':
-            # compute distance to doy
-            collection = collection.map(distance)
+        # compute distance to doy
+        collection = collection.map(distance)
 
+        if distribution == 'linear':
             result = algorithms.distribution_linear_property(collection,
                                                              distance_name,
                                                              0, name=name)
 
-            return result
-
-
         if distribution == 'normal':
-            # compute distance
-            collection = collection.map(distance)
+            result = algorithms.distribution_normal_property(
+                collection,
+                distance_name,
+                mean= 0,
+                min= 0 if normalize else None,
+                max= 1 if normalize else None,
+                name=name
+            )
 
-            result = algorithms.distribution_normal_property(collection,
-                                                             distance_name,
-                                                             0, name=name)
+        def addBand(img):
+            doyn = ee.Number(img.get(name))
+            doyband = ee.Image.constant(doyn).rename(name)
+            return img.addBands(doyband)
 
-            return result
+        return result.map(addBand)
 
     def map(self, collection, **kwargs):
-        """
-
-        :param year: central year
-        :type year: int
-        """
+        """ """
         year = kwargs.get('year')
-        print(year)
         doy = ee.Date(self.season.doy_date(year))
 
-        return self.apply(collection, doy=doy)
+        return self.apply(collection, doy=doy, name=self.name)
 
 
 @register(factory)
