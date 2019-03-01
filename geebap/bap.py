@@ -678,7 +678,9 @@ class Bap(object):
 
             if normalize:
                 newcol = newcol.map(
-                    tools.image.parametrize((0, maxpunt), (0, 1), ("score",)))
+                    lambda img: tools.image.parametrize(img,
+                                                        (0, maxpunt),
+                                                        (0, 1), ("score",)))
 
             if self.debug:
                 print("AFTER parametrize:")
