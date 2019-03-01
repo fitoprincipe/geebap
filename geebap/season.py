@@ -5,7 +5,7 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import satcol
+from . import satcol
 from datetime import date
 from collections import OrderedDict
 from geetools import filters
@@ -158,7 +158,7 @@ class Season(object):
         else:
             ini = 31
 
-        for month, days in Season.rel_month_day(leap).iteritems():
+        for month, days in Season.rel_month_day(leap).items():
             if month == 1: continue
 
             if month != m:
@@ -390,9 +390,9 @@ class Season(object):
             # print ini_plus_doy
             new_doy = ini_plus_doy if ini_plus_doy <= self.year_days \
                                    else ini_plus_doy-self.year_days
-            print 'newdoy', new_doy
+            print('newdoy', new_doy)
             self._doy = Season.date_for_day(new_doy+1, self.leap)
-            print self._doy
+            print(self._doy)
         else:
             Season.check_valid_date(value, self.leap)
             self._doy = value
@@ -469,7 +469,12 @@ class SeasonPriority(object):
     """
     breaks = [1972, 1974, 1976, 1978, 1982, 1983,
               1994, 1999, 2003, 2012, 2013, date.today().year+1]
-    periods = [range(b, breaks[i + 1]) for i, b in enumerate(breaks) if i < len(breaks) - 1]
+
+    periods = []
+    for i, b in enumerate(breaks):
+        if (i < len(breaks) - 1):
+            period = range(b, breaks[i + 1])
+            periods.append(period)
 
     satlist = [[ID1],
                [ID2, ID1],

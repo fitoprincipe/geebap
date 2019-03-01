@@ -8,7 +8,7 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import satcol
+from . import satcol
 from abc import ABCMeta, abstractmethod
 
 class Mask(object):

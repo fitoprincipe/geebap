@@ -6,15 +6,15 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import satcol
-import functions
+from . import satcol
+from . import functions
 from geetools import tools
-import season
+from . import season
 # from functions import execli
 # from geetools.tools import execli
-from expressions import Expression
+from .expressions import Expression
 from abc import ABCMeta, abstractmethod
-from regdec import *
+from .regdec import *
 
 __all__ = []
 factory = {}
@@ -1024,12 +1024,12 @@ class Threshold(Score):
 
         # As each band must have a 'min' and 'max' if it is not specified,
         # it is completed with None. This way, it can be catched by ee.Algorithms.If
-        for key, val in band_relation.iteritems():
+        for key, val in band_relation.items():
             val.setdefault('min', 0)
             val.setdefault('max', 1)
 
         bands = band_relation.keys()
-        bands_ee = ee.List(bands)
+        bands_ee = ee.List(list(bands))
         relation_ee = ee.Dictionary(band_relation)
         length = ee.Number(bands_ee.size())
         # step = ee.Number(1).divide(length)

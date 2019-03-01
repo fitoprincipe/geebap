@@ -5,8 +5,8 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import expgen
-from functions import drange, replace
+from . import expgen
+from .functions import drange, replace
 import math
 import simpleeval as sval
 import numpy as np
@@ -173,8 +173,8 @@ class Expression(object):
             self._normalize = value
         else:
             self._normalize = False
-            print "If you want to normalize the function, the range must be" \
-                  " a tuple"
+            print("If you want to normalize the function, the range must be" \
+                  " a tuple")
 
     # ESTADISTICAS DEL RANGO
     @property
@@ -390,7 +390,7 @@ class Expression(object):
         :return:
         """
         if ratio > 0:
-            print "el ratio de la curva gaussiana debe ser menor a cero, convirtiendo.."
+            print("el ratio de la curva gaussiana debe ser menor a cero, convirtiendo..")
             ratio *= -1
         if not isinstance(range, tuple):
             raise ValueError("el range debe ser una tupla")

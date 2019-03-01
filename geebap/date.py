@@ -6,7 +6,7 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import functions
+from . import functions
 
 
 class Date(object):
@@ -75,6 +75,6 @@ class Date(object):
             d = ee.Date(mili)
             dstr = d.format()
 
-            print "{0} days corresponds to the date: {1}".format(
-                date, dstr.getInfo())
+            print("{0} days corresponds to the date: {1}".format(
+                date, dstr.getInfo()))
         return d

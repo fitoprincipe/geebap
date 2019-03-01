@@ -8,10 +8,10 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import indices
+from . import indices
 from geetools import cloud_mask as cld
 from copy import deepcopy
-import functions
+from . import functions
 from geetools import tools
 from datetime import date
 
@@ -151,7 +151,7 @@ class Collection(object):
                                    "SWIR2": self.SWIR2,
                                    "ATM_OP": self.ATM_OP}
 
-        self.bandsrel = {v: k for k, v in self.bandasrel_original.iteritems() if v is not None}
+        self.bandsrel = {v: k for k, v in self.bandasrel_original.items() if v is not None}
         # self._bandasrel = None
 
         # ANIO DE LANZAMIENTO y FINAL
@@ -174,7 +174,7 @@ class Collection(object):
         :return: diccionario invertido de bands presentes en la coleccion
         :rtype: dict
         """
-        self.bandsrel = {v: k for k, v in self.bandsrel.iteritems() if v is not None}
+        self.bandsrel = {v: k for k, v in self.bandsrel.items() if v is not None}
 
     @property
     def bandIDimg(self):
@@ -774,13 +774,13 @@ class ColGroup(object):
         rel = self.collections[0].bandasrel_original
 
         # Bandas
-        bandas = [k for k, v in rel.iteritems() if v is not None]
+        bandas = [k for k, v in rel.items() if v is not None]
         s = set(bandas)
 
         for i, c in enumerate(self.collections):
             if i == 0: continue
             rel = c.bandasrel_original
-            bandas = [k for k, v in rel.iteritems() if v is not None]
+            bandas = [k for k, v in rel.items() if v is not None]
             s2 = set(bandas)
             s = s.intersection(s2)
 

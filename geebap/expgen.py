@@ -112,4 +112,4 @@ if __name__ == "__main__":
     expr3 = "(3+2)*5"
     #s = SvalEE()
     #print s.eval(expr)
-    print ExpGen.parse(expr2)
+    print(ExpGen.parse(expr2))

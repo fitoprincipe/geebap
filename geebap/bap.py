@@ -4,19 +4,16 @@
 
 from __future__ import print_function
 import ee
+import functools
 
 # Initialize EE
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-import satcol
-import season as temp
-import functions
+from . import satcol, functions, scores, masks, filters, date
+from . import season as temp
+
 import datetime
-import date
-import scores
-import masks
-import filters
 import time
 import sys
 from collections import namedtuple
@@ -259,7 +256,7 @@ class Bap(object):
 
         # lista de nombres de los puntajes para sumarlos al final
         scores = self.score_names
-        maxpunt = reduce(
+        maxpunt = functools.reduce(
             lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
 
         # Diccionario de cant de imagenes para incluir en las propiedades
@@ -619,7 +616,7 @@ class Bap(object):
             prop.update(dateprop)
 
             # Elimino las barras invertidas
-            prop = {k.replace("/","_"):v for k, v in prop.iteritems()}
+            prop = {k.replace("/","_"):v for k, v in prop.items()}
 
             img = img if bands is None else img.select(*bands)
 
