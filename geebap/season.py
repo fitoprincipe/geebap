@@ -9,6 +9,7 @@ from . import satcol
 from datetime import date
 from collections import OrderedDict
 from geetools import filters
+from datetime import date
 
 col_opt = satcol.IDS
 
@@ -27,6 +28,8 @@ ID7LED = col_opt['L7LED']
 ID8TOA = col_opt['L8TOA']
 ID8SR = col_opt['L8USGS']
 S2 = col_opt['S2']
+
+LEAP_YEARS = list(range(1968, date.today().year, 4))
 
 
 class Season(object):
@@ -185,6 +188,53 @@ class Season(object):
         self.end = end
 
         self.doy = doy
+
+    # DOY
+    @property
+    def doy(self):
+        return self._doy
+
+    @doy.setter
+    def doy(self, value):
+        # Get days between start and end of season
+        drange = self.range_in_days
+
+        # Check valid date
+        if value:
+            value = self.check_valid_date(value, self.leap)
+            value = '{}-{}'.format(*value)
+
+        out_of_range1 = isinstance(value, int) and (value > drange)
+
+        def out_of_range2(value):
+            if isinstance(value, str):
+                month = int(value.split('-')[0])
+                day = int(value.split('-')[1])
+                if month == self.ini_month:
+                    if day < self.ini_day:
+                        return True
+                elif month < self.ini_month:
+                    return True
+            else:
+                return False
+
+        if value is None or out_of_range1 or out_of_range2(value):
+            doy = int(drange/2)  # doy will be half of range by now
+
+            dini = self.day_of_year(self.ini, self.leap)
+            new_doy = dini+doy if dini+doy <= self.year_days \
+                else dini+doy-self.year_days
+
+            self._doy = self.date_for_day(new_doy-1, self.leap)
+        elif isinstance(value, int):
+            dini = self.day_of_year(self.ini, self.leap)
+            ini_plus_doy = dini+value
+            new_doy = ini_plus_doy if ini_plus_doy <= self.year_days \
+                else ini_plus_doy-self.year_days
+            self._doy = self.date_for_day(new_doy+1, self.leap)
+        else:
+            self.check_valid_date(value, self.leap)
+            self._doy = value
 
     @property
     def year_days(self):
@@ -367,53 +417,6 @@ class Season(object):
         rend = Season.day_of_year(self.end, self.leap)
         r = rend-rini+1
         return r if self.year_factor == 0 else self.year_days+r
-
-    # DOY
-    @property
-    def doy(self):
-        return self._doy
-
-    @doy.setter
-    def doy(self, value):
-        # Get days between start and end of season
-        drange = self.range_in_days
-
-        # Check valid date
-        if value:
-            value = self.check_valid_date(value, self.leap)
-            value = '{}-{}'.format(*value)
-
-        out_of_range1 = isinstance(value, int) and (value > drange)
-
-        def out_of_range2(value):
-            if isinstance(value, str):
-                month = int(value.split('-')[0])
-                day = int(value.split('-')[1])
-                if month == self.ini_month:
-                    if day < self.ini_day:
-                        return True
-                elif month < self.ini_month:
-                    return True
-            else:
-                return False
-
-        if value is None or out_of_range1 or out_of_range2(value):
-            doy = int(drange/2)  # doy will be half of range by now
-
-            dini = self.day_of_year(self.ini, self.leap)
-            new_doy = dini+doy if dini+doy <= self.year_days \
-                               else dini+doy-self.year_days
-
-            self._doy = self.date_for_day(new_doy-1, self.leap)
-        elif isinstance(value, int):
-            dini = self.day_of_year(self.ini, self.leap)
-            ini_plus_doy = dini+value
-            new_doy = ini_plus_doy if ini_plus_doy <= self.year_days \
-                                   else ini_plus_doy-self.year_days
-            self._doy = self.date_for_day(new_doy+1, self.leap)
-        else:
-            self.check_valid_date(value, self.leap)
-            self._doy = value
 
     @property
     def ini_month(self):
