@@ -34,8 +34,9 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-from . import satcol, functions, season
-from geetools import tools, composite, algorithms
+from . import satcol, functions
+from . import season as season_module
+from geetools import tools, composite
 
 from .expressions import Expression
 from abc import ABCMeta, abstractmethod
@@ -328,13 +329,15 @@ class Doy(Score):
     :param name: name for the resulting band
     :type name: str
     """
-    def __init__(self, name="score-doy", season=None,
-                 **kwargs):
+    def __init__(self, name="score-doy", season=None, function='linear',
+                 stretch=1, **kwargs):
         super(Doy, self).__init__(**kwargs)
-        if season in None:
-            season = season.Season.Growing_South()
+        if season is None:
+            season = season_module.Season.Growing_South()
         self.season = season
         self.name = name
+        self.function = function
+        self.stretch = stretch
 
     @staticmethod
     def apply(collection, **kwargs):
@@ -342,19 +345,19 @@ class Doy(Score):
 
         :param doy: day of year
         :type doy: ee.Date
-        :param distribution: the distribution to use. Can be one of
-            'linear' or 'normal'
-        :type distribution: str
-        :param normalize: Normalize result to be between 0 and 1
-        :type normalize: bool
+        :param function: the function to use. Can be one of
+            'linear' or 'gauss'
+        :type function: str
         :return: the parsed collection with a new property called by parameter
             `name` (defaults to 'doy').
         :rtype: ee.ImageCollection
         """
         doy = kwargs.get('doy')  # ee.Date
-        distribution = kwargs.get('distribution', 'linear')
-        name = kwargs.get('name', 'doy')
-        normalize = kwargs.get('normalize', True)
+        function = kwargs.get('function', 'linear')
+        name = kwargs.get('name', 'doy_score')
+        stretch = kwargs.get('stretch', 1)
+        output_min = kwargs.get('output_min', 0)
+        output_max = kwargs.get('output_max', 1)
 
         # temporary distance property name
         uid = uuid4()
@@ -369,18 +372,23 @@ class Doy(Score):
         # compute distance to doy
         collection = collection.map(distance)
 
-        if distribution == 'linear':
-            result = algorithms.distribution_linear_property(collection,
-                                                             distance_name,
-                                                             0, name=name)
-
-        if distribution == 'normal':
-            result = algorithms.distribution_normal_property(
+        if function == 'linear':
+            result = tools.imagecollection.linear_function_property(
                 collection,
                 distance_name,
-                mean= 0,
-                min= 0 if normalize else None,
-                max= 1 if normalize else None,
+                mean=0,
+                output_min= output_min,
+                output_max= output_max,
+                name=name)
+
+        if function == 'gauss':
+            result = tools.imagecollection.gauss_function_property(
+                collection,
+                distance_name,
+                mean=0,
+                output_min= output_min,
+                output_max= output_max,
+                stretch=stretch,
                 name=name
             )
 
@@ -393,10 +401,13 @@ class Doy(Score):
 
     def map(self, collection, **kwargs):
         """ """
+        range_out = self.range_out
         year = kwargs.get('year')
         doy = ee.Date(self.season.doy_date(year))
 
-        return self.apply(collection, doy=doy, name=self.name)
+        return self.apply(collection, doy=doy, name=self.name,
+                          output_min=range_out[0], output_max=range_out[1],
+                          function=self.function, stretch=self.stretch)
 
 
 @register(factory)
@@ -610,42 +621,33 @@ class Satellite(Score):
         :type col: satcol.Collection
         """
         col = kwargs.get('col')
-        nombre = self.name
+        name = self.name
         theid = col.ID
         ajuste = self.adjust()
 
         def wrap(img):
-            # CALCULA EL PUNTAJE:
-            # (tamaño - index)/ tamaño
-            # EJ: [1, 0.66, 0.33]
-            # pje = size.subtract(index).divide(size)
-            ##
+            # zero value pixels
+            zeros = img.select([0]).eq(0).Not()
 
-            # Selecciono los pixeles con valor distinto de cero
-            ceros = img.select([0]).eq(0).Not()
+            year = img.date().get("year")
 
-            a = img.date().get("year")
+            # List of satellite priority according to year
+            lista = season_module.SeasonPriority.ee_relation.get(year.format())
 
-            # LISTA DE SATELITES PRIORITARIOS PARA ESE AÑO
-            # lista = season.PriorTempLandEE(ee.Number(a)).listaEE
-            lista = season.SeasonPriority.ee_relation.get(a.format())
-            # UBICA AL SATELITE EN CUESTION EN LA LISTA DE SATELITES
-            # PRIORITARIOS, Y OBTIENE LA POSICION EN LA LISTA
+            # Get index of current satellite into the list
             index = ee.List(lista).indexOf(ee.String(theid))
 
-            ## OPCION 2
             # 1 - (0.05 * index)
             # EJ: [1, 0.95, 0.9]
             factor = ee.Number(self.rate).multiply(index)
-            pje = ee.Number(1).subtract(factor)
-            ##
+            sat_score = ee.Number(1).subtract(factor)
 
-            # ESCRIBE EL PUNTAJE EN LOS METADATOS DE LA IMG
-            img = img.set(nombre, pje)
+            # Write score as an Image Property
+            img = img.set(name, sat_score)
 
-            # CREA LA IMAGEN DE PUNTAJES Y LA DEVUELVE COMO RESULTADO
-            pjeImg = ee.Image(pje).select([0], [nombre]).toFloat()
-            return ajuste(img.addBands(pjeImg).updateMask(ceros))
+            # Create the score band
+            score_img = ee.Image(sat_score).select([0], [name]).toFloat()
+            return ajuste(img.addBands(score_img).updateMask(zeros))
 
         return collection.map(wrap)
 
@@ -682,44 +684,17 @@ class Outliers(Score):
         super(Outliers, self).__init__(**kwargs)
 
         # TODO: el param bands esta mas relacionado a la coleccion... pensarlo mejor..
-        # if not (isinstance(bands, tuple) or isinstance(bands, list)):
-        #    raise ValueError("El parametro 'bands' debe ser una tupla o lista")
         self.bands = bands
         self.bands_ee = ee.List(bands)
-
-        # self.col = col.select(self.bands)
         self.process = process
-        # self.distribution = kwargs.get("distribution", "discreta")
+
         # TODO: distribution
         self.dist = dist
-        '''
-        self.minVal = kwargs.get("min", 0)
-        self.maxVal = kwargs.get("max", 1)
-        self.rango_final = (self.minVal, self.maxVal)
-        self.rango_orig = (0, 1)
-        '''
         self.range_in = (0, 1)
-        # self.bandslength = float(len(bands))
-        # self.increment = float(1/self.bandslength)
         self.name = name
         self.sleep = kwargs.get("sleep", 10)
 
         # TODO: create `min` and `max` properties depending on the chosen process
-
-    @property
-    def dist(self):
-        return self._dist
-
-    @dist.setter
-    def dist(self, val):
-        val = 0.7 if val is not isinstance(val, float) else val
-        if self.process == 'mean':
-            self._dist = val
-        elif self.process == 'median':
-            # Normalize distance to median
-            val = 0 if val < 0 else val
-            val = 1 if val > 1 else val
-            self._dist = int(val*50)
 
     @property
     def bandslength(self):
@@ -729,75 +704,95 @@ class Outliers(Score):
     def increment(self):
         return float(1 / self.bandslength)
 
-    def map(self, collection, **kwargs):
-        """
-        :param colEE: Earth Engine collection to process
-        :type colEE: ee.ImageCollection
-        :return:
-        :rtype: ee.Image
-        """
-        colEE = kwargs.get('colEE')
-        nombre = self.name
-        bandas = self.bands_ee
-        rango_orig = self.range_in
-        rango_fin = self.range_out
-        incremento = self.increment
-        col = colEE.select(bandas)
-        process = self.process
+    @staticmethod
+    def apply(collection, **kwargs):
+        bands = kwargs.get('bands')
+        reducer = kwargs.get('reducer')
+        amount = kwargs.get('amount')
+
+        if reducer is None:
+            reducer = 'mean'
+
+        if amount is None:
+            if reducer == 'mean':
+                amount = 0.7
+            elif reducer == 'median':
+                amount = 0.5
 
         # MASK PIXELS = 0 OUT OF EACH IMAGE OF THE COLLECTION
         def masktemp(img):
             m = img.neq(0)
             return img.updateMask(m)
-        coltemp = col.map(masktemp)
 
-        if process == "mean":
-            media = ee.Image(coltemp.mean())
+        col = collection.select(bands)
+
+        col = col.map(masktemp)
+
+        if reducer == "mean":
+            mean = ee.Image(col.mean())
             std = ee.Image(col.reduce(ee.Reducer.stdDev()))
-            stdXdesvio = std.multiply(self.dist)
+            distance = std.multiply(amount)
 
-            mmin = media.subtract(stdXdesvio)
-            mmax = media.add(stdXdesvio)
+            mmin = mean.subtract(distance)
+            mmax = mean.add(distance)
 
-        elif process == "median":
-            # mediana = ee.Image(col.median())
-            min = ee.Image(coltemp.reduce(ee.Reducer.percentile([50-self.dist])))
-            max = ee.Image(coltemp.reduce(ee.Reducer.percentile([50+self.dist])))
-
-            mmin = min
-            mmax = max
-
-        # print(mmin.getInfo())
-        # print(mmax.getInfo())
+        elif reducer == "median":
+            mmin = ee.Image(col.reduce(ee.Reducer.percentile([50-(50*amount)])))
+            mmax = ee.Image(col.reduce(ee.Reducer.percentile([50+(50*amount)])))
 
         def wrap(img):
-
-            # Selecciono los pixeles con valor distinto de cero
-            # ceros = img.select([0]).eq(0).Not()
-            ceros = img.neq(0)
-
-            # ORIGINAL IMAGE
+            # original image
             img_orig = img
 
-            # SELECT BANDS
-            img_proc = img.select(bandas)
+            # select bands
+            if bands is not None:
+                img = img.select(bands)
 
-            # CONDICION
-            condicion_adentro = (img_proc.gte(mmin)
-                                 .And(img_proc.lte(mmax)))
+            # condition inside
+            condition = img.gte(mmin) \
+                .And(img.lte(mmax))
 
-            pout = functions.simple_rename(condicion_adentro, suffix="pout")
+            if reducer == 'median':
+                condition = condition.select(condition.bandNames(), img.bandNames())
 
-            suma = tools.image.sumBands(pout, nombre)
+            condition = condition.Not()
 
-            final = suma.select(nombre).multiply(ee.Image(incremento))
+            pout = tools.image.addSuffix(condition, '_outlier')
 
-            parametrizada = tools.image.parametrize(final, rango_orig,
-                                                    rango_fin)
-
-            return img_orig.addBands(parametrizada)#.updateMask(ceros)
+            return img_orig.addBands(pout) \
+                .set('OUTLIER_REDUCER', reducer) \
+                .set('OUTLIER_AMOUNT', amount)
 
         return collection.map(wrap)
+
+
+    def map(self, collection, **kwargs):
+        """
+        :return:
+        :rtype: ee.Image
+        """
+        name = self.name
+        increment = self.increment
+        reducer = self.process
+        amount = self.dist
+
+        outliers = self.apply(collection, bands=self.bands, reducer=reducer,
+                              amount=amount)
+
+        pattern = self.bands_ee.map(
+            lambda name: ee.String(name).cat('_outlier'))
+
+        def wrap(img):
+            out = img.select(pattern)
+            suma = tools.image.sumBands(out, name)
+            final = suma.select(name) \
+                .multiply(ee.Image(increment)).rename(name)
+
+            no_out = tools.image.removeBands(img, pattern)
+
+            return no_out.addBands(final)
+
+        return outliers.map(wrap)
 
 
 @register(factory)
@@ -809,19 +804,76 @@ class Index(Score):
     :param index: name of the vegetation index. Can be 'ndvi', 'evi' or 'nbr'
     :type index: str
     """
-    def __init__(self, index="ndvi", name="score-index", **kwargs):
+    def __init__(self, index="ndvi", target=0.8, name="score-index",
+                 function='linear', stretch=1, **kwargs):
         super(Index, self).__init__(**kwargs)
         self.index = index
-        self.range_in = kwargs.get("range_in", (-1, 1))
+        self.range_in = kwargs.get("range_in", (0, 1))
         self.name = name
+        self.function = function
+        self.target = target
+        self.stretch = stretch
+
+    @staticmethod
+    def compute(image, **kwargs):
+        """ Compute Index Score. Parameters:
+
+        - index (str): the name of the index
+        - target (float): the value of the index that will be the output
+          maximum
+        - range_min (float): the minmum value of the index range
+        - range_max (float): the maximum value of the index range
+        - out_min (float): the minmum value of the expected output. Defaults to
+          zero
+        - out_max (float): the maximum value of the expected output. Defaults
+          to one
+        - function (str): can be 'linear' or 'gauss'. Defaults to 'linear'
+        - stretch (float): a stretching value for the normal distribution
+        """
+        index = kwargs.get('index')
+        target = kwargs.get('target')
+        range_min = kwargs.get('range_min')
+        range_max = kwargs.get('range_max')
+        out_min = kwargs.get('out_min', 0)
+        out_max = kwargs.get('out_max', 1)
+        function = kwargs.get('function', 'linear')
+        stretch = kwargs.get('stretch', 1)
+        name = kwargs.get('name')
+
+        if function == 'linear':
+            result = tools.image.linear_function(image, index,
+                                                 range_min=range_min,
+                                                 range_max=range_max,
+                                                 mean=target,
+                                                 output_min=out_min,
+                                                 output_max=out_max,)
+
+        elif function == 'gauss':
+            result = tools.image.gauss_function(image, index,
+                                                range_min=range_min,
+                                                range_max=range_max,
+                                                mean=target,
+                                                output_min=out_min,
+                                                output_max=out_max,
+                                                stretch=stretch)
+        else:
+            raise ValueError('function parameter must be "linear" or "gauss"')
+
+        return result.rename(name)
 
     def map(self, collection, **kwargs):
-        ajuste = self.adjust()
         def wrap(img):
-            ind = img.select([self.index])
-            p = tools.image.parametrize(ind, self.range_in, self.range_out)
-            p = p.select([0], [self.name])
-            return ajuste(img.addBands(p))
+            result = self.compute(img, index=self.index,
+                                  function=self.function,
+                                  name=self.name,
+                                  range_min=self.range_in[0],
+                                  range_max=self.range_in[1],
+                                  target=self.target,
+                                  out_min=self.range_out[0],
+                                  out_max=self.range_out[1],
+                                  stretch=self.stretch
+                                  )
+            return img.addBands(result)
 
         return collection.map(wrap)
 
@@ -844,36 +896,118 @@ class MultiYear(Score):
     :type ration: float
     """
 
-    def __init__(self, main_year, season, ratio=0.05, name="score-multi",
-                 **kwargs):
+    def __init__(self, main_year, season, ratio=0.05, function='linear',
+                 stretch=1, name="score-multi", **kwargs):
         super(MultiYear, self).__init__(**kwargs)
         self.main_year = main_year
         self.season = season
         self.ratio = ratio
+        self.function = function
         self.name = name
+        self.stretch = stretch
+
+    @staticmethod
+    def apply(collection, **kwargs):
+        """ Apply multi year score to every image in a collection.
+
+        :param year: target year
+        :type year: int
+        :param function: the function to use. Can be one of
+            'linear' or 'gauss'
+        :type function: str
+        :return: the parsed collection with a new property called by parameter
+            `name` (defaults to 'year_score').
+        :rtype: ee.ImageCollection
+        """
+        year = ee.Number(kwargs.get('target_year'))
+        function = kwargs.get('function', 'linear')
+        name = kwargs.get('name', 'year_score')
+        stretch = kwargs.get('stretch', 1)
+        output_min = kwargs.get('output_min', 0)
+        output_max = kwargs.get('output_max', 1)
+        year_property = kwargs.get('year_property')
+
+        # temporary distance property name
+        uid = uuid4()
+        distance_name = 'distance_{}'.format(uid)
+
+        # function to compute distance
+        def distance(img):
+            if year_property:
+                iyear = ee.Number(img.get(year_property))
+            else:
+                iyear = ee.Date(img.date()).get('year')
+
+            dist = year.subtract(ee.Number(iyear))
+            return img.set(distance_name, dist)
+
+        # compute distance to doy
+        collection = collection.map(distance)
+
+        if function == 'linear':
+            result = tools.imagecollection.linear_function_property(
+                collection,
+                distance_name,
+                mean=0,
+                output_min= output_min,
+                output_max= output_max,
+                name=name)
+
+        if function == 'gauss':
+            result = tools.imagecollection.gauss_function_property(
+                collection,
+                distance_name,
+                mean=0,
+                output_min= output_min,
+                output_max= output_max,
+                stretch=stretch,
+                name=name
+            )
+
+        def addBand(img):
+            score = ee.Number(img.get(name))
+            scoreband = ee.Image.constant(score).rename(name)
+            return img.addBands(scoreband)
+
+        return result.map(addBand)
 
     def map(self, collection, **kwargs):
-        a = self.main_year
-        ajuste = self.adjust()
+        """ This method keeps only the images included in the seasons """
+        year = self.main_year
+        season = self.season
+        range_out = self.range_out
+        years = kwargs.get('years')
 
-        def wrap(img):
+        years = ee.List(years)
 
-            # Selecciono los pixeles con valor distinto de cero
-            ceros = img.select([0]).eq(0).Not()
+        # assign the date to each image as a property
+        def addYear(year):
+            year = ee.Number(year)
+            date_range = season.add_year(year)
 
-            # FECHA DE LA IMAGEN
-            imgdate = ee.Date(img.date())
+            filtered = collection.filterDate(date_range.start(),
+                                             date_range.end())
+            size = filtered.size()
 
-            diff = ee.Number(self.season.year_diff_ee(imgdate, a))
+            def true():
+                filtered_list = filtered.toList(filtered.size())
+                def assignYear(img):
+                    img = ee.Image(img)
+                    return img.set('SEASON_YEAR', year)
 
-            pje1 = ee.Number(diff).multiply(ee.Number(self.ratio))
-            pje = ee.Number(1).subtract(pje1)
+                return filtered_list.map(assignYear)
+            def false():
+                return ee.List([])
 
-            imgpje = ee.Image.constant(pje).select([0], [self.name])
+            return ee.Algorithms.If(size, true(), false())
 
-            # return funciones.pass_date(img, img.addBands(imgpje))
-            return ajuste(img.addBands(imgpje).updateMask(ceros))
-        return collection.map(wrap)
+        imgs = ee.List(years.map(addYear)).flatten()
+        new_collection = ee.ImageCollection.fromImages(imgs)
+
+        return self.apply(new_collection, target_year=year, name=self.name,
+                          output_min=range_out[0], output_max=range_out[1],
+                          function=self.function, stretch=self.stretch,
+                          year_property='SEASON_YEAR')
 
 
 @register(factory)
