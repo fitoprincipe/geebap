@@ -4,6 +4,7 @@
 
 from __future__ import print_function
 import ee
+import functools
 
 # Initialize EE
 import ee.data
@@ -444,7 +445,7 @@ class Bap(object):
         scores = self.score_names
 
         # max score that it can get
-        maxpunt = reduce(
+        maxpunt = functools.reduce(
             lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
 
         # dict to include in the Metadata
