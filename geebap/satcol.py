@@ -563,7 +563,7 @@ class Collection(object):
     @classmethod
     def Landsat8TOA(cls):
         bandscale = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=30, B7=30,
-                         B8=15, B9=30, B10=100, B11=100)
+                         B8=15, B9=15, B10=30, B11=30)
         obj = cls(BLUE="B2",
                   GREEN="B3",
                   RED="B4",
@@ -603,7 +603,8 @@ class Collection(object):
         copy.kws["max"] = copy_usgs.max
         copy.kws["fclouds"] = {'computed_ee': cld.landsat8SR_pixelQA()}
         copy.kws["equiv"] = IDS['L8TOA']
-        copy.kws["bandscale"] = copy.bandscale
+        copy.kws["bandscale"] = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=30,
+                                     B7=30, B10=30, B11=30)
         copy.kws["short"] = "L8USGS"
         copy.kws["clouds_band"] = "pixel_qa"
         copy.kws["threshold"] = {'NIR': {'min':700, 'max':4500},
