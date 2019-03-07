@@ -34,7 +34,7 @@ import ee
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-from . import satcol, functions
+from . import satcol
 from . import season as season_module
 from geetools import tools, composite
 
@@ -137,7 +137,7 @@ class CloudScene(Score):
     :param name: name of the resulting band
     :type name: str
     """
-    def __init__(self, name="score-cld-esc", **kwargs):
+    def __init__(self, name="score-cld-scene", **kwargs):
         super(CloudScene, self).__init__(**kwargs)
         self.range_in = (0, 100)
         self.name = name
@@ -290,6 +290,11 @@ class CloudDist(Score):
         return collection.map(lambda img: CloudDist.compute(img, **kwargs))
 
     def map(self, collection, **kwargs):
+        """ Map the score over a collection
+
+        :param col: collection
+        :type col: satcol.Collection
+        """
         col = kwargs.get('col')
         scale = col.bandscale[col.bandmask]
         maxdist = (scale/2)*256
@@ -309,9 +314,7 @@ class CloudDist(Score):
                                      dmax=dmax,
                                      bandname=self.name)
 
-            # score_img = img
             adjusted_score = self.adjust()(score_img)
-            # adjusted_score = score_img
             return img.addBands(adjusted_score)
 
         return collection.map(wrap)
@@ -400,7 +403,11 @@ class Doy(Score):
         return result.map(addBand)
 
     def map(self, collection, **kwargs):
-        """ """
+        """ Map the score over a collection
+
+        :param year: the analysing year. Must match the year of the bap
+        :type year: int
+        """
         range_out = self.range_out
         year = kwargs.get('year')
         doy = ee.Date(self.season.doy_date(year))
@@ -433,7 +440,7 @@ class AtmosOpacity(Score):
         return expresion
 
     def map(self, collection, **kwargs):
-        """
+        """ Map the score over a collection
 
         :param col: collection
         :type col: satcol.Collection
@@ -591,6 +598,13 @@ class MaskPercent(Score):
         return wrap
 
     def map(self, collection, **kwargs):
+        """ Map the score over a collection
+
+        :param col: collection
+        :type col: satcol.Collection
+        :param geom: boundaries geometry
+        :type geom: ee.Geometry or ee.Feature
+        """
         col = kwargs.get('col')
         geom = kwargs.get('geom')
         def wrap(img):
@@ -972,7 +986,11 @@ class MultiYear(Score):
         return result.map(addBand)
 
     def map(self, collection, **kwargs):
-        """ This method keeps only the images included in the seasons """
+        """ This method keeps only the images included in the seasons
+
+        :param years: the list of all years
+        :type years: list
+        """
         year = self.main_year
         season = self.season
         range_out = self.range_out
@@ -1015,22 +1033,7 @@ class MultiYear(Score):
 class Threshold(Score):
     def __init__(self, bands=None, name='score-thres',
                  **kwargs):
-        """ Compute a threshold score, where values less than the min value or
-        greater than the max value will have zero score
-
-        :param bands: Dict of dicts as follows
-
-            {'band_name':{'min':value, 'max':value}, 'band_name2'...}
-
-            :values: must be numbers
-
-            If 'min' is not set, will be automatically set to 0 and if 'max'
-            is not set, will be automatically set to 1.
-
-        :type bands: dict
-        :param threshold:
-        :type threshold: tuple or list
-        """
+        """ Threshold score """
         super(Threshold, self).__init__(**kwargs)
 
         self.bands = bands
@@ -1038,17 +1041,27 @@ class Threshold(Score):
 
     @staticmethod
     def compute(img, **kwargs):
+        """ Compute the threshold score
+
+        :param thresholds: a dictionary of threshold values for each band. The
+            keys of the dict must be the name of the bands, and the value for
+            each band MUST be a dict with 2 keys: `min` and `max`. For example:
+
+            ``` python
+            threshold = {'B1': {'min': 1000, 'max': 3000}}
+            ```
+        :type thresholds: dict
+        :param name: the name of the resulting band
+        :type name: str
+        :rtype: ee.Image
+        """
         thresholds = kwargs.get('thresholds')
-        bandname = kwargs.get('bandname', 'score-threshold')
+        name = kwargs.get('name', 'score-threshold')
 
-        # As each band must have a 'min' and 'max' if it is not specified,
-        # it is completed with None. This way, it can be catched by ee.Algorithms.If
-        for key, val in thresholds.items():
-            val.setdefault('min', 0)
-            val.setdefault('max', 1)
+        # Cast
+        thresholds = ee.Dictionary(thresholds)
 
-        bands = list(thresholds.keys())
-        bands_ee = ee.List(bands)
+        bands_ee = ee.List(thresholds.keys())
         relation_ee = ee.Dictionary(thresholds)
         length = ee.Number(bands_ee.size())
 
@@ -1066,20 +1079,24 @@ class Threshold(Score):
             return tools.image.replace(score_complete, band, final_score)
 
         scores = ee.Image(bands_ee.iterate(compute_score,
-                                           tools.image.empty(0, bands)))
+                                           tools.image.empty(0, bands_ee)))
 
-        final_score = tools.image.sumBands(scores, name=bandname) \
+        final_score = tools.image.sumBands(scores, name=name) \
             .divide(ee.Image.constant(length))
 
-        return final_score.select(bandname)
+        return final_score.select(name)
 
     def map(self, collection, **kwargs):
+        """ map the score over a collection
+
+        :param col: the collection
+        :type col: satcol.Collection
+        """
         col = kwargs.get('col')
         thresholds = col.threshold
         def wrap(img):
-            # score = self.core(col, **kwargs)(img).select(self.name)
             score = self.compute(img, thresholds=thresholds,
-                                 bandname=self.name)
+                                 name=self.name)
             return img.addBands(score)
 
         return collection.map(wrap)
@@ -1110,59 +1127,132 @@ class Medoid(Score):
 @register(factory)
 @register_all(__all__)
 class Brightness(Score):
-    def __init__(self, bands=None, name='score-brightness', **kwargs):
+    def __init__(self, target=1, bands=None, name='score-brightness',
+                 function='linear', **kwargs):
+        """ Brightness score
+
+        :param target: a percentage target. For exampĺe, target=0.8 means that
+            the top score will be for the 80 percent of the maximum brightness
+        :type target: float
+        """
         super(Brightness, self).__init__(**kwargs)
         if not bands:
             bands = ['GREEN', 'BLUE', 'RED', 'NIR', 'SWIR']
         self.bands = bands
         self.name = name
+        self.function = function
+        self.target = target
 
     @staticmethod
-    def compute(img, **kwargs):
+    def compute(image, **kwargs):
+        """ Compute a brightness score.
+
+        :param bands: the bands to use for brightness
+        :type bands: list
+        :param target: the brighness value that will take the top score
+        :type target: float
+        :param function: the function that will be used for computing brighness
+            score. Can be 'linear' or 'gauss'
+        :type function: str
+        :param min_value: minimum value that takes each band
+        :type min_value: float
+        :param min_value: maximum value that takes each band
+        :type min_value: float
+
+        """
         bands = kwargs.get('bands')
-        min_value = kwargs.get('min_value', 0)
+        min_value = kwargs.get('min_value')
         max_value = kwargs.get('max_value')
+        max_brighness = kwargs.get('max_brightness')
+        min_brighness = kwargs.get('min_brightness')
+        function = 'linear'
+        target = kwargs.get('target')
+        output_min = kwargs.get('output_min', 0)
+        output_max = kwargs.get('output_max', 1)
         name = kwargs.get('name')
+        stretch = kwargs.get('stretch')
 
-        min_value = ee.Number(min_value)
-        max_value = ee.Number(max_value)
+        if not bands:
+            bands = image.bandNames()
 
-        if bands:
-            if isinstance(bands, ee.List):
-                length = ee.Number(bands.size())
-            else:
-                length = ee.Number(len(bands))
+        bands = ee.List(bands)
+        length = ee.Number(bands.size())
+        img = image.select(bands)
 
-            img = img.select(bands)
+        if min_brighness is not None:
+            allmin = ee.Number(min_brighness)
+        elif min_value is not None and min_brighness is None:
+            min_value = ee.Number(min_value)
+            allmin = min_value.multiply(length)
+        else:
+            msg = "You must specify a minimum value for brightness, either" \
+                  " using `min_value` parameter or `min_brightness` parameter"
+            raise ValueError(msg)
 
-        allmax = max_value.multiply(length)
-        allmin = min_value.multiply(length)
+        if max_brighness:
+            allmax = ee.Number(max_brighness)
+        elif max_value and not max_brighness:
+            max_value = ee.Number(max_value)
+            allmax = max_value.multiply(length)
+        else:
+            msg = "You must specify a maximum value for brightness, either" \
+                  " using `max_value` parameter or `max_brightness` parameter"
+            raise ValueError(msg)
 
-        sum = img.reduce('sum')
-        range_from = ee.List([allmin, allmax])
-        parametrized = tools.image.parametrize(sum, range_from, (0, 1))
+        brightness = img.reduce('sum')
 
-        return parametrized.rename(name)
+        if function == 'linear':
+            result = tools.image.linear_function(
+                image=brightness,
+                band='sum',
+                range_min=allmin,
+                range_max=allmax,
+                mean=target,
+                name=name,
+                output_min=output_min,
+                output_max=output_max
+            )
+        elif function == 'gauss':
+            result = tools.image.gauss_function(
+                image=brightness,
+                band='sum',
+                range_min=allmin,
+                range_max=allmax,
+                mean=target,
+                name=name,
+                output_min=output_min,
+                output_max=output_max,
+                stretch=stretch
+            )
+
+        return result
 
     def map(self, collection, **kwargs):
+        """ Map score over a collection.
+
+        :param col: collection
+        :type col: satcol.Collection
+        """
         col = kwargs.get('col')
         mx = col.max
+        length = len(self.bands)
+
+        target = mx * length * self.target
 
         def wrap(img):
-            score = self.compute(img, bands=self.bands,
-                                 max_value=mx, name=self.name)
+            score = self.compute(
+                image=img,
+                target=target,
+                bands=self.bands,
+                max_value=mx,
+                min_value=0,
+                function=self.function,
+                name=self.name,
+                output_min=self.range_out[0],
+                output_max=self.range_out[1],
+            )
 
             return img.addBands(score)
 
         newcol = collection.map(wrap)
-
-        if self.normalize:
-            colmx = ee.Image(newcol.select(self.name).max())
-            colmin = ee.Image(newcol.select(self.name).min())
-            def wrap2(img):
-                parametrized = img.select(self.name).subtract(colmin)\
-                                  .divide(colmx.subtract(colmin))
-                return tools.image.replace(img, self.name, parametrized)
-            newcol = newcol.map(wrap2)
-
         return newcol
