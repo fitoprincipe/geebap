@@ -78,9 +78,6 @@ class Collection(object):
         # Private ID
         self.__ID = None
 
-        # bandid para crear una band que identifique a la col
-        # self.col_id = kwargs.get("col_id", None)
-
         # Name of the process applied to the collection
         self.process = kwargs.setdefault("process", None)
 
@@ -133,7 +130,7 @@ class Collection(object):
         self.scale = kwargs.setdefault("scale", None)
 
         # Bands scales
-        self.bandscale = kwargs.setdefault("bandscale", None)
+        self._bandscale = kwargs.get("bandscale", None)
 
         # Band that holds the original mask (Some collections come with a
         # masked band
@@ -177,6 +174,21 @@ class Collection(object):
         self.bandsrel = {v: k for k, v in self.bandsrel.items() if v is not None}
 
     @property
+    def bandscale(self):
+        if not self.renamed:
+            return self._bandscale
+        else:
+            newbandscale = {}
+            for band, scale in self._bandscale.items():
+                newband = self.bandsrel[band]
+                newbandscale[newband] = scale
+            return newbandscale
+
+    @bandscale.setter
+    def bandscale(self, value):
+        self._bandscale = value
+
+    @property
     def bandIDimg(self):
         return ee.Image.constant(self.col_id).select([0], ["col_id"])
 
@@ -211,7 +223,7 @@ class Collection(object):
         :rtype: list
         """
         if initialized:
-            return ee.Image(self.colEE.first()).bandNames().getInfo()
+            return ee.Image(self.colEE.first()).bandNames()
         else:
             return None
 
@@ -316,7 +328,7 @@ class Collection(object):
         # frename = tools.Mapping.renameDict(self.bandsrel)
 
         # Invierte la relation entre las bands
-        self.invert_bandsrel()
+        # self.invert_bandsrel()
 
         # resetea los diccionarios
         self.set_dicts()
@@ -422,7 +434,7 @@ class Collection(object):
 
     @classmethod
     def Landsat4TOA(cls):
-        bandscale = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=120, B7=30)
+        bandscale = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B7=30)
         obj = cls(BLUE="B1",
                   GREEN="B2",
                   RED="B3",
@@ -520,8 +532,8 @@ class Collection(object):
     @classmethod
     def Landsat7TOA(cls):
         copy = deepcopy(Collection.Landsat5TOA()) # copy L5 TOA
-        copy.kws["bandscale"] = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=60,
-                                     B7=30, B8=15)
+        copy.kws["bandscale"] = dict(B1=30, B2=30, B3=30, B4=30, B5=30,
+                                     B7=30)
         copy.kws["ini"] = 1999
         copy.kws["end"] = ACTUAL_YEAR
         copy.kws["short"] = "L7TOA"
@@ -562,8 +574,7 @@ class Collection(object):
 
     @classmethod
     def Landsat8TOA(cls):
-        bandscale = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=30, B7=30,
-                         B8=15, B9=15, B10=30, B11=30)
+        bandscale = dict(B2=30, B3=30, B4=30, B5=30, B6=30, B7=30)
         obj = cls(BLUE="B2",
                   GREEN="B3",
                   RED="B4",
@@ -603,8 +614,7 @@ class Collection(object):
         copy.kws["max"] = copy_usgs.max
         copy.kws["fclouds"] = {'computed_ee': cld.landsat8SR_pixelQA()}
         copy.kws["equiv"] = IDS['L8TOA']
-        copy.kws["bandscale"] = dict(B1=30, B2=30, B3=30, B4=30, B5=30, B6=30,
-                                     B7=30, B10=30, B11=30)
+        copy.kws["bandscale"] = dict(B2=30, B3=30, B4=30, B5=30, B6=30, B7=30)
         copy.kws["short"] = "L8USGS"
         copy.kws["clouds_band"] = "pixel_qa"
         copy.kws["threshold"] = {'NIR': {'min':700, 'max':4500},
@@ -622,8 +632,7 @@ class Collection(object):
 
     @classmethod
     def Sentinel2(cls):
-        bandscale = dict(B1=60, B2=10, B3=10, B4=10, B5=20, B6=20, B7=20,
-                         B8=10, B8a=20, B9=60, B10=60, B11=20, B12=20)
+        bandscale = dict(B2=10, B3=10, B4=10, B8=10, B11=20, B12=20)
 
         obj = cls(BLUE="B2",
                   GREEN="B3",
