@@ -197,13 +197,35 @@ class Bap(object):
                 print("Intersection:", intersect)
             return [satcol.Collection.from_id(ID) for ID in intersect]
 
+    def debug_col_value(self, obj, site, col, msg='debug col values'):
+        if self.debug:
+            print(msg)
+            pp.pprint(tools.imagecollection.get_values(
+                  obj, site.centroid(), col.scale, side='client'))
+            print('\n')
+
+    def debug_img(self, img, site, col, msg='debug img value'):
+        if self.debug:
+            print(msg)
+            pp.pprint(tools.image.get_value(img, site.centroid(),
+                                        col.scale, side='client'))
+            print('\n')
+
+    def debug_size(self, obj, msg='debug size'):
+        if self.debug:
+            print(msg, obj.size().getInfo(), '\n')
+
     def fast_collection(self, site, indices=None, normalize=True, bbox=0,
                         general_wait=0, max_size=MAX_SIZE):
 
+        '''
         site_size = site.area().getInfo()/10000  # Request 1
 
         if site_size > max_size:
-            raise ValueError("Site's size is too big. Has {} has and must have at maximum {}".format(site_size, max_size))
+            msg = "Site's size is too big. Has {} has and must have at " \
+                  "maximum {}"
+            raise ValueError(msg.format(site_size, max_size))
+        '''
 
         # score's names (to sum all at the end)
         scores = self.score_names
@@ -266,11 +288,14 @@ class Bap(object):
             toMetadata["col_id_"+str(col_id)] = short
 
             # EE Collection
-            c = colobj.colEE
+            ee_collection = colobj.colEE
 
             # filter bounds
             if isinstance(site, ee.Feature): site = site.geometry()
-            c = c.filterBounds(site)
+            c_bounds = ee_collection.filterBounds(site)
+
+            # DEBUG
+            self.debug_size(c_bounds, 'size after filter bounds')
 
             # iterate over the years (for multiyear composite)
             for year in self.date_range:
@@ -285,7 +310,30 @@ class Bap(object):
                 end = self.season.add_year(year)[1]
 
                 # Filter Date
-                c = c.filterDate(ini, end)
+                c = c_bounds.filterDate(ini, end)
+
+                self.debug_size(c,
+                    'size after filter date from {} to {}'.format(ini, end))
+
+                c_size = c.size()
+
+                # If the collection size after filtering by bounds is
+                # zero create one empty image per year and make a proxy
+                # collection with that image
+                bands = colobj.bands
+                bands = bands.cat(ee.List(indices))
+                empty = tools.image.empty(0, bands)
+
+                # Set system:time_start to empty image as the Season's DOY
+                empty = empty.set('system:time_start',
+                                  '{}-{}'.format(year, self.season.doy))
+                # Create empty collection
+                c = ee.ImageCollection(
+                    ee.Algorithms.If(
+                        c_size, c, ee.ImageCollection.fromImages([empty])))
+
+                # Add year as a property (YEAR_BAP)
+                c = c.map(lambda img: img.set('YEAR_BAP', year))
 
                 # apply a boundry box over the region
                 if bbox == 0:
@@ -313,11 +361,12 @@ class Bap(object):
                         map_function = m.map(col=col, year=year, colEE=c)
                         c = c.map(map_function)
 
+                self.debug_col_value(c, site, colobj, 'values after masks')
+
                 # Rename the bands to match all collections
                 c = c.map(col.rename(drop=True))
 
-                # Scale from 0 to 1
-                # c = c.map(col.do_scale())
+                self.debug_col_value(c, site, colobj, 'values after rename')
 
                 # Indixes
                 if indices:
@@ -325,28 +374,39 @@ class Bap(object):
                         f = col.INDICES[i]
                         c = c.map(f)
 
+                self.debug_col_value(c, site, colobj, 'values after indices')
+
                 # Before appling scores, apply fmap
                 c = c.map(fmap)
+
+                self.debug_col_value(c, site, colobj, 'values after fmap')
 
                 # Apply scores
                 if self.scores:
                     for t, score in zip(new_times, self.scores):
                         if slcoff and score.name == "score-maskper":
                             c = score._map(c, col=col, year=year, colEE=c,
-                                          geom=site, include_zero=False)
+                                           geom=site, include_zero=False)
                         else:
                             c = score._map(c, col=col, year=year, colEE=c,
-                                          geom=site)
+                                           geom=site)
+
+                        self.debug_col_value(c, site, colobj,
+                                    'values after {}'.format(score.name))
 
                         time.sleep(t)
 
                 # Scale from 0 to 1
                 c = c.map(col.do_scale())
 
+                self.debug_col_value(c, site, colobj, 'values after rescale')
+
                 # Filters
                 if self.filters:
                     for filter in self.filters:
                         c = filter.apply(c, col=col, anio=self.year)
+
+                self.debug_col_value(c, site, colobj, 'values after filters')
 
                 # Add date band
                 c = c.map(date.Date.map())
@@ -823,7 +883,8 @@ class Bap(object):
             try:
                 prop = col.getInfo()['properties']
                 return col, size, prop
-            except:
+            except Exception as e:
+                print(str(e))
                 sleep += 1
                 sys.stdout.flush()
                 get_info(sleep)
