@@ -296,6 +296,7 @@ class CloudDist(Score):
         :type col: satcol.Collection
         """
         col = kwargs.get('col')
+
         scale = col.bandscale[col.bandmask]
         maxdist = (scale/2)*256
 
@@ -341,6 +342,9 @@ class Doy(Score):
         self.name = name
         self.function = function
         self.stretch = stretch
+
+    def adjust(self):
+        return lambda img: img
 
     @staticmethod
     def apply(collection, **kwargs):
@@ -828,6 +832,9 @@ class Index(Score):
         self.target = target
         self.stretch = stretch
 
+    def adjust(self):
+        return lambda img: img
+
     @staticmethod
     def compute(image, **kwargs):
         """ Compute Index Score. Parameters:
@@ -920,6 +927,10 @@ class MultiYear(Score):
         self.name = name
         self.stretch = stretch
 
+    def adjust(self):
+        """ redefine adjust method for NOT adjusting """
+        return lambda img: img
+
     @staticmethod
     def apply(collection, **kwargs):
         """ Apply multi year score to every image in a collection.
@@ -967,7 +978,7 @@ class MultiYear(Score):
                 output_max= output_max,
                 name=name)
 
-        if function == 'gauss':
+        elif function == 'gauss':
             result = tools.imagecollection.gauss_function_property(
                 collection,
                 distance_name,
@@ -978,12 +989,16 @@ class MultiYear(Score):
                 name=name
             )
 
+        else:
+            raise ValueError("function must be 'linear' or 'gauss'")
+
         def addBand(img):
             score = ee.Number(img.get(name))
             scoreband = ee.Image.constant(score).rename(name)
             return img.addBands(scoreband)
 
-        return result.map(addBand)
+        final = result.map(addBand)
+        return final
 
     def map(self, collection, **kwargs):
         """ This method keeps only the images included in the seasons
@@ -992,40 +1007,13 @@ class MultiYear(Score):
         :type years: list
         """
         year = self.main_year
-        season = self.season
         range_out = self.range_out
-        years = kwargs.get('years')
 
-        years = ee.List(years)
-
-        # assign the date to each image as a property
-        def addYear(year):
-            year = ee.Number(year)
-            date_range = season.add_year(year)
-
-            filtered = collection.filterDate(date_range.start(),
-                                             date_range.end())
-            size = filtered.size()
-
-            def true():
-                filtered_list = filtered.toList(filtered.size())
-                def assignYear(img):
-                    img = ee.Image(img)
-                    return img.set('SEASON_YEAR', year)
-
-                return filtered_list.map(assignYear)
-            def false():
-                return ee.List([])
-
-            return ee.Algorithms.If(size, true(), false())
-
-        imgs = ee.List(years.map(addYear)).flatten()
-        new_collection = ee.ImageCollection.fromImages(imgs)
-
-        return self.apply(new_collection, target_year=year, name=self.name,
+        # Use YEAR_BAP property that is set in the BAP process
+        return self.apply(collection, target_year=year, name=self.name,
                           output_min=range_out[0], output_max=range_out[1],
                           function=self.function, stretch=self.stretch,
-                          year_property='SEASON_YEAR')
+                          year_property='YEAR_BAP')
 
 
 @register(factory)
@@ -1142,6 +1130,9 @@ class Brightness(Score):
         self.name = name
         self.function = function
         self.target = target
+
+    def adjust(self):
+        return lambda img: img
 
     @staticmethod
     def compute(image, **kwargs):
