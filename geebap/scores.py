@@ -47,6 +47,12 @@ from uuid import uuid4
 __all__ = []
 factory = {}
 
+KERNELS = {
+    "euclidean": ee.Kernel.euclidean,
+    "manhattan": ee.Kernel.manhattan,
+    "chebyshev": ee.Kernel.chebyshev
+}
+
 
 class Score(object):
     ''' Abstract Base class for scores '''
@@ -161,7 +167,7 @@ class CloudScene(Score):
         return collection.map(lambda img: CloudScene.compute(img, **kwargs))
 
     def map(self, collection, **kwargs):
-        """
+        """ Map function to use in BAP
 
         :param col: collection
         :type col: satcol.Collection
@@ -190,21 +196,16 @@ class CloudDist(Score):
     :param dmin: Minimum distance.
     :type dmin: int
     """
-    kernels = {"euclidean": ee.Kernel.euclidean,
-               "manhattan": ee.Kernel.manhattan,
-               "chebyshev": ee.Kernel.chebyshev
-               }
-
-    def __init__(self, dmin=0, dmax=None, unit="meters", name="score-cld-dist",
-                 kernel='euclidean', **kwargs):
+    def __init__(self, dmin=0, dmax=None, name="score-cld-dist", **kwargs):
         super(CloudDist, self).__init__(**kwargs)
-        self.kernel = kernel  # kwargs.get("kernel", "euclidean")
-        self.unit = unit
         self.dmax = dmax
         self.dmin = dmin
         self.name = name
         self.range_in = (dmin, dmax)
+        # Extra params
         self.sleep = kwargs.get("sleep", 10)
+        self.kernel = kwargs.get("kernel", "euclidean")
+        self.units = kwargs.get('units', 'meters')
 
     # GEE
     @property
@@ -212,8 +213,8 @@ class CloudDist(Score):
         return ee.Image.constant(self.dmin)
 
     def kernelEE(self, radius):
-        fkernel = CloudDist.kernels[self.kernel]
-        return fkernel(radius=radius, units=self.unit)
+        fkernel = KERNELS[self.kernel]
+        return fkernel(radius=radius, units=self.units)
 
     @staticmethod
     def compute(img, **kwargs):
@@ -245,6 +246,8 @@ class CloudDist(Score):
 
         if not kernel:
             kernel = ee.Kernel.euclidean(radius=dmax, units=units)
+        else:
+            kernel = kernel(radius=dmax, units=units)
 
         cloud_mask = img.mask().select([bandmask])
 
@@ -290,7 +293,7 @@ class CloudDist(Score):
         return collection.map(lambda img: CloudDist.compute(img, **kwargs))
 
     def map(self, collection, **kwargs):
-        """ Map the score over a collection
+        """ Map function to use in BAP
 
         :param col: collection
         :type col: satcol.Collection
@@ -303,17 +306,22 @@ class CloudDist(Score):
         # Truncate dmax if goes over the 256 pixels limit
         if self.dmax is None:
             dmax = maxdist
-        elif self.dmax > maxdist:
+        elif self.dmax > maxdist and self.unit == 'meters':
             dmax = maxdist
         else:
             dmax = self.dmax
 
+        params = dict(
+            bandmask = col.bandmask,
+            kernel = KERNELS[self.kernel],
+            dmin = self.dmin,
+            dmax = dmax,
+            bandname = self.name,
+            units = self.units
+        )
+
         def wrap(img):
-            score_img = self.compute(img, bandmask=col.bandmask,
-                                     kernel=self.kernelEE(dmax),
-                                     dmin=self.dmin,
-                                     dmax=dmax,
-                                     bandname=self.name)
+            score_img = self.compute(img, **params)
 
             adjusted_score = self.adjust()(score_img)
             return img.addBands(adjusted_score)
@@ -328,12 +336,12 @@ class Doy(Score):
 
     :param formula: Formula to use
     :type formula: Expression
-    :param season: Growing season (holds a `doy` attribute)
+    :param season: Growing season (holds a `best_doy` attribute)
     :type season: season.Season
     :param name: name for the resulting band
     :type name: str
     """
-    def __init__(self, name="score-doy", season=None, function='linear',
+    def __init__(self, name="score-best_doy", season=None, function='linear',
                  stretch=1, **kwargs):
         super(Doy, self).__init__(**kwargs)
         if season is None:
@@ -348,7 +356,7 @@ class Doy(Score):
 
     @staticmethod
     def apply(collection, **kwargs):
-        """ Apply doy score to every image in a collection.
+        """ Apply best_doy score to every image in a collection.
 
         :param doy: day of year
         :type doy: ee.Date
@@ -356,10 +364,10 @@ class Doy(Score):
             'linear' or 'gauss'
         :type function: str
         :return: the parsed collection with a new property called by parameter
-            `name` (defaults to 'doy').
+            `name` (defaults to 'best_doy').
         :rtype: ee.ImageCollection
         """
-        doy = kwargs.get('doy')  # ee.Date
+        doy = kwargs.get('best_doy')  # ee.Date
         function = kwargs.get('function', 'linear')
         name = kwargs.get('name', 'doy_score')
         stretch = kwargs.get('stretch', 1)
@@ -376,7 +384,7 @@ class Doy(Score):
             dist = idate.difference(doy, 'day')
             return img.set(distance_name, dist)
 
-        # compute distance to doy
+        # compute distance to best_doy
         collection = collection.map(distance)
 
         if function == 'linear':
@@ -407,7 +415,7 @@ class Doy(Score):
         return result.map(addBand)
 
     def map(self, collection, **kwargs):
-        """ Map the score over a collection
+        """ Map function to use in BAP
 
         :param year: the analysing year. Must match the year of the bap
         :type year: int
@@ -724,6 +732,16 @@ class Outliers(Score):
 
     @staticmethod
     def apply(collection, **kwargs):
+        """ Determine if pixels are outliers given a collection and parameters
+
+        :param bands: the bands to use for determination
+        :type bands: list
+        :param reducer: the reducer to use. Can be 'mean' or 'median'
+        :type reducer: str
+        :param amount: how many stdDev (mean) or percentage (median) to
+            determine the upper and lower limit
+        :type amount: float
+        """
         bands = kwargs.get('bands')
         reducer = kwargs.get('reducer')
         amount = kwargs.get('amount')
@@ -738,48 +756,48 @@ class Outliers(Score):
                 amount = 0.5
 
         # MASK PIXELS = 0 OUT OF EACH IMAGE OF THE COLLECTION
-        def masktemp(img):
-            m = img.neq(0)
-            return img.updateMask(m)
+        col = collection.map(lambda img: img.selfMask())
 
-        col = collection.select(bands)
+        if bands is None:
+            bands = ee.Image(col.first()).bandNames()
 
-        col = col.map(masktemp)
+        # Collection with selected bands only
+        selected = col.select(bands)
 
+        # get statistics for mean process
         if reducer == "mean":
-            mean = ee.Image(col.mean())
-            std = ee.Image(col.reduce(ee.Reducer.stdDev()))
+            mean = ee.Image(selected.mean())
+            std = ee.Image(selected.reduce(ee.Reducer.stdDev()))
             distance = std.multiply(amount)
 
-            mmin = mean.subtract(distance)
-            mmax = mean.add(distance)
+            mmin = mean.subtract(distance).rename(bands)
+            mmax = mean.add(distance).rename(bands)
 
+        # get statistics for median process
         elif reducer == "median":
-            mmin = ee.Image(col.reduce(ee.Reducer.percentile([50-(50*amount)])))
-            mmax = ee.Image(col.reduce(ee.Reducer.percentile([50+(50*amount)])))
+            mmin = ee.Image(selected.reduce(ee.Reducer.percentile([50-(50*amount)])))
+            mmin = mmin.rename(bands)
+            mmax = ee.Image(selected.reduce(ee.Reducer.percentile([50+(50*amount)])))
+            mmax = mmax.rename(bands)
 
         def wrap(img):
-            # original image
-            img_orig = img
-
             # select bands
-            if bands is not None:
-                img = img.select(bands)
+            bands_i = img.select(bands)
 
             # condition inside
-            condition = img.gte(mmin) \
-                .And(img.lte(mmax))
+            condition = bands_i.gte(mmin) \
+                .And(bands_i.lte(mmax))
 
             if reducer == 'median':
-                condition = condition.select(condition.bandNames(), img.bandNames())
+                # condition = condition.select(condition.bandNames(), img.bandNames())
+                condition = condition.rename(bands)
 
             condition = condition.Not()
-
             pout = tools.image.addSuffix(condition, '_outlier')
 
-            return img_orig.addBands(pout) \
-                .set('OUTLIER_REDUCER', reducer) \
-                .set('OUTLIER_AMOUNT', amount)
+            return img.addBands(pout) \
+                .set('SCORE_OUTLIER_REDUCER', reducer) \
+                .set('SCORE_OUTLIER_AMOUNT', amount)
 
         return collection.map(wrap)
 
@@ -802,6 +820,9 @@ class Outliers(Score):
 
         def wrap(img):
             out = img.select(pattern)
+            # As apply method returns 1 for outliers and the score should be 0
+            # for it, turn it upside down
+            out = out.Not()
             suma = tools.image.sumBands(out, name)
             final = suma.select(name) \
                 .multiply(ee.Image(increment)).rename(name)
@@ -935,11 +956,22 @@ class MultiYear(Score):
     def apply(collection, **kwargs):
         """ Apply multi year score to every image in a collection.
 
-        :param year: target year
-        :type year: int
+        :param target_year: target year
+        :type target_year: int
         :param function: the function to use. Can be one of
             'linear' or 'gauss'
         :type function: str
+        :param name: name for the resulting band
+        :type name: str
+        :param stretch: stretch parameter for the Gauss function
+        :type stretch: float
+        :param output_min: minimum desired value for the output
+        :type output_min: float
+        :param output_max: maximum desired value for the output
+        :type output_max: float
+        :param year_property: the name of the property that holds the date. If
+            None, it will compute the year taken from the image date
+        :param year_property: str
         :return: the parsed collection with a new property called by parameter
             `name` (defaults to 'year_score').
         :rtype: ee.ImageCollection
@@ -966,7 +998,7 @@ class MultiYear(Score):
             dist = year.subtract(ee.Number(iyear))
             return img.set(distance_name, dist)
 
-        # compute distance to doy
+        # compute distance to best_doy
         collection = collection.map(distance)
 
         if function == 'linear':
