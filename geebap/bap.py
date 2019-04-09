@@ -10,7 +10,7 @@ import functools
 import ee.data
 if not ee.data._initialized: ee.Initialize()
 
-from . import satcol, functions, date, scores, masks, filters
+from . import satcol, functions, date, scores, masks, filters, priority
 from . import season as temp
 
 import datetime
@@ -106,7 +106,7 @@ class Bap(object):
     @property
     def date_to_set(self):
         return ee.Date(
-            str(self.year) + "-" + self.season.doy).millis().getInfo()
+            str(self.year) + "-" + self.season.best_doy).millis().getInfo()
 
     @property
     def ini_date(self):
@@ -152,7 +152,7 @@ class Bap(object):
             s = set()
             for a in self.date_range:
                 s = s.union(
-                    set([col for col in temp.SeasonPriority.relation[a]]))
+                    set([col for col in priority.SeasonPriority.relation[a]]))
 
 
             if self.only_sr:
@@ -326,7 +326,7 @@ class Bap(object):
 
                 # Set system:time_start to empty image as the Season's DOY
                 empty = empty.set('system:time_start',
-                                  '{}-{}'.format(year, self.season.doy))
+                                  '{}-{}'.format(year, self.season.best_doy))
                 # Create empty collection
                 c = ee.ImageCollection(
                     ee.Algorithms.If(
