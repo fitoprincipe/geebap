@@ -31,10 +31,7 @@ ImageCollections as first argument and can use the following keyword arguments
 """
 import ee
 
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
-from . import satcol
+from . import functions, priority
 from . import season as season_module
 from geetools import tools, composite
 
@@ -174,9 +171,9 @@ class CloudScene(Score):
         """
         col = kwargs.get('col')
 
-        if col.clouds_fld:
+        if col.cloud_cover:
             return collection.map(
-                lambda img: self.compute(img, cloud_cover=col.clouds_fld))
+                lambda img: self.compute(img, cloud_cover=col.cloud_cover))
         else:
             return collection.map(self.empty)
 
@@ -296,14 +293,15 @@ class CloudDist(Score):
         """ Map function to use in BAP
 
         :param col: collection
-        :type col: satcol.Collection
+        :type col: geetools.collection.Collection
         """
         col = kwargs.get('col')
+        first_band = col.bands[0]
+        scale = min([band.scale for band in col.bands])
 
-        scale = col.bandscale[col.bandmask]
-        maxdist = (scale/2)*256
+        maxdist = (scale/2)*512
 
-        # Truncate dmax if goes over the 256 pixels limit
+        # Truncate dmax if goes over the 512 pixels limit
         if self.dmax is None:
             dmax = maxdist
         elif self.dmax > maxdist and self.unit == 'meters':
@@ -312,7 +310,7 @@ class CloudDist(Score):
             dmax = self.dmax
 
         params = dict(
-            bandmask = col.bandmask,
+            bandmask = first_band.name,
             kernel = KERNELS[self.kernel],
             dmin = self.dmin,
             dmax = dmax,
@@ -341,15 +339,14 @@ class Doy(Score):
     :param name: name for the resulting band
     :type name: str
     """
-    def __init__(self, name="score-best_doy", season=None, function='linear',
-                 stretch=1, **kwargs):
+    def __init__(self, best_doy, season, name="score-best_doy",
+                 function='linear', stretch=1, **kwargs):
         super(Doy, self).__init__(**kwargs)
-        if season is None:
-            season = season_module.Season.Growing_South()
-        self.season = season
         self.name = name
         self.function = function
         self.stretch = stretch
+        self.best_doy = best_doy
+        self.season = season
 
     def adjust(self):
         return lambda img: img
@@ -358,8 +355,8 @@ class Doy(Score):
     def apply(collection, **kwargs):
         """ Apply best_doy score to every image in a collection.
 
-        :param doy: day of year
-        :type doy: ee.Date
+        :param best_doy: day of year
+        :type best_doy: ee.Date
         :param function: the function to use. Can be one of
             'linear' or 'gauss'
         :type function: str
@@ -422,9 +419,13 @@ class Doy(Score):
         """
         range_out = self.range_out
         year = kwargs.get('year')
-        doy = ee.Date(self.season.doy_date(year))
+        date_range = self.season.add_year(year)
+        doy = ee.Date(season_module.SeasonDate(self.best_doy).add_year(year))
+        doy2 = ee.Date(season_module.SeasonDate(self.best_doy).add_year(year-1))
+        condition = date_range.contains(doy)
+        best = ee.Number(ee.Algorithms.If(condition, doy, doy2))
 
-        return self.apply(collection, doy=doy, name=self.name,
+        return self.apply(collection, best_doy=best, name=self.name,
                           output_min=range_out[0], output_max=range_out[1],
                           function=self.function, stretch=self.stretch)
 
@@ -458,9 +459,10 @@ class AtmosOpacity(Score):
         :type col: satcol.Collection
         """
         col = kwargs.get('col')
-        if col.ATM_OP:
+        band = col.get_band('atmos_opacity', 'name')
+        if band:
             f = self.expr.map(name=self.name,
-                                 band=col.ATM_OP,
+                                 band=band.name,
                                  map=self.adjust(),
                                  **kwargs)
         else:
@@ -505,12 +507,13 @@ class MaskPercent(Score):
         scale = kwargs.get('scale', 1000)
         band_name = kwargs.get('band_name', 'score-maskper')
         max_pixels = kwargs.get('max_pixels', 1e13)
-
-        # get projection
-        projection = image.projection()
+        count_zeros = kwargs.get('count_zeros', False)
 
         # get band name
         band = ee.String(image.bandNames().get(0))
+
+        # get projection
+        projection = image.select([band]).projection()
 
         # Make an image with all ones
         ones_i = ee.Image.constant(1).reproject(projection).rename(band)
@@ -528,7 +531,11 @@ class MaskPercent(Score):
         ones = ee.Number(ones)
 
         # select first band, unmask and get the inverse
-        mask_image = image.select([0])
+        mask_image = image.select([band])
+        if count_zeros:
+            zeros = mask_image.eq(0)
+            mask_image = mask_image.updateMask(zeros.Not())
+
         mask = mask_image.mask()
         mask_not = mask.Not()
         image_to_compute = mask.updateMask(mask_not)
@@ -551,63 +558,14 @@ class MaskPercent(Score):
 
         return percent_image.clip(geometry)
 
-
     def __init__(self, band=None, name="score-maskper", maxPixels=1e13,
-                 include_zero=True, **kwargs):
+                 count_zeros=False, **kwargs):
         super(MaskPercent, self).__init__(**kwargs)
         self.band = band
         self.maxPixels = maxPixels
         self.name = name
-        self.include_zero = include_zero  # TODO
+        self.count_zeros = count_zeros
         self.sleep = kwargs.get("sleep", 30)
-
-        self.zero = ee.Number(1) if self.include_zero else ee.Number(0)
-
-    def core(self, col, geom=None):
-        """ Compute MaskPercent score
-
-        :param col: collection
-        :type col: satcol.Collection
-        :param geom: geometry of the area
-        :type geom: ee.Geometry, ee.Feature
-        :return:
-        """
-        nombre = self.name
-        banda = self.band if self.band else col.bandmask
-        ajuste = self.adjust()
-        scale = col.bandscale.get(banda)
-
-        if banda:
-            def wrap(img):
-
-                def if_true():
-                    # Select pixels with value different to zero
-                    ceros = img.select(banda).neq(0)
-                    return ceros.unmask()
-
-                def if_false():
-                    return img.select(banda).mask()
-
-                themask = ee.Algorithms.If(self.zero,
-                                           if_true(),
-                                           if_false())
-
-                # g = region if region else img.geometry()
-                g = geom if geom else img.geometry()
-
-                mask = ee.Image(themask)
-
-                image = img.select(banda).updateMask(mask)
-
-                imgpor = self.compute(image, geometry=g, scale=scale,
-                                      band_name=nombre,
-                                      max_pixels=self.maxPixels)
-
-                return ajuste(imgpor)
-        else:
-            wrap = self.empty
-
-        return wrap
 
     def map(self, collection, **kwargs):
         """ Map the score over a collection
@@ -619,8 +577,10 @@ class MaskPercent(Score):
         """
         col = kwargs.get('col')
         geom = kwargs.get('geom')
+        minscale = min([band.scale for band in col.bands])
         def wrap(img):
-            score = self.core(col, geom)(img)
+            score = self.compute(img, geometry=geom, scale=minscale,
+                                 count_zeros=self.count_zeros)
             prop = score.get(self.name)
             return img.addBands(score).set(self.name, prop)
 
@@ -641,39 +601,51 @@ class Satellite(Score):
         self.name = name
         self.rate = rate
 
+    @staticmethod
+    def compute(image, **kwargs):
+        colid = kwargs.get('collection_id') # ej: 'COPERNICUS/S2'
+        year = kwargs.get('year')
+        rate = kwargs.get('rate', 0.05)
+        name = kwargs.get('name', 'sat-score')
+
+        year_str = ee.Number(year).format()
+        # List of satellite priority according to year
+        prior_list = ee.List(priority.SeasonPriority.ee_relation.get(year_str))
+
+        # Get index of current satellite into the list
+        index = prior_list.indexOf(colid)
+
+        # catch if item not in list
+        exists = ee.Number(index).neq(-1)
+
+        # 1 - (0.05 * index)
+        # EJ: [1, 0.95, 0.9]
+        factor = ee.Number(rate).multiply(index)
+        factor = ee.Number(ee.Algorithms.If(exists, factor, 1))
+        sat_score = ee.Number(1).subtract(factor)
+
+        # Create the score band
+        score_img = ee.Image.constant(sat_score).rename(name).toFloat()
+
+        # Write score as an Image Property
+        score_img = score_img.set(name.upper(), sat_score)
+
+        return score_img
+
+
     def map(self, collection, **kwargs):
         """
         :param col: Collection
         :type col: satcol.Collection
         """
         col = kwargs.get('col')
-        name = self.name
-        theid = col.ID
-        ajuste = self.adjust()
+        year = kwargs.get('year')
 
         def wrap(img):
-            # zero value pixels
-            zeros = img.select([0]).eq(0).Not()
-
-            year = img.date().get("year")
-
-            # List of satellite priority according to year
-            lista = season_module.SeasonPriority.ee_relation.get(year.format())
-
-            # Get index of current satellite into the list
-            index = ee.List(lista).indexOf(ee.String(theid))
-
-            # 1 - (0.05 * index)
-            # EJ: [1, 0.95, 0.9]
-            factor = ee.Number(self.rate).multiply(index)
-            sat_score = ee.Number(1).subtract(factor)
-
-            # Write score as an Image Property
-            img = img.set(name, sat_score)
-
-            # Create the score band
-            score_img = ee.Image(sat_score).select([0], [name]).toFloat()
-            return ajuste(img.addBands(score_img).updateMask(zeros))
+            y = ee.Number(year) if year else img.date().get('year')
+            score = self.compute(img, collection_id=col.id, year=y,
+                                 rate=self.rate, name=self.name)
+            return img.addBands(score).set(self.name, score.get(self.name))
 
         return collection.map(wrap)
 
@@ -947,6 +919,7 @@ class MultiYear(Score):
         self.function = function
         self.name = name
         self.stretch = stretch
+        self.year_property = kwargs.get('year_property', 'YEAR_BAP')
 
     def adjust(self):
         """ redefine adjust method for NOT adjusting """
@@ -1045,7 +1018,7 @@ class MultiYear(Score):
         return self.apply(collection, target_year=year, name=self.name,
                           output_min=range_out[0], output_max=range_out[1],
                           function=self.function, stretch=self.stretch,
-                          year_property='YEAR_BAP')
+                          year_property=self.year_property)
 
 
 @register(factory)
@@ -1112,6 +1085,9 @@ class Threshold(Score):
         :param col: the collection
         :type col: satcol.Collection
         """
+        print('score not available temporarely')
+        return collection
+        '''
         col = kwargs.get('col')
         thresholds = col.threshold
         def wrap(img):
@@ -1120,6 +1096,7 @@ class Threshold(Score):
             return img.addBands(score)
 
         return collection.map(wrap)
+        '''
 
 
 @register(factory)
@@ -1157,7 +1134,7 @@ class Brightness(Score):
         """
         super(Brightness, self).__init__(**kwargs)
         if not bands:
-            bands = ['GREEN', 'BLUE', 'RED', 'NIR', 'SWIR']
+            bands = ['green', 'blue', 'red', 'nir', 'swir']
         self.bands = bands
         self.name = name
         self.function = function
@@ -1257,7 +1234,9 @@ class Brightness(Score):
         :type col: satcol.Collection
         """
         col = kwargs.get('col')
-        mx = col.max
+
+        mx = max([b.max for b in col.bands if b.name in self.bands])
+
         length = len(self.bands)
 
         target = mx * length * self.target

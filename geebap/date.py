@@ -3,12 +3,6 @@
 """ Date module for Gee Bap """
 import ee
 
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
-# from geetools import tools
-# import functions
-
 
 class Date(object):
     """ Class holding some custom methods too add a 'date' band in the 'Best

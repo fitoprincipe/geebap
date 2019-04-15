@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Generate expression compatible with Google Earth Engine """
 import simpleeval as sval

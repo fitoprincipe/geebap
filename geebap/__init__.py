@@ -15,7 +15,7 @@ __title__ = "BestAvailablePixel"
 __summary__ = "Generate a 'Best Available Pixel' image in Google Earth Engine"
 __uri__ = "https://github.com/fitoprincipe/geebap"
 
-__version__ = "0.1.8dev"
+__version__ = "0.2.0"
 
 __author__ = "Rodrigo E. Principe"
 __email__ = "rprincipe@ciefap.org.ar"
@@ -23,5 +23,5 @@ __email__ = "rprincipe@ciefap.org.ar"
 __license__ = "GNU GENERAL PUBLIC LICENSE, Version 3"
 __copyright__ = "Rodrigo E. Principe"
 
-from . import bap, date, expgen, expressions, filters, functions, indices,\
-    ipytools, masks, regdec, satcol, scores, season, sites
+from . import bap, date, expgen, expressions, filters, functions,\
+    ipytools, masks, regdec, scores, season, sites

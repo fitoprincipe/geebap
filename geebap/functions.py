@@ -1,13 +1,27 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import ee
-
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
+from geetools import collection
 import time
 import sys
 import traceback
+
+
+def get_id_col(id):
+    """ get the corresponding collection of the given id """
+    try:
+        col = collection.IDS[id]
+    except IndexError:
+        raise IndexError
+    else:
+        return col
+
+
+def get_col_id(col):
+    return collection.IDS.index(col.id)
+
+
+def get_col_id_image(col, name='col_id'):
+    return ee.Image.constant(get_col_id(col)).rename(name).toUint8()
 
 
 def pass_prop(imgcon, imgsin, prop):

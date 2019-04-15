@@ -1,20 +1,15 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Tools to use in IPython """
 
 import ee
-from geetools.ui import maptool
 from geetools import tools
-from . import satcol, date
+from . import date, functions
 
 try:
     from ipywidgets import HTML, Accordion
 except:
     print('Cannot use ipytools without ipywidgets installed\n'
           'ipywidgets.readthedocs.io')
-
-ee.Initialize()
-
 
 def information():
     pass
@@ -75,8 +70,7 @@ def info_handler(**kwargs):
                         values = tools.dictionary.sort(values)
                         col_id = int(values['col_id'])
                         thedate = int(values['date'])
-                        codes = {val: key for key, val in satcol.SAT_CODES.items()}
-                        collection = satcol.IDS[codes[col_id]]
+                        collection = functions.get_id_col(col_id)
                         realdate = date.Date.get(thedate).format().getInfo()
 
                         # Get properties of the composite

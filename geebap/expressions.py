@@ -1,9 +1,5 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import ee
-
-import ee.data
-if not ee.data._initialized: ee.Initialize()
 
 from . import expgen
 from .functions import drange, replace

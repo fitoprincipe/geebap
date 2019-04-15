@@ -1,6 +1,5 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-''' Registry Decorator '''
+""" Registry Decorator """
 
 import functools
 

@@ -1,10 +1,5 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Module holding custom filters for image collections """
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
-from . import satcol
 from abc import ABCMeta, abstractmethod
 from .regdec import *
 
@@ -53,7 +48,7 @@ class CloudsPercent(Filter):
         col = kwargs.get("col")
         if col.clouds_fld:
             return colEE.filterMetadata(col.clouds_fld, "less_than", self.percent)
-        elif kwargs.has_key('prop'):
+        elif 'prop' in kwargs.keys():
             prop = kwargs.get('prop')
             return colEE.filterMetadata(prop, 'less_than', self.percent)
         else:

@@ -1,14 +1,7 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Module containing the classes
 Modulo que contiene las clases para las mascaras a aplicar en la generacion
 del compuesto BAP """
-import ee
-
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
-from . import satcol
 from abc import ABCMeta, abstractmethod
 
 
