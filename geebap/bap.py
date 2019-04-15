@@ -2,7 +2,7 @@
 """ Main module holding the Bap Class and its methods """
 
 from geetools import tools, collection
-from . import scores, priority, functions, date
+from . import scores, priority, functions, __version__
 import ee
 
 
@@ -118,6 +118,12 @@ class Bap(object):
                 # filter date
                 col_ee = col_ee.filterDate(daterange.start(), daterange.end())
 
+                # some filters
+                if self.filters:
+                    for filt in self.filters:
+                        if filt.name in ['CloudCover']:
+                            col_ee = filt.apply(col_ee, col=col)
+
                 size = col_ee.size()
 
                 # Proxy image in case filters return 0
@@ -144,6 +150,11 @@ class Bap(object):
                         # Convert masked values to zero
                         col_ee = col_ee.map(lambda img: img.unmask())
                         slcoff = True
+
+                # Apply masks
+                if self.masks:
+                    for mask in self.masks:
+                        col_ee = mask.map(col_ee, col=col)
 
                 # Rename
                 col_ee = col_ee.map(lambda img: col.rename(img))
@@ -178,6 +189,12 @@ class Bap(object):
                 # Add date band
                 # col_ee = col_ee.map(date.Date.map())
 
+                # Filter Mask Cover
+                if self.filters:
+                    for filt in self.filters:
+                        if filt.name in ['MaskCover']:
+                            col_ee = filt.apply(col_ee)
+
                 # Add col_id band
                 # Add col_id to the image as a property
                 def addBandID(img):
@@ -201,8 +218,8 @@ class Bap(object):
                         ee.String('0').cat(day_str)))
                     date_str = year.cat(month).cat(day)
                     newdate = ee.Number.parse(date_str)
-                    newdate_img = ee.Image.constant(newdate)\
-                                    .rename(self.bandname_date).toUint32()
+                    newdate_img = ee.Image.constant(newdate) \
+                        .rename(self.bandname_date).toUint32()
                     return img.addBands(newdate_img)
                 col_ee = col_ee.map(addDateBand)
 
@@ -228,7 +245,7 @@ class Bap(object):
         if self.scores:
             def compute_score(img):
                 score = img.select(self.score_names).reduce('sum') \
-                           .rename('score').toFloat()
+                    .rename('score').toFloat()
                 return img.addBands(score)
         else:
             def compute_score(img):
@@ -253,7 +270,9 @@ class Bap(object):
         """
         # TODO: pass properties
         col = self.compute_scores(site, indices, **kwargs)
-        return col.qualityMosaic(self.score_name)
+        mosaic = col.qualityMosaic(self.score_name)
+
+        return self.set_properties(mosaic)
 
     def build_composite_reduced(self, site, indices=None, **kwargs):
         """ Build the composite where
@@ -267,7 +286,23 @@ class Bap(object):
         nimages = kwargs.get('set', 5)
         reducer = kwargs.get('reducer', 'interval_mean')
         col = self.compute_scores(site, indices, **kwargs)
-        return reduce_collection(col, nimages, reducer, self.score_name)
+        mosaic = reduce_collection(col, nimages, reducer, self.score_name)
+
+        return self.set_properties(mosaic)
+
+    def time_start(self):
+        """ Get time start property """
+        return ee.Date('{}-{}-{}'.format(self.year, 1, 1))
+
+    def set_properties(self, mosaic):
+        """ Set some BAP common properties to the given mosaic """
+        # DATE
+        date = self.time_start().millis()
+        mosaic = mosaic.set('system:time_start', date)
+        # BAP Version
+        mosaic = mosaic.set('BAP_version', __version__)
+
+        return mosaic
 
 
 def reduce_collection(collection, set=5, reducer='mean',
