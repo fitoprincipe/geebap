@@ -406,7 +406,7 @@ class Doy(Score):
 
         def addBand(img):
             doyn = ee.Number(img.get(name))
-            doyband = ee.Image.constant(doyn).rename(name)
+            doyband = ee.Image.constant(doyn).rename(name).toFloat()
             return img.addBands(doyband)
 
         return result.map(addBand)
@@ -554,7 +554,8 @@ class MaskPercent(Score):
         score = ee.Number(1).subtract(percentage)
 
         percent_image = ee.Image.constant(score) \
-            .select([0], [band_name]).set(band_name, score)
+                          .select([0], [band_name])\
+                          .set(band_name, score).toFloat()
 
         return percent_image.clip(geometry)
 
