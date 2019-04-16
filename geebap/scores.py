@@ -299,7 +299,7 @@ class CloudDist(Score):
         first_band = col.bands[0]
         scale = min([band.scale for band in col.bands])
 
-        maxdist = (scale/2)*512
+        maxdist = (scale/2)*510
 
         # Truncate dmax if goes over the 512 pixels limit
         if self.dmax is None:
