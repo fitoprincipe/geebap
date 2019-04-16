@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 """ Main module holding the Bap Class and its methods """
 
-from geetools import tools, collection
+from geetools import collection
 from . import scores, priority, functions, __version__
 import ee
 
 
 class Bap(object):
-    def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
-                 masks=None, filters=None, season=None, target_collection=None,
-                 brdf=True, harmonize=True, **kwargs):
-        self.year = year
+    def __init__(self, season, range=(0, 0), colgroup=None, scores=None,
+                 masks=None, filters=None, target_collection=None, brdf=False,
+                 harmonize=True, **kwargs):
         self.range = range
         self.scores = scores
         self.masks = masks
@@ -31,16 +30,6 @@ class Bap(object):
         self.bandname_date = kwargs.get('bandname_date', 'date')
 
     @property
-    def date_range(self):
-        try:
-            i = self.year - abs(self.range[0])
-            f = self.year + abs(self.range[1]) + 1
-
-            return range(i, f)
-        except:
-            return None
-
-    @property
     def score_names(self):
         if self.scores:
             punt = [p.name for p in self.scores]
@@ -48,6 +37,7 @@ class Bap(object):
         else:
             return []
 
+    @property
     def max_score(self):
         """ gets the maximum score it can get """
         maxpunt = 0
@@ -55,7 +45,20 @@ class Bap(object):
             maxpunt += score.max
         return maxpunt
 
-    def compute_scores(self, site, indices=None, **kwargs):
+    def year_range(self, year):
+        try:
+            i = year - abs(self.range[0])
+            f = year + abs(self.range[1]) + 1
+
+            return range(i, f)
+        except:
+            return None
+
+    def time_start(self, year):
+        """ Get time start property """
+        return ee.Date('{}-{}-{}'.format(year, 1, 1))
+
+    def compute_scores(self, year, site, indices=None, **kwargs):
         """ Add scores and merge collections
 
         :param add_individual_scores: adds the individual scores to the images
@@ -70,9 +73,9 @@ class Bap(object):
 
         # TODO: get common bands for col of all years
         if self.colgroup is None:
-            colgroup = priority.SeasonPriority(self.year).colgroup
+            colgroup = priority.SeasonPriority(year).colgroup
             all_col = []
-            for year in self.date_range:
+            for year in self.year_range(year):
                 _colgroup = priority.SeasonPriority(year).colgroup
                 for col in _colgroup.collections:
                     all_col.append(col)
@@ -112,7 +115,7 @@ class Bap(object):
             if isinstance(site, ee.Feature): site = site.geometry()
             col_ee = col_ee.filterBounds(site)
 
-            for year in self.date_range:
+            for year in self.year_range(year):
                 daterange = self.season.add_year(year)
 
                 # filter date
@@ -260,7 +263,7 @@ class Bap(object):
 
         return final_collection
 
-    def build_composite_best(self, site, indices=None, **kwargs):
+    def build_composite_best(self, year, site, indices=None, **kwargs):
         """ Build the a composite with best score
 
         :param add_individual_scores: adds the individual scores to the images
@@ -269,12 +272,12 @@ class Bap(object):
         :type buffer: float
         """
         # TODO: pass properties
-        col = self.compute_scores(site, indices, **kwargs)
+        col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = col.qualityMosaic(self.score_name)
 
-        return self.set_properties(mosaic)
+        return self.set_properties(mosaic, year)
 
-    def build_composite_reduced(self, site, indices=None, **kwargs):
+    def build_composite_reduced(self, year, site, indices=None, **kwargs):
         """ Build the composite where
 
         :param add_individual_scores: adds the individual scores to the images
@@ -285,22 +288,28 @@ class Bap(object):
         # TODO: pass properties
         nimages = kwargs.get('set', 5)
         reducer = kwargs.get('reducer', 'interval_mean')
-        col = self.compute_scores(site, indices, **kwargs)
+        col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = reduce_collection(col, nimages, reducer, self.score_name)
 
-        return self.set_properties(mosaic)
+        return self.set_properties(mosaic, year)
 
-    def time_start(self):
-        """ Get time start property """
-        return ee.Date('{}-{}-{}'.format(self.year, 1, 1))
-
-    def set_properties(self, mosaic):
+    def set_properties(self, mosaic, year):
         """ Set some BAP common properties to the given mosaic """
         # DATE
-        date = self.time_start().millis()
+        date = self.time_start(year).millis()
         mosaic = mosaic.set('system:time_start', date)
         # BAP Version
         mosaic = mosaic.set('BAP_version', __version__)
+
+        # Seasons
+        for year in self.year_range(year):
+            yearstr = ee.Number(year).format()
+            daterange = self.season.add_year(year)
+            start = daterange.start().format('yyyy-MM-dd')
+            end = daterange.end().format('yyyy-MM-dd')
+            string = start.cat(' to ').cat(end)
+            propname = ee.String('season_').cat(yearstr)
+            mosaic = mosaic.set(propname, string)
 
         return mosaic
 
