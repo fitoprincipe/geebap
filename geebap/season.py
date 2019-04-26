@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import ee
-
 from collections import OrderedDict
 
 

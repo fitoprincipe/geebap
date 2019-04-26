@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Module to implement scores in the Bap Image Composition.
@@ -31,7 +30,7 @@ ImageCollections as first argument and can use the following keyword arguments
 """
 import ee
 
-from . import functions, priority
+from . import priority
 from . import season as season_module
 from geetools import tools, composite
 
