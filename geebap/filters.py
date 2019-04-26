@@ -47,8 +47,8 @@ class CloudCover(Filter):
         :return:
         """
         col = kwargs.get("col")
-        if col.clouds_fld:
-            return collection.filterMetadata(col.clouds_fld, "less_than",
+        if col.cloud_cover:
+            return collection.filterMetadata(col.cloud_cover, "less_than",
                                              self.percent)
         elif 'prop' in kwargs.keys():
             prop = kwargs.get('prop')
