@@ -55,8 +55,8 @@ class Score(object):
     ''' Abstract Base class for scores '''
     __metaclass__ = ABCMeta
 
-    def __init__(self, name="score", range_in=None, formula=None,
-                 range_out=(0, 1), sleep=0, **kwargs):
+    def __init__(self, name="score", range_in=None, range_out=(0, 1), sleep=0,
+                 **kwargs):
         """ Abstract Base Class for scores
 
         :param name: score's name
@@ -72,7 +72,6 @@ class Score(object):
         """
         self.name = name
         self.range_in = range_in
-        self.formula = formula
         self.range_out = range_out
         self.sleep = sleep
         self._normalize = True
@@ -1000,7 +999,7 @@ class MultiYear(Score):
 
         def addBand(img):
             score = ee.Number(img.get(name))
-            scoreband = ee.Image.constant(score).rename(name)
+            scoreband = ee.Image.constant(score).rename(name).toFloat()
             return img.addBands(scoreband)
 
         final = result.map(addBand)
