@@ -2,7 +2,7 @@
 """ Main module holding the Bap Class and its methods """
 
 from geetools import collection
-from . import scores, priority, functions, __version__
+from . import scores, priority, functions, utils, __version__
 import ee
 
 
@@ -299,7 +299,12 @@ class Bap(object):
         date = self.time_start(year).millis()
         mosaic = mosaic.set('system:time_start', date)
         # BAP Version
-        mosaic = mosaic.set('BAP_version', __version__)
+        mosaic = mosaic.set('BAP_VERSION', __version__)
+        bap_params = {}
+        for score in self.scores:
+            bap_params = utils.serialize(score, score.name, bap_params)
+
+        mosaic = mosaic.set('BAP_PARAMETERS', bap_params)
 
         # Seasons
         for year in self.year_range(year):
@@ -308,7 +313,7 @@ class Bap(object):
             start = daterange.start().format('yyyy-MM-dd')
             end = daterange.end().format('yyyy-MM-dd')
             string = start.cat(' to ').cat(end)
-            propname = ee.String('season_').cat(yearstr)
+            propname = ee.String('BAP_SEASON_').cat(yearstr)
             mosaic = mosaic.set(propname, string)
 
         return mosaic
