@@ -25,3 +25,7 @@ __copyright__ = "Rodrigo E. Principe"
 
 from . import bap, date, expgen, expressions, filters, functions,\
     ipytools, masks, regdec, scores, season, sites
+
+from .bap import Bap
+from .priority import SeasonPriority
+from .season import Season
