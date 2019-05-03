@@ -190,7 +190,7 @@ class Bap(object):
                 # TODO: modify scores to match new collection module
                 if self.scores:
                     for score in self.scores:
-                        zero = False if slcoff and isinstance(score, scores.MaskPercent) else True
+                        zero = False if slcoff and isinstance(score, (scores.MaskPercent, scores.MaskPercentKernel)) else True
                         col_ee = score._map(
                             col_ee,
                             col=col,
