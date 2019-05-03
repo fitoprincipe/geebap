@@ -586,6 +586,76 @@ class MaskPercent(Score):
         return collection.map(wrap)
 
 
+class MaskPercentKernel(Score):
+    """ Mask percent score using a kernel """
+    def __init__(self, kernel=None, distance=255, units='pixels',
+                 name="score-maskper-kernel", **kwargs):
+        """ Initialize score with kernel, distance and units """
+        super(MaskPercentKernel, self).__init__(**kwargs)
+
+        if kernel is None:
+            self.kernel = ee.Kernel.square
+        else:
+            self.kernel = kernel
+
+        self.distance = distance
+        if self.distance > 255:
+            self.distance = 255
+
+        self.units = units
+        self.name = name
+
+    @staticmethod
+    def compute(img, **kwargs):
+        """ Compute kernel mask percent score. Uses the mask of the first band
+
+        :param kernel: the kernel to use (the class, not instance)
+        :type kernel: ee.Kernel
+        :param size: the kernel size
+        :type size: int
+        :param: units: units for the kernel ('pixels' or 'meters')
+        :type units: str
+        :param name: the name of the resulting band
+        :type name: str
+        """
+        kernel = kwargs.get('kernel', ee.Kernel.square)
+        size = kwargs.get('size', 255)
+        units = kwargs.get('units', 'pixels')
+        count_zeros = kwargs.get('count_zeros', False)
+        name = kwargs.get('name', 'mask-kernel')
+
+        if units == 'pixels' and size > 255:
+            size = 255
+
+        distance = (size*2+1)**2
+
+        Kernel = kernel(size, units)
+
+        maskband = img.select([0])
+
+        if count_zeros:
+            mask = maskband.eq(0).Not()
+            maskband = maskband.updateMask(mask)
+
+        count = maskband.reduceNeighborhood(
+            'count', Kernel).rename(maskband.bandNames())
+
+        return count.divide(distance).rename(name)
+
+    def map(self, collection, **kwargs):
+        def wrap(img):
+            score = self.compute(
+                img,
+                kernel=self.kernel,
+                size=self.distance,
+                units=self.units,
+                name=self.name
+            )
+            return img.addBands(score)
+
+        return collection.map(wrap)
+
+
 @register(factory)
 @register_all(__all__)
 class Satellite(Score):
