@@ -108,18 +108,22 @@ class Bap(object):
         # create an empty score band in case no score is parsed
         empty_score = ee.Image.constant(0).rename(self.score_name).toUint8()
 
+        # List to store all used images
+        used_images = []
+
         for col in colgroup.collections:
-            col_ee = col.collection
+            col_ee_bounds = col.collection
 
             # Filter bounds
             if isinstance(site, ee.Feature): site = site.geometry()
-            col_ee = col_ee.filterBounds(site)
+            col_ee_bounds = col_ee_bounds.filterBounds(site)
 
             for year in self.year_range(year):
                 daterange = self.season.add_year(year)
 
                 # filter date
-                col_ee = col_ee.filterDate(daterange.start(), daterange.end())
+                col_ee = col_ee_bounds.filterDate(daterange.start(),
+                                                  daterange.end())
 
                 # some filters
                 if self.filters:
@@ -128,6 +132,12 @@ class Bap(object):
                             col_ee = filt.apply(col_ee, col=col)
 
                 size = col_ee.size()
+
+                # store used images
+                imlist = ee.List(col_ee.toList(size).map(
+                    lambda img:
+                    ee.String(col.id).cat('/').cat(ee.Image(img).id())))
+                used_images.append(imlist)
 
                 # Proxy image in case filters return 0
                 proxy_date = ee.Date('{}-01-01'.format(year))
@@ -189,8 +199,8 @@ class Bap(object):
                             geom=site,
                             include_zero=zero)
 
-                # Add date band
-                # col_ee = col_ee.map(date.Date.map())
+                # Mask all bands with mask
+                col_ee = col_ee.map(lambda img: img.updateMask(img.select([0]).mask()))
 
                 # Filter Mask Cover
                 if self.filters:
@@ -234,14 +244,20 @@ class Bap(object):
 
                 # Harmonize
                 if self.harmonize:
+                    # get max value for the needed bands
+
                     if 'harmonize' in col.algorithms.keys():
-                        col_ee = col_ee.map(col.harmonize())
+                        col_ee = col_ee.map(
+                            lambda img: col.harmonize(img, renamed=True))
 
                 col_ee_list = col_ee.toList(col_ee.size())
 
                 all_collections = all_collections.add(col_ee_list).flatten()
 
         all_collection = ee.ImageCollection.fromImages(all_collections)
+
+        # get all used images
+        used_images = ee.List(used_images).flatten()
 
         # Compute final score
         # ftotal = tools.image.sumBands("score", scores)
@@ -261,6 +277,9 @@ class Bap(object):
         final_collection = all_collection.map(
             lambda img: img.select(common_bands))
 
+        # set used images to the collection
+        final_collection = final_collection.set('BAP_USED_IMAGES', used_images)
+
         return final_collection
 
     def build_composite_best(self, year, site, indices=None, **kwargs):
@@ -274,6 +293,9 @@ class Bap(object):
         # TODO: pass properties
         col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = col.qualityMosaic(self.score_name)
+
+        used_images = col.get('BAP_USED_IMAGES')
+        mosaic = mosaic.set('BAP_USED_IMAGES', used_images)
 
         return self.set_properties(mosaic, year)
 
