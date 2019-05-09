@@ -2,7 +2,6 @@
 
 import os
 from setuptools import setup, find_packages
-from geebap import __version__
 
 
 # Utility function to read the README file.
@@ -12,10 +11,15 @@ from geebap import __version__
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+here = os.path.dirname(os.path.abspath(__file__))
+version_ns = {}
+with open(os.path.join(here, 'geetools', '_version.py')) as f:
+    exec(f.read(), {}, version_ns)
+
 # the setup
 setup(
     name='geebap',
-    version=__version__,
+    version=version_ns['__version__'],
     description='Generate a "Best Available Pixel (BAP)" composite in Google '\
                 'Earth Engine (GEE)',
     # long_description=read('README'),
