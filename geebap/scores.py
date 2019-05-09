@@ -457,12 +457,12 @@ class AtmosOpacity(Score):
         :type col: satcol.Collection
         """
         col = kwargs.get('col')
-        band = col.get_band('atmos_opacity', 'name')
+        band = col.getBand('atmos_opacity', 'name')
         if band:
             f = self.expr.map(name=self.name,
-                                 band=band.name,
-                                 map=self.adjust(),
-                                 **kwargs)
+                              band=band.name,
+                              map=self.adjust(),
+                              **kwargs)
         else:
             f = self.empty
 
@@ -1156,16 +1156,6 @@ class Threshold(Score):
         """
         print('score not available temporarely')
         return collection
-        '''
-        col = kwargs.get('col')
-        thresholds = col.threshold
-        def wrap(img):
-            score = self.compute(img, thresholds=thresholds,
-                                 name=self.name)
-            return img.addBands(score)
-
-        return collection.map(wrap)
-        '''
 
 
 @register(factory)
@@ -1180,7 +1170,7 @@ class Medoid(Score):
 
     @staticmethod
     def apply(collection, **kwargs):
-        return composite.medoid_score(collection, **kwargs)
+        return composite.medoidScore(collection, **kwargs)
 
     def map(self, collection, **kwargs):
 
