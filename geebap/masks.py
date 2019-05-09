@@ -4,12 +4,12 @@ from geetools import cloud_mask
 
 def _get_function(col, band, option, renamed=False):
     """ Get mask function for given band and option """
-    band_options = col.bit_options(renamed)
+    band_options = col.bitOptions(renamed)
     f = lambda img: img
     if band in band_options:
         bit_options = band_options[band]
         if option in bit_options:
-            f = lambda img: col.apply_mask(img, band, [option],
+            f = lambda img: col.applyMask(img, band, [option],
                                            renamed=renamed)
     return f
 
@@ -73,7 +73,7 @@ class Hollstein(object):
                 bands.append(col.get_band(band, 'name').id)
 
         if 'hollstein' in col.algorithms:
-            f = lambda img: cloud_mask.apply_hollstein(img, self.options,
+            f = lambda img: cloud_mask.applyHollstein(img, self.options,
                                                        *bands)
             return collection.map(f)
         else:

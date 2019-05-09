@@ -83,7 +83,7 @@ class Bap(object):
             all_col = self.colgroup.collections
             colgroup = self.colgroup
 
-        common_bands = collection.get_common_bands(*all_col, match='name')
+        common_bands = collection.getCommonBands(*all_col, match='name')
         # common_bands = self.colgroup.common_bands(match='name')
 
         # add col_id to common bands
@@ -133,20 +133,20 @@ class Bap(object):
 
                 size = col_ee.size()
 
-                # store used images
-                imlist = ee.List(col_ee.toList(size).map(
-                    lambda img:
-                    ee.String(col.id).cat('/').cat(ee.Image(img).id())))
-                used_images.append(imlist)
-
                 # Proxy image in case filters return 0
                 proxy_date = ee.Date('{}-01-01'.format(year))
-                proxy_i = col.proxy_image().set('system:time_start',
+                proxy_i = col.proxyImage().set('system:time_start',
                                                 proxy_date.millis())
                 proxy = ee.ImageCollection.fromImages([proxy_i])
 
                 col_ee = ee.ImageCollection(ee.Algorithms.If(size.gt(0),
                                                              col_ee, proxy))
+
+                # store used images
+                imlist = ee.List(col_ee.toList(col_ee.size()).map(
+                    lambda img:
+                    ee.String(col.id).cat('/').cat(ee.Image(img).id())))
+                used_images.append(imlist)
 
                 # clip with site
                 if buffer is not None:

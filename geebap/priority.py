@@ -74,7 +74,7 @@ class SeasonPriority(object):
         :rtype: list
         '''
         sat = self.satellites
-        return [collection.from_id(id) for id in sat]
+        return [collection.fromId(id) for id in sat]
 
     @property
     def colgroup(self):

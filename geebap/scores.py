@@ -383,7 +383,7 @@ class Doy(Score):
         collection = collection.map(distance)
 
         if function == 'linear':
-            result = tools.imagecollection.linear_function_property(
+            result = tools.imagecollection.linearFunctionProperty(
                 collection,
                 distance_name,
                 mean=0,
@@ -392,7 +392,7 @@ class Doy(Score):
                 name=name)
 
         if function == 'gauss':
-            result = tools.imagecollection.gauss_function_property(
+            result = tools.imagecollection.gaussFunctionProperty(
                 collection,
                 distance_name,
                 mean=0,
@@ -546,7 +546,7 @@ class MaskPercent(Score):
             maxPixels= max_pixels).get(band)
         zeros_in_mask = ee.Number(zeros_in_mask)
 
-        percentage = tools.number.trim_decimals(zeros_in_mask.divide(ones), 4)
+        percentage = tools.number.trimDecimals(zeros_in_mask.divide(ones), 4)
 
         # Make score inverse to percentage
         score = ee.Number(1).subtract(percentage)
@@ -924,7 +924,7 @@ class Index(Score):
         name = kwargs.get('name')
 
         if function == 'linear':
-            result = tools.image.linear_function(image, index,
+            result = tools.image.linearFunction(image, index,
                                                  range_min=range_min,
                                                  range_max=range_max,
                                                  mean=target,
@@ -932,7 +932,7 @@ class Index(Score):
                                                  output_max=out_max,)
 
         elif function == 'gauss':
-            result = tools.image.gauss_function(image, index,
+            result = tools.image.gaussFunction(image, index,
                                                 range_min=range_min,
                                                 range_max=range_max,
                                                 mean=target,
@@ -1044,7 +1044,7 @@ class MultiYear(Score):
         collection = collection.map(distance)
 
         if function == 'linear':
-            result = tools.imagecollection.linear_function_property(
+            result = tools.imagecollection.linearFunctionProperty(
                 collection,
                 distance_name,
                 mean=0,
@@ -1053,7 +1053,7 @@ class MultiYear(Score):
                 name=name)
 
         elif function == 'gauss':
-            result = tools.imagecollection.gauss_function_property(
+            result = tools.imagecollection.gaussFunctionProperty(
                 collection,
                 distance_name,
                 mean=0,
@@ -1271,7 +1271,7 @@ class Brightness(Score):
         brightness = img.reduce('sum')
 
         if function == 'linear':
-            result = tools.image.linear_function(
+            result = tools.image.linearFunction(
                 image=brightness,
                 band='sum',
                 range_min=allmin,
@@ -1282,7 +1282,7 @@ class Brightness(Score):
                 output_max=output_max
             )
         elif function == 'gauss':
-            result = tools.image.gauss_function(
+            result = tools.image.gaussFunction(
                 image=brightness,
                 band='sum',
                 range_min=allmin,

@@ -66,7 +66,7 @@ def info_handler(**kwargs):
 
                 if 'BAP_version' in properties:  # Check if it's a BAP composite
                     try:
-                        values = tools.image.get_value(image, point, 10, 'client')
+                        values = tools.image.getValue(image, point, 10, 'client')
                         values = tools.dictionary.sort(values)
                         col_id = int(values['col_id'])
                         thedate = int(values['date'])
