@@ -330,9 +330,9 @@ class CloudDist(Score):
 class Doy(Score):
     """ Score for the 'Day of the Year (DOY)'
 
-    :param formula: Formula to use
-    :type formula: Expression
-    :param season: Growing season (holds a `best_doy` attribute)
+    :param best_doy: the date (MM-DD) that will be prioritized
+    :type best_doy: str
+    :param season: the season
     :type season: season.Season
     :param name: name for the resulting band
     :type name: str
@@ -665,16 +665,16 @@ class Satellite(Score):
         available satellite list
     :type rate: float
     """
-    def __init__(self, rate=0.05, name="score-sat", **kwargs):
+    def __init__(self, ratio=0.05, name="score-sat", **kwargs):
         super(Satellite, self).__init__(**kwargs)
         self.name = name
-        self.rate = rate
+        self.ratio = ratio
 
     @staticmethod
     def compute(image, **kwargs):
         colid = kwargs.get('collection_id') # ej: 'COPERNICUS/S2'
         year = kwargs.get('year')
-        rate = kwargs.get('rate', 0.05)
+        rate = kwargs.get('ratio', 0.05)
         name = kwargs.get('name', 'sat-score')
 
         year_str = ee.Number(year).format()
@@ -701,7 +701,6 @@ class Satellite(Score):
 
         return score_img
 
-
     def map(self, collection, **kwargs):
         """
         :param col: Collection
@@ -713,7 +712,7 @@ class Satellite(Score):
         def wrap(img):
             y = ee.Number(year) if year else img.date().get('year')
             score = self.compute(img, collection_id=col.id, year=y,
-                                 rate=self.rate, name=self.name)
+                                 rate=self.ratio, name=self.name)
             return img.addBands(score).set(self.name, score.get(self.name))
 
         return collection.map(wrap)
@@ -746,11 +745,11 @@ class Outliers(Score):
     :type dist: int
     """
 
-    def __init__(self, bands, process="median", name="score-outlier",
-                 dist=0.7, **kwargs):
+    def __init__(self, bands, process="median", dist=0.7, name="score-outlier",
+                 **kwargs):
         super(Outliers, self).__init__(**kwargs)
 
-        # TODO: el param bands esta mas relacionado a la coleccion... pensarlo mejor..
+        # TODO: param bands is related to the collection used
         self.bands = bands
         self.bands_ee = ee.List(bands)
         self.process = process
