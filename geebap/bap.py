@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ Main module holding the Bap Class and its methods """
 
-from geetools import collection
+from geetools import collection, tools
 from . import scores, priority, functions, utils, __version__
 import ee
 
@@ -58,6 +58,29 @@ class Bap(object):
         """ Get time start property """
         return ee.Date('{}-{}-{}'.format(year, 1, 1))
 
+    def make_proxy(self, image, collection, year):
+        """ Make a proxy collection """
+
+        size = collection.size()
+
+        # unmask all bands
+        unmasked = image.unmask()
+
+        proxy_date = ee.Date('{}-01-01'.format(year))
+
+        bands = image.bandNames()
+        empty = tools.image.empty(0, bands)
+        proxy = unmasked.where(unmasked, empty)
+
+        proxy = proxy.set('system:time_start', proxy_date.millis())
+
+        proxy_col = ee.ImageCollection.fromImages([proxy])
+
+        return ee.ImageCollection(ee.Algorithms.If(size.gt(0),
+                                                   collection,
+                                                   proxy_col))
+
+
     def compute_scores(self, year, site, indices=None, **kwargs):
         """ Add scores and merge collections
 
@@ -84,7 +107,6 @@ class Bap(object):
             colgroup = self.colgroup
 
         common_bands = collection.getCommonBands(*all_col, match='name')
-        # common_bands = self.colgroup.common_bands(match='name')
 
         # add col_id to common bands
         common_bands.append(self.bandname_col_id)
@@ -131,16 +153,13 @@ class Bap(object):
                         if filt.name in ['CloudCover']:
                             col_ee = filt.apply(col_ee, col=col)
 
-                size = col_ee.size()
+                # BRDF
+                if self.brdf:
+                    if 'brdf' in col.algorithms.keys():
+                        col_ee = col_ee.map(lambda img: col.brdf(img))
 
-                # Proxy image in case filters return 0
-                proxy_date = ee.Date('{}-01-01'.format(year))
-                proxy_i = col.proxyImage().set('system:time_start',
-                                                proxy_date.millis())
-                proxy = ee.ImageCollection.fromImages([proxy_i])
-
-                col_ee = ee.ImageCollection(ee.Algorithms.If(size.gt(0),
-                                                             col_ee, proxy))
+                # Proxy in case size == 0
+                col_ee = self.make_proxy(col.collection.first(), col_ee, year)
 
                 # store used images
                 imlist = ee.List(col_ee.toList(col_ee.size()).map(
@@ -187,7 +206,6 @@ class Bap(object):
                         col_ee = col_ee.map(addindex)
 
                 # Apply scores
-                # TODO: modify scores to match new collection module
                 if self.scores:
                     for score in self.scores:
                         zero = False if slcoff and isinstance(score, (scores.MaskPercent, scores.MaskPercentKernel)) else True
@@ -202,11 +220,17 @@ class Bap(object):
                 # Mask all bands with mask
                 col_ee = col_ee.map(lambda img: img.updateMask(img.select([0]).mask()))
 
+                # Get an image before the filter to catch all bands for proxy image
+                col_ee_image = col_ee.first()
+
                 # Filter Mask Cover
                 if self.filters:
                     for filt in self.filters:
                         if filt.name in ['MaskCover']:
                             col_ee = filt.apply(col_ee)
+
+                # col_ee = self.make_proxy(col, col_ee, year, True)
+                col_ee = self.make_proxy(col_ee_image, col_ee, year)
 
                 # Add col_id band
                 # Add col_id to the image as a property
@@ -222,25 +246,29 @@ class Bap(object):
                 def addDateBand(img):
                     date = img.date()
                     year = date.get('year').format()
-                    month = date.get('month').format()
+
+                    # Month
+                    month = date.get('month')
+                    month_str = month.format()
+                    month = ee.String(ee.Algorithms.If(
+                        month.gte(10),
+                        month_str,
+                        ee.String('0').cat(month_str)))
+
+                    # Day
                     day = date.get('day')
                     day_str = day.format()
                     day = ee.String(ee.Algorithms.If(
                         day.gte(10),
                         day_str,
                         ee.String('0').cat(day_str)))
+
                     date_str = year.cat(month).cat(day)
                     newdate = ee.Number.parse(date_str)
                     newdate_img = ee.Image.constant(newdate) \
                         .rename(self.bandname_date).toUint32()
                     return img.addBands(newdate_img)
                 col_ee = col_ee.map(addDateBand)
-
-                # TODO: see what happened with BRDF Algorithm in geetools
-                # BRDF
-                # if self.brdf:
-                #     if 'brdf' in col.algorithms.keys():
-                #         col_ee = col_ee.map(col.brdf())
 
                 # Harmonize
                 if self.harmonize:
