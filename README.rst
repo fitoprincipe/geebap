@@ -79,7 +79,7 @@ Available Scores
 - Satellite
 - Distance to clouds and shadows masks
 - Atmospheric Opacity
-- Day of the year (doy)
+- Day of the year (best_doy)
 - Masked pixels percentage
 - Outliers
 - Absolute value of a vegetation index
@@ -139,7 +139,7 @@ paste the following code:
     filters = (filt_cld, filt_mask)
     
     # SCORES
-    doy = scores.Doy()
+    best_doy = scores.Doy()
     sat = scores.Satellite()
     op = scores.AtmosOpacity()
     out = scores.Outliers(("ndvi",))
@@ -148,7 +148,7 @@ paste the following code:
     dist = scores.CloudDist()
     
     # Combine scores in a tuple    
-    scores = (doy, sat, op, out, ind, mascpor, dist)
+    scores = (best_doy, sat, op, out, ind, mascpor, dist)
     
     # BAP OBJECT
     bap = bap.Bap(year=2010, range=(0, 0),
@@ -196,7 +196,7 @@ paste the following code:
       u'score': 0.7525906145936868,
       u'score-atm-op': 0.983697501608319,
       u'score-cld-dist': 1.0,
-      u'score-doy': 0.010969498225101475,
+      u'score-best_doy': 0.010969498225101475,
       u'score-index': 0.7719523906707764,
       u'score-maskper': 0.5015149116516113,
       u'score-outlier': 1.0,

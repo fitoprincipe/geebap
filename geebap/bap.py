@@ -1,136 +1,33 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Main module holding the Bap Class and its methods """
 
-from __future__ import print_function
+from geetools import collection, tools
+from . import scores, priority, functions, utils, __version__
 import ee
-import functools
-
-# Initialize EE
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
-from . import satcol, functions, scores, masks, filters, date
-from . import season as temp
-
-import datetime
-import time
-import sys
-from collections import namedtuple
-from geetools import tools
-import json
-import pprint
-
-pp = pprint.PrettyPrinter(indent=2)
-
-MIN_YEAR = 1970
-MAX_YEAR = datetime.date.today().year
-
-def check_type(name, param, type):
-    """ Wrapper to check parameter's type """
-    if param and not isinstance(param, type):
-        raise ValueError(
-            "argument '{}' must be {}".format(name, type.__name__))
-    else:
-        return
 
 
 class Bap(object):
-    debug = False
-    verbose = True
-    def __init__(self, year=None, range=(0, 0), colgroup=None, scores=None,
-                 masks=None, filters=None, season=None, fmap=None,
-                 only_sr=False):
-        """ Main Class designed to be independet of the site and the method
-        that will be used to generate the composite.
-
-        :param year: The year of the final composite. If the season covers two
-            years the last one will be used. Ej.
-
-            ..code:: python
-
-                season = Season(ini="15-12", end="15-01")
-                bap = Bap(year=2000)
-
-            to generate the composite the code will use images from
-            15-12-1999 to 15-01-2000
-        :type year: int
-        :param range: Range which indicates before and after the `year`
-            parameter. For example:
-
-            ..code:: python
-
-                bap = Bap(year=2001, range=(1, 1))
-                bap.date_range()
-
-            >> [2000, 2001, 2002]
-
-        :type range: tuple
-        :param colgroup: Group of collections. If `None`, it'll use
-            `season.SeasonPriotiry`
-        :type colgroup: satcol.ColGroup
-        :param scores: scores (scores.Score) to use in the process
-        :type scores: tuple
-        :param masks: masks (masks.Mask) to use in the process
-        :type masks: tuple
-        :param filters: filters (filters.Filter) to use in the process
-        :type filters: tuple
-        :param season: growing season
-        :type season: season.Season
-        :param fmap: This param will change..
-        :type fmap: function
-        :param only_sr: use only SR collections
-        :type only_sr: bool
-        """
-
-        check_type("year", year, int)
-        check_type("season", season, temp.Season)
-
-        if year < MIN_YEAR or year > MAX_YEAR:
-            raise ValueError(
-        "The year must be greatre than {} and less than {}".format(
-            MIN_YEAR, MAX_YEAR))
-
-        self.only_sr = only_sr
-        self.year = year
+    def __init__(self, season, range=(0, 0), colgroup=None, scores=None,
+                 masks=None, filters=None, target_collection=None, brdf=False,
+                 harmonize=True, **kwargs):
         self.range = range
         self.scores = scores
         self.masks = masks
         self.filters = filters
         self.season = season
-        self.fmap = fmap
         self.colgroup = colgroup
+        self.brdf = brdf
+        self.harmonize = harmonize
 
-    @property
-    def date_to_set(self):
-        return ee.Date(
-            str(self.year) + "-" + self.season.doy).millis().getInfo()
+        if target_collection is None:
+            target_collection = collection.Landsat8SR()
+        self.target_collection = target_collection
 
-    @property
-    def ini_date(self):
-        return self.season.add_year(self.year - self.range[0])[0]
+        self.score_name = kwargs.get('score_name', 'score')
 
-    @property
-    def end_date(self):
-        return self.season.add_year(self.year + self.range[1])[1]
-
-    @property
-    def ini_season(self):
-        return self.season.add_year(self.year)[0]
-
-    @property
-    def end_season(self):
-        return self.season.add_year(self.year)[1]
-
-    @property
-    def date_range(self):
-        try:
-            i = self.year - abs(self.range[0])
-            f = self.year + abs(self.range[1]) + 1
-
-            return range(i, f)
-        except:
-            return None
+        # Band names in case user needs different names
+        self.bandname_col_id = kwargs.get('bandname_col_id', 'col_id')
+        self.bandname_date = kwargs.get('bandname_date', 'date')
 
     @property
     def score_names(self):
@@ -141,569 +38,429 @@ class Bap(object):
             return []
 
     @property
-    def colgroup(self):
-        return self._colgroup
+    def max_score(self):
+        """ gets the maximum score it can get """
+        maxpunt = 0
+        for score in self.scores:
+            maxpunt += score.max
+        return maxpunt
 
-    @colgroup.setter
-    def colgroup(self, value):
-        if value is None:
-            s = set()
-            for a in self.date_range:
-                s = s.union(
-                    set([col for col in temp.SeasonPriority.relation[a]]))
-
-
-            if self.only_sr:
-                colist = [satcol.Collection.from_id(ID) for ID in s if satcol.Collection.from_id(ID).process == 'SR']
-            else:
-                colist = [satcol.Collection.from_id(ID) for ID in s]
-
-            self._colgroup = satcol.ColGroup(colist)
-        else:
-            self._colgroup = value
-
-    def collist(self):
-        """ List of Collections.
-        DEPRECATED: use `self.colgroup.ids`
-
-        If the 'family' of `colgroup` property of the object is not 'Landsat',
-        then it'll use the given `colgroup`, else
-
-        :return: list of collections that will be used
-        :rtype: list
-        """
-        fam = self.colgroup.family()
-        if self.debug: print("COLLECTIONS family:", fam)
-
-        if fam != "Landsat":
-            return self.colgroup.collections
-        else:
-            # Ids de las collections dadas
-            s1 = set([col.ID for col in self.colgroup.collections])
-
-            # Ids de la lista de collections presentes en el range de
-            # temporadas
-            s2 = set()
-            for a in self.date_range:
-                s2 = s2.union(
-                    set([col for col in temp.SeasonPriority.relation[a]]))
-
-            intersect = s1.intersection(s2)
-            if self.debug:
-                print("Collections inside ColGroup:", s1)
-                print("Prior Collections:", s2)
-                print("Intersection:", intersect)
-            return [satcol.Collection.from_id(ID) for ID in intersect]
-
-    def collection(self, site, indices=None, normalize=True, bbox=0,
-                   force=True):
-        """ Apply masks, filters and scores to the given collection group and
-        return one image collecion with all images and their score bands.
-
-        :param indices: vegetation indices to include in the final image. If
-            None, no index is calculated
-        :type indices: tuple
-        :param site: Site geometry
-        :type site: ee.Geometry
-        :param normalize: Whether to normalize the final score from 0 to 1
-            or not
-        :type normalize: bool
-        :return: a namedtuple:
-
-            - col: the collection with filters, masks and scores applied
-            - dictprop: dict that will go to the metadata of the Image
-        """
-        ################# DEBUG #########################################
-        # Get site centroid for debugging purpose
-        geom = site if isinstance(site, ee.Geometry) else site.geometry()
-        centroid = geom.centroid()
-
-        # Function to get the value of the first image of the collection in
-        # its centroid
-        def get_col_val(col):
-            ''' Values of the first image in the centroid '''
-            import time
-
-            values = tools.imagecollection.get_values(col, centroid, 30,
-                                                      side='client')
-
-            for i in range(3):
-                time.sleep(1)
-
-            pp.pprint(values)
-        #################################################################
-
-        # NamedTuple for the OUTPUT
-        output = namedtuple("ColBap", ("col", "dictprop"))
-
-        # Si no se pasa una funcion para aplicar antes de los puntajes, se
-        # crea una que devuelva la misma imagen
-        if self.fmap is None:
-            fmap = lambda x: x
-        else:
-            fmap = self.fmap
-
-        # colfinal = ee.ImageCollection()
-        colfinal = ee.List([])
-
-        # Obtengo la region del site
+    def year_range(self, year):
         try:
-            region = site.geometry().bounds().getInfo()['coordinates'][0]
-        except AttributeError:
-            region = site.getInfo()['coordinates'][0]
+            i = year - abs(self.range[0])
+            f = year + abs(self.range[1]) + 1
+
+            return range(i, f)
         except:
-            raise AttributeError
+            return None
 
-        # lista de nombres de los puntajes para sumarlos al final
-        scores = self.score_names
-        maxpunt = functools.reduce(
-            lambda i, punt: i+punt.max, self.scores, 0) if self.scores else 1
+    def time_start(self, year):
+        """ Get time start property """
+        return ee.Date('{}-{}-{}'.format(year, 1, 1))
 
-        # Diccionario de cant de imagenes para incluir en las propiedades
-        toMetadata = dict()
+    def make_proxy(self, image, collection, year):
+        """ Make a proxy collection """
 
-        # collist = self.collist()
-        collist = self.colgroup.collections
+        size = collection.size()
 
-        if self.verbose:
-            print("scores:", scores)
-            # print("satellites:", [c.ID for c in collist])
-            print("satellites:", self.colgroup.ids)
+        # unmask all bands
+        unmasked = image.unmask()
 
-        for colobj in collist:
+        proxy_date = ee.Date('{}-01-01'.format(year))
 
-            # Obtengo el ID de la coleccion
-            cid = colobj.ID
+        bands = image.bandNames()
+        empty = tools.image.empty(0, bands)
+        proxy = unmasked.where(unmasked, empty)
 
-            # Obtengo el name abreviado para agregar a los metadatos
-            short = colobj.short
+        proxy = proxy.set('system:time_start', proxy_date.millis())
 
-            # Imagen del col_id de la coleccion
-            bid = colobj.bandIDimg
+        proxy_col = ee.ImageCollection.fromImages([proxy])
 
-            # Add col_id to metadata.
-            # col_id_11 = 'L8TAO'
-            # etc..
-            toMetadata["col_id_"+str(colobj.col_id)] = short
+        return ee.ImageCollection(ee.Algorithms.If(size.gt(0),
+                                                   collection,
+                                                   proxy_col))
 
-            # Collection completa de EE
-            c = colobj.colEE
 
-            # Filtro por el site
+    def compute_scores(self, year, site, indices=None, **kwargs):
+        """ Add scores and merge collections
+
+        :param add_individual_scores: adds the individual scores to the images
+        :type add_individual_scores: bool
+        :param buffer: make a buffer before cutting to the given site
+        :type buffer: float
+        """
+        add_individual_scores = kwargs.get('add_individual_scores', False)
+        buffer = kwargs.get('buffer', None)
+
+        all_collections = ee.List([])
+
+        # TODO: get common bands for col of all years
+        if self.colgroup is None:
+            colgroup = priority.SeasonPriority(year).colgroup
+            all_col = []
+            for year in self.year_range(year):
+                _colgroup = priority.SeasonPriority(year).colgroup
+                for col in _colgroup.collections:
+                    all_col.append(col)
+        else:
+            all_col = self.colgroup.collections
+            colgroup = self.colgroup
+
+        common_bands = collection.getCommonBands(*all_col, match='name')
+
+        # add col_id to common bands
+        common_bands.append(self.bandname_col_id)
+
+        # add date band to common bands
+        common_bands.append(self.bandname_date)
+
+        # add score names if 'add_individual_scores'
+        if add_individual_scores:
+            for score_name in self.score_names:
+                common_bands.append(score_name)
+
+        # add indices to common bands
+        if indices:
+            for i in indices:
+                common_bands.append(i)
+
+        # add score band to common bands
+        common_bands.append(self.score_name)
+
+        # create an empty score band in case no score is parsed
+        empty_score = ee.Image.constant(0).rename(self.score_name).toUint8()
+
+        # List to store all used images
+        used_images = []
+
+        for col in colgroup.collections:
+            col_ee_bounds = col.collection
+
+            # Filter bounds
             if isinstance(site, ee.Feature): site = site.geometry()
-            c2 = c.filterBounds(site)
+            col_ee_bounds = col_ee_bounds.filterBounds(site)
 
-            # Renombra las bandas aca?
-            # c2 = c2.map(col.rename())
+            for year in self.year_range(year):
+                daterange = self.season.add_year(year)
 
-            if self.verbose: print("\nSatellite:", colobj.ID)
-            if self.debug:
-                pp.pprint(colobj.kws)
-                print("SIZE AFTER FILTER SITE:", c2.size().getInfo())
+                # filter date
+                col_ee = col_ee_bounds.filterDate(daterange.start(),
+                                                  daterange.end())
 
-            # Filtro por los años
-            for anio in self.date_range:
-                # Creo un nuevo objeto de coleccion con el id
-                col = satcol.Collection.from_id(cid)
-                # puntajes = []
+                # some filters
+                if self.filters:
+                    for filt in self.filters:
+                        if filt.name in ['CloudCover']:
+                            col_ee = filt.apply(col_ee, col=col)
 
-                ini = self.season.add_year(anio)[0]
-                end = self.season.add_year(anio)[1]
+                # BRDF
+                if self.brdf:
+                    if 'brdf' in col.algorithms.keys():
+                        col_ee = col_ee.map(lambda img: col.brdf(img))
 
-                if self.verbose: print("ini:", ini, ",end:", end)
+                # Proxy in case size == 0
+                col_ee = self.make_proxy(col.collection.first(), col_ee, year)
 
-                # Filtro por fecha
-                c = c2.filterDate(ini, end)
+                # store used images
+                imlist = ee.List(col_ee.toList(col_ee.size()).map(
+                    lambda img:
+                    ee.String(col.id).cat('/').cat(ee.Image(img).id())))
+                used_images.append(imlist)
 
-                if self.debug:
-                    n = c.size().getInfo()
-                    print("SIZE AFTER FILTER DATE:", n)
+                # clip with site
+                if buffer is not None:
+                    site = site.buffer(buffer)
+                col_ee = col_ee.map(lambda img: img.clip(site))
 
-                ## FILTROS ESTABAN ACA
+                # Add year as a property (YEAR_BAP)
+                col_ee = col_ee.map(lambda img: img.set('YEAR_BAP', year))
 
-                # Si despues de los filters no quedan imgs, saltea..
-                size = c.size().getInfo()
-                if self.verbose: print("size after filters:", size)
-                if size == 0: continue  # 1
+                # Catch SLC off
+                slcoff = False
+                if col.spacecraft == 'LANDSAT' and col.number == 7:
+                    if year in priority.SeasonPriority.l7_slc_off:
+                        # Convert masked values to zero
+                        col_ee = col_ee.map(lambda img: img.unmask())
+                        slcoff = True
 
-                if self.debug:
-                    print("INITIAL CENTROID VALUES", get_col_val(c))
-
-                # corto la imagen con la region para minimizar los calculos
-                if bbox == 0:
-                    def cut(img):
-                        return img.clip(site)
-                else:
-                    def cut(img):
-                        bounds = site.buffer(bbox)
-                        return img.clip(bounds)
-
-                c = c.map(cut)
-
-                if self.debug:
-                    print("AFTER CLIPPING WITH REGION", get_col_val(c))
-
-                # MASKS
+                # Apply masks
                 if self.masks:
-                    for m in self.masks:
-                        c = c.map(
-                            m.map(col=col, year=anio, colEE=c))
-                        if self.debug:
-                            print("AFTER THE MASK "+m.nombre,
-                                  get_col_val(c))
+                    for mask in self.masks:
+                        col_ee = mask.map(col_ee, col=col)
 
-                # Transformo los valores enmascarados a cero
-                c = c.map(lambda image: image.unmask())
+                # Rename
+                col_ee = col_ee.map(lambda img: col.rename(img))
 
-                if self.debug:
-                    print("AFTER UNMASKING:",
-                          get_col_val(c))
-
-                # Renombra las bandas con los datos de la coleccion
-                c = c.map(col.rename(drop=True))
-
-                # Cambio las bandas en comun de las collections
-                bandasrel = []
-
-                if self.debug:
-                    print("AFTER RENAMING BANDS:",
-                        get_col_val(c))
-
-                # Escalo a 0-1
-                c = c.map(col.do_scale())
-
-                if self.debug:
-                    if c.size().getInfo() > 0:
-                        print("AFTER SCALING:",
-                            get_col_val(c))
+                # Rescale
+                col_ee = col_ee.map(
+                    lambda img: collection.rescale(
+                        img, col, self.target_collection, renamed=True))
 
                 # Indices
                 if indices:
                     for i in indices:
-                        f = col.INDICES[i]
-                        c = c.map(f)
-                        if self.debug: print("SIZE AFTER COMPUTE "+i,
-                                             c.size().getInfo())
+                        f = getattr(col, i)
+                        def addindex(img):
+                            ind = f(img, renamed=True)
+                            return img.addBands(ind)
+                        col_ee = col_ee.map(addindex)
 
-                # Antes de aplicar los puntajes, aplico la funcion que pasa
-                # el usuario
-                c = c.map(fmap)
-
-                # Puntajes
+                # Apply scores
                 if self.scores:
-                    for p in self.scores:
-                        if self.verbose: print("** "+p.name+" **")
-                        # Espero el tiempo seteado en cada puntaje
-                        sleep = p.sleep
-                        for t in range(sleep):
-                            sys.stdout.write(str(t+1)+".")
-                            if (t+1) == sleep: sys.stdout.write('\n')
-                            time.sleep(1)
-                        c = c.map(p.map(col=col, year=anio, colEE=c, geom=site))
+                    for score in self.scores:
+                        zero = False if slcoff and isinstance(score, (scores.MaskPercent, scores.MaskPercentKernel)) else True
+                        col_ee = score._map(
+                            col_ee,
+                            col=col,
+                            year=year,
+                            colEE=col_ee,
+                            geom=site,
+                            include_zero=zero)
 
-                        # DEBUG
-                        if self.debug and n > 0:
-                            print("value:",
-                                  get_col_val(c))
+                # Mask all bands with mask
+                col_ee = col_ee.map(lambda img: img.updateMask(img.select([0]).mask()))
 
-                # Filtros
+                # Get an image before the filter to catch all bands for proxy image
+                col_ee_image = col_ee.first()
+
+                # Filter Mask Cover
                 if self.filters:
-                    for filter in self.filters:
-                        c = filter.apply(c, col=col, anio=self.year)
+                    for filt in self.filters:
+                        if filt.name in ['MaskCover']:
+                            col_ee = filt.apply(col_ee)
 
-                # METODO NUEVO: selecciono las bandas en comun desp de unir
-                # todas las collections usando un metodo distinto
+                # col_ee = self.make_proxy(col, col_ee, year, True)
+                col_ee = self.make_proxy(col_ee_image, col_ee, year)
 
-                if self.debug:
-                    if c.size().getInfo() > 0:
-                        print("AFTER SELECTING COMMON BANDS:",
-                            get_col_val(c))
-
-                # Convierto los valores de las mascaras a 0
-                c = c.map(lambda img: img.unmask())
-
-                # Agrego la band de fecha a la imagen
-                c = c.map(date.Date.map())
-
-                # Agrego la band col_id de la coleccion
+                # Add col_id band
+                # Add col_id to the image as a property
                 def addBandID(img):
-                    return img.addBands(bid)
-                c = c.map(addBandID)
+                    col_id = functions.get_col_id(col)
+                    col_id_img = functions.get_col_id_image(col)
+                    return img.addBands(col_id_img).set(
+                        self.bandname_col_id.upper(),
+                        col_id)
+                col_ee = col_ee.map(addBandID)
 
-                if self.debug: print("AFTER ADDING col_id BAND:",
-                    get_col_val(c))
+                # Add date band
+                def addDateBand(img):
+                    date = img.date()
+                    year = date.get('year').format()
 
-                # Convierto a lista para agregar a la coleccion anterior
-                c_list = c.toList(2500)
-                colfinal = colfinal.cat(c_list)
+                    # Month
+                    month = date.get('month')
+                    month_str = month.format()
+                    month = ee.String(ee.Algorithms.If(
+                        month.gte(10),
+                        month_str,
+                        ee.String('0').cat(month_str)))
 
-                # Agrego col id y year al diccionario para propiedades
-                n_imgs = "n_imgs_{cid}_{a}".format(cid=short, a=anio)
-                toMetadata[n_imgs] = functions.get_size(c)
+                    # Day
+                    day = date.get('day')
+                    day_str = day.format()
+                    day = ee.String(ee.Algorithms.If(
+                        day.gte(10),
+                        day_str,
+                        ee.String('0').cat(day_str)))
 
-        # comprueba que la lista final tenga al menos un elemento
-        # s_fin = colfinal.size().getInfo()  # 2
-        s_fin = functions.get_size(colfinal)
+                    date_str = year.cat(month).cat(day)
+                    newdate = ee.Number.parse(date_str)
+                    newdate_img = ee.Image.constant(newdate) \
+                        .rename(self.bandname_date).toUint32()
+                    return img.addBands(newdate_img)
+                col_ee = col_ee.map(addDateBand)
 
-        # DEBUG
-        if self.verbose: print("final collection size:", s_fin)
+                # Harmonize
+                if self.harmonize:
+                    # get max value for the needed bands
 
-        if s_fin > 0:
-            newcol = ee.ImageCollection(colfinal)
+                    if 'harmonize' in col.algorithms.keys():
+                        col_ee = col_ee.map(
+                            lambda img: col.harmonize(img, renamed=True))
 
-            # Selecciono las bandas en comun de todas las imagenes
-            newcol = functions.select_match(newcol)
+                col_ee_list = col_ee.toList(col_ee.size())
 
-            if self.debug: print("BEFORE score:", scores, "\n", get_col_val(newcol))
+                all_collections = all_collections.add(col_ee_list).flatten()
 
-            # Calcula el puntaje total sumando los puntajes
-            newcol = newcol.map(
-                lambda img: tools.image.sumBands(img, "score", scores))
+        all_collection = ee.ImageCollection.fromImages(all_collections)
 
-            if self.debug:
-                print("AFTER score:", get_col_val(newcol))
+        # get all used images
+        used_images = ee.List(used_images).flatten()
 
-            if normalize:
-                newcol = newcol.map(
-                    lambda img: tools.image.parametrize(img,
-                                                        (0, maxpunt),
-                                                        (0, 1), ("score",)))
-
-            if self.debug:
-                print("AFTER parametrize:", get_col_val(newcol))
-
-            return output(newcol, toMetadata)
-        elif force:
-            bands_from_col = self.colgroup.bandsrel()
-            bands_from_scores = self.score_names if self.score_names else ['score']
-            bands_from_indices = list(indices) if indices else []
-            bands = bands_from_col + bands_from_scores + bands_from_indices
-
-            img = ee.Image.constant(0).select([0], [bands[0]])
-
-            for i, band in enumerate(bands):
-                if i == 0: continue
-                newimg = ee.Image.constant(0).select([0], [band])
-                img = img.addBands(newimg)
-
-            return output(ee.ImageCollection([img]), toMetadata)
+        # Compute final score
+        # ftotal = tools.image.sumBands("score", scores)
+        if self.scores:
+            def compute_score(img):
+                score = img.select(self.score_names).reduce('sum') \
+                    .rename('score').toFloat()
+                return img.addBands(score)
         else:
-            return output(None, toMetadata)
+            def compute_score(img):
+                return img.addBands(empty_score)
 
-    @staticmethod
-    def calcUnpix_generic(col, score):
-        """ DO NOT USE. It's a test method """
-        imgCol = col
-        # tamcol = funciones.execli(imgCol.size().getInfo)()
+        all_collection = all_collection.map(compute_score)
 
-        img = imgCol.qualityMosaic(score)
+        # Select common bands
+        # all_collection = functions.select_match(all_collection)
+        final_collection = all_collection.map(
+            lambda img: img.select(common_bands))
 
-        if Bap.debug:
-            print(" AFTER qualityMosaic:", img.bandNames().getInfo())
+        # set used images to the collection
+        final_collection = final_collection.set('BAP_USED_IMAGES', used_images)
 
-        # CONVIERTO LOS VALORES ENMASCARADOS EN 0
-        # img = tools.mask2zero(img)
-        img = img.unmask()
+        return final_collection
 
-        return img
+    def build_composite_best(self, year, site, indices=None, **kwargs):
+        """ Build the a composite with best score
 
-    def calcUnpix(self, site, name="score", bands=None, **kwargs):
-        """ Generate the BAP composite using the pixels that have higher
-        final score. This version uses GEE function 'qualiatyMosaic"
-
-        :param site: Site geometry
-        :type site: ee.Geometry
-        :param name: name of the band that has the final score
-        :type name: str
-        :param bands: name of the bands to include in the final image
-        :type bands: list
-        :param kwargs:
-        :return: A namedtuple:
-            .image = the Best Available Pixel Composite (ee.Image)
-            .col = the collection of images used to generate the BAP
-                (ee.ImageCollection)
-        :rtype: namedtuple
+        :param add_individual_scores: adds the individual scores to the images
+        :type add_individual_scores: bool
+        :param buffer: make a buffer before cutting to the given site
+        :type buffer: float
         """
-        colbap = self.collection(site=site, **kwargs)
+        # TODO: pass properties
+        col = self.compute_scores(year, site, indices, **kwargs)
+        mosaic = col.qualityMosaic(self.score_name)
 
-        col = colbap.col
-        prop = colbap.dictprop
+        return self.set_properties(mosaic, year, col)
 
-        img = Bap.calcUnpix_generic(col, name)
+    def build_composite_reduced(self, year, site, indices=None, **kwargs):
+        """ Build the composite where
 
-        img = img if bands is None else img.select(*bands)
-
-        fechaprop = {"system:time_start": self.date_to_set}
-        prop.update(fechaprop)
-        return img.set(prop)
-
-    def bestpixel(self, site, name="score", bands=None,
-                  indices=None, normalize=True, bbox=0, force=True):
-        """ Generate the BAP composite using the pixels that have higher
-        final score. This is a custom method
-
-        :param site: Site geometry
-        :type site: ee.Geometry
-        :param name: name of the band that has the final score
-        :type name: str
-        :param bands: name of the bands to include in the final image
-        :type bands: list
-        :param kwargs: see Bap.collection() method
-        :return: A namedtuple:
-            .image = the Best Available Pixel Composite (ee.Image)
-            .col = the collection of images used to generate the BAP
-                (ee.ImageCollection)
-        :rtype: namedtuple
+        :param add_individual_scores: adds the individual scores to the images
+        :type add_individual_scores: bool
+        :param buffer: make a buffer before cutting to the given site
+        :type buffer: float
         """
-        colbap = self.collection(site=site, indices=indices,
-                                 normalize=normalize, bbox=bbox, force=force)
+        # TODO: pass properties
+        nimages = kwargs.get('set', 5)
+        reducer = kwargs.get('reducer', 'interval_mean')
+        col = self.compute_scores(year, site, indices, **kwargs)
+        mosaic = reduce_collection(col, nimages, reducer, self.score_name)
 
-        imgCol = colbap.col
-        prop = colbap.dictprop
+        return self.set_properties(mosaic, year)
 
-        output = namedtuple("bestpixel", ("image", "col"))
+    def set_properties(self, mosaic, year, col):
+        """ Set some BAP common properties to the given mosaic """
+        # USED IMAGES
+        used_images = col.get('BAP_USED_IMAGES')
+        mosaic = mosaic.set('BAP_USED_IMAGES', used_images)
 
-        # SI HAY ALGUNA IMAGEN
-        if imgCol is not None:
-            img0 = ee.Image(0)
+        # DATE
+        date = self.time_start(year).millis()
+        mosaic = mosaic.set('system:time_start', date)
 
-            # ALTERNATIVA PARA OBTENER LA LISTA DE BANDAS
-            first = ee.Image(imgCol.first())
+        # BAP Version
+        mosaic = mosaic.set('BAP_VERSION', __version__)
+        bap_params = {}
+        for score in self.scores:
+            bap_params = utils.serialize(score, score.name, bap_params)
 
-            # 'in best pixel 1', first.select('date').getInfo()['bands'])
+        # BAP Parameters
+        mosaic = mosaic.set('BAP_PARAMETERS', bap_params)
 
-            listbands = first.bandNames()
-            # nbands = tools.execli(listbands.size().getInfo)()
-            nbands = listbands.size().getInfo()
+        # FOOTPRINT
+        geom = tools.imagecollection.mergeGeometries(col)
+        mosaic = mosaic.set('system:footprint', geom)
 
-            thelist = []
+        # Seasons
+        for year in self.year_range(year):
+            yearstr = ee.Number(year).format()
+            daterange = self.season.add_year(year)
+            start = daterange.start().format('yyyy-MM-dd')
+            end = daterange.end().format('yyyy-MM-dd')
+            string = start.cat(' to ').cat(end)
+            propname = ee.String('BAP_SEASON_').cat(yearstr)
+            mosaic = mosaic.set(propname, string)
 
-            # CREO LA IMAGEN INICIAL img0 CON LAS BANDAS NECESARIAS EN 0
-            for r in range(0, nbands):
-                img0 = ee.Image(0).addBands(img0)
-                thelist.append(r)
+        return mosaic
 
-            img0 = img0.select(thelist, listbands)
 
-            def final(img, maxx):
-                maxx = ee.Image(maxx)
-                ptotal0 = maxx.select(name)
-                ptotal0 = ptotal0.mask().where(1, ptotal0)
+def reduce_collection(collection, set=5, reducer='mean',
+                      scoreband='score'):
+    """ Reduce the collection and get a statistic from a set of pixels
 
-                ptotal1 = img.select(name)
-                ptotal1 = ptotal1.mask().where(1, ptotal1)
+    Transform the collection to a 2D array
 
-                masc0 = ptotal0.gt(ptotal1)
-                masc1 = masc0.Not()
+    * axis 1 (horiz) -> bands
+    * axis 0 (vert) -> images
 
-                maxx = maxx.updateMask(masc0)
-                maxx = maxx.mask().where(1, maxx)
+    ====== ====== ===== ===== ======== =========
+       \     B2    B3    B4     index    score
+    ------ ------ ----- ----- -------- ---------
+     img1
+     img2
+     img3
+    ====== ====== ===== ===== ======== =========
 
-                img = img.updateMask(masc1)
-                img = img.mask().where(1, img)
+    :param reducer: Reducer to use for the set of images. Options are:
+        'mean', 'median', 'mode', 'intervalMean'(default)
+    :type reducer: str || ee.Reducer
+    :param collection: collection that holds the score
+    :type collection: ee.ImageCollection
+    :return: An image in which every pixel is the reduction of the set of
+        images with best score
+    :rtype: ee.Image
+    """
+    reducers = {'mean': ee.Reducer.mean(),
+                'median': ee.Reducer.median(),
+                'mode': ee.Reducer.mode(),
+                'interval_mean': ee.Reducer.intervalMean(50, 90),
+                'first': ee.Reducer.first(),
+                }
 
-                maxx = maxx.add(img)
+    if reducer in reducers.keys():
+        selected_reducer = reducers[reducer]
+    elif isinstance(reducer, ee.Reducer):
+        selected_reducer = reducer
+    else:
+        raise ValueError('Reducer {} not recognized'.format(reducer))
 
-                return ee.Image(maxx)
+    # Convert masked pixels to 0 value
+    # collection = collection.map(tools.mask2zero)
+    collection = collection.map(lambda img: img.unmask())
 
-            img = ee.Image(imgCol.iterate(final, img0))
+    array = collection.toArray()
 
-            # print 'in best pixel 2', img.select('date').getInfo()['bands']
+    # Axis
+    bands_axis = 1
+    images_axis = 0
 
-            # SETEO LAS PROPIEDADES
-            dateprop = {"system:time_start": self.date_to_set}
-            # img = img.set(dateprop)
-            prop.update(dateprop)
+    # band names
+    bands = ee.Image(collection.first()).bandNames()
 
-            # Elimino las barras invertidas
-            prop = {k.replace("/","_"):v for k, v in prop.items()}
+    # index of score
+    score_index = bands.indexOf(scoreband)
 
-            img = img if bands is None else img.select(*bands)
+    # get only scores band
+    score = array.arraySlice(axis= bands_axis,
+                             start= score_index,
+                             end= score_index.add(1))
 
-            # clip with site
-            img = img.clip(site)
+    # Sort the array (ascending) by the score band
+    sorted_array = array.arraySort(score)
 
-            return output(self.setprop(img, **prop), imgCol)
-        else:
-            if self.verbose:
-                print("The process can not be done because the Collections "
-                      "have no images. Returns None")
-            return output(None, None)
+    # total longitud of the array image (number of images)
+    longitud = sorted_array.arrayLength(0)
 
-    def setprop(self, img, **kwargs):
-        """ Sets properties to the composite.
+    # Cut the Array
+    # lastvalues = arrayOrdenado.arraySlice(self.ejeImg,
+    # longitud.subtract(self.set), longitud)
+    lastvalues = sorted_array.arraySlice(axis=images_axis,
+                                          start=longitud.subtract(set),
+                                          end=longitud)
 
-        - ini_date: Initial date.
-        - end_date: End date.
+    # Cut score axis
+    solopjes = lastvalues.arraySlice(axis=bands_axis,
+                                     start=score_index,
+                                     end= score_index.add(1))
 
-        The images included to generate the BAP are between `ini_data` and
-        `end_date`
+    #### Process ####
+    processed = lastvalues.arrayReduce(selected_reducer,
+                                       ee.List([images_axis]))
 
-        :param img: Image to set attributes
-        :type img: ee.Image
-        :param kwargs: extra parameters passed to the function will be added
-            to the image as a property
-        :return: the passed image with added properties
-        :rtype: ee.Image
-        """
-        d = {"ini_date": date.Date.local(self.ini_date),
-             "end_date": date.Date.local(self.end_date),
-             }
+    # Transform the array to an Image
+    result_image = processed.arrayProject([bands_axis]) \
+                            .arrayFlatten([bands])
 
-        # Agrega los argumentos como propiedades
-        d.update(kwargs)
-
-        return img.set(d)
-
-    @classmethod
-    def White(cls, year, range, season):
-        """ Pre-built subclass using same parameters as White (original
-        author of the BAP method) """
-        psat = scores.Satellite()
-        pdist = scores.CloudDist()
-        pdoy = scores.Doy(season=season)
-        pop = scores.AtmosOpacity()
-        colG = satcol.ColGroup.SR()
-        masc = masks.Clouds()
-        filt = filters.CloudsPercent()
-
-        pjes = (psat, pdist, pdoy, pop)
-        mascs = (masc,)
-        filts = (filt,)
-
-        return cls(year, range, scores=pjes, masks=mascs, filters=filts,
-                   colgroup=colG, season=season)
-
-    @classmethod
-    def Modis(cls, year, range, season, index=None):
-        """
-        :param index: Vegetation index to use in the scrore computing. It must
-            match the one used in the method used to generate the BAP (example:
-            bestpixel). If it's None, the index score is not computed.
-        :return:
-        """
-        # Puntajes
-        pdist = scores.CloudDist()
-        pdoy = scores.Doy(season=season)
-        pmasc = scores.MaskPercent()
-        pout = scores.Outliers(("nirXred",))
-
-        colG = satcol.ColGroup.Modis()
-        masc = masks.Clouds()
-        filt = filters.MaskPercent(0.3)
-
-        pjes = [pdist, pdoy, pmasc, pout]
-
-        if index:
-            pindice = scores.PIndice(index)
-            pout2 = scores.Outliers((index,))
-            pjes.append(pindice)
-            pjes.append(pout2)
-
-        mascs = (masc,)
-        filts = (filt,)
-
-        nirxred = functions.nirXred()
-
-        return cls(year, range, colgroup=colG, season=season,
-                   masks=mascs, scores=pjes, fmap=nirxred, filters=filts)
+    return result_image

@@ -1,12 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Date module for Gee Bap """
 import ee
-
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
-from . import functions
 
 
 class Date(object):
@@ -39,7 +33,9 @@ class Date(object):
             days_since_70 = ee.Date(dateadq).millis().divide(Date.oneday)  # days since 1970
             dateimg = ee.Image(days_since_70).select([0], [name]).toUint16()
             final = img.addBands(dateimg).set(name, days_since_70.toInt())
-            return functions.pass_date(img, final)
+            # return functions.pass_date(img, final)
+            # return tools.passProperty(img, final, 'system:time_start')
+            return final.copyProperties(img, ['system:time_start'])
         return wrap
 
     @staticmethod
@@ -73,8 +69,5 @@ class Date(object):
         if unit == "days":
             mili = ee.Number(date).multiply(Date.oneday)
             d = ee.Date(mili)
-            dstr = d.format()
-
-            print("{0} days corresponds to the date: {1}".format(
-                date, dstr.getInfo()))
+            # dstr = d.format()
         return d

@@ -1,11 +1,5 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """ Module holding custom filters for image collections """
-import ee.data
-if not ee.data._initialized: ee.Initialize()
-
-from . import satcol
 from abc import ABCMeta, abstractmethod
 from .regdec import *
 
@@ -14,7 +8,7 @@ factory = {}
 
 
 class Filter(object):
-    ''' Abstract Base class for filters '''
+    """ Abstract Base class for filters """
     __metaclass__ = ABCMeta
     def __init__(self, **kwargs):
         pass
@@ -25,7 +19,7 @@ class Filter(object):
 
 @register(factory)
 @register_all(__all__)
-class CloudsPercent(Filter):
+class CloudCover(Filter):
     """ Cloud cover percentage filter
 
     :param percent: all values over this will be filtered. Goes from 0
@@ -34,10 +28,11 @@ class CloudsPercent(Filter):
     :param kwargs:
     """
     def __init__(self, percent=70, **kwargs):
-        super(CloudsPercent, self).__init__(**kwargs)
+        super(CloudCover, self).__init__(**kwargs)
         self.percent = percent
+        self.name = 'CloudCover'
 
-    def apply(self, colEE, **kwargs):
+    def apply(self, collection, **kwargs):
         """ Apply the filter
 
         :param colEE: the image collection to apply the filter
@@ -52,18 +47,19 @@ class CloudsPercent(Filter):
         :return:
         """
         col = kwargs.get("col")
-        if col.clouds_fld:
-            return colEE.filterMetadata(col.clouds_fld, "less_than", self.percent)
-        elif kwargs.has_key('prop'):
+        if col.cloud_cover:
+            return collection.filterMetadata(col.cloud_cover, "less_than",
+                                             self.percent)
+        elif 'prop' in kwargs.keys():
             prop = kwargs.get('prop')
-            return colEE.filterMetadata(prop, 'less_than', self.percent)
+            return collection.filterMetadata(prop, 'less_than', self.percent)
         else:
-            return colEE
+            return collection
 
 
 @register(factory)
 @register_all(__all__)
-class MaskPercent(Filter):
+class MaskCover(Filter):
     """ This mask can only be used AFTER computing mask percentage score
     (`scores.MaskPercent`). This score writes an attribute to the image
     which contains 'mask percentage' of the given area (see score's docs).
@@ -78,15 +74,16 @@ class MaskPercent(Filter):
     :param kwargs:
     """
     def __init__(self, percent=0.7, prop="score-maskper", **kwargs):
-        super(MaskPercent, self).__init__(**kwargs)
+        super(MaskCover, self).__init__(**kwargs)
         self.percent = percent
         self.prop = prop
+        self.name = 'MaskCover'
 
-    def apply(self, colEE, **kwargs):
+    def apply(self, collection, **kwargs):
         """ Apply the filter
 
-        :param colEE: the image collection to apply the filter
-        :type colEE: ee.ImageCollection
+        :param collection: the image collection to apply the filter
+        :type collection: ee.ImageCollection
         :return:
         """
-        return colEE.filterMetadata(self.prop, "less_than", self.percent)
+        return collection.filterMetadata(self.prop, "less_than", self.percent)

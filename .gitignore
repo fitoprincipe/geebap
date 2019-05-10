@@ -68,3 +68,6 @@ crear_compuesto_gsheet.py
 # STRIPS
 *.png
 files/
+
+# Jupyter staff
+**/.ipynb_checkpoints
