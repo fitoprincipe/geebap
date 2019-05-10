@@ -20,9 +20,12 @@ __email__ = "rprincipe@ciefap.org.ar"
 __license__ = "GNU GENERAL PUBLIC LICENSE, Version 3"
 __copyright__ = "Rodrigo E. Principe"
 
-from . import bap, date, expgen, expressions, filters, functions,\
-    ipytools, masks, regdec, scores, season, sites
+try:
+    from . import bap, date, expgen, expressions, filters, functions,\
+        ipytools, masks, regdec, scores, season, sites
 
-from .bap import Bap
-from .priority import SeasonPriority
-from .season import Season
+    from .bap import Bap
+    from .priority import SeasonPriority
+    from .season import Season
+except ImportError:
+    pass
