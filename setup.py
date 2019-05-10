@@ -13,7 +13,7 @@ def read(fname):
 
 here = os.path.dirname(os.path.abspath(__file__))
 version_ns = {}
-with open(os.path.join(here, 'geetools', '_version.py')) as f:
+with open(os.path.join(here, 'geebap', '_version.py')) as f:
     exec(f.read(), {}, version_ns)
 
 # the setup
