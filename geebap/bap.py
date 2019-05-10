@@ -322,10 +322,7 @@ class Bap(object):
         col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = col.qualityMosaic(self.score_name)
 
-        used_images = col.get('BAP_USED_IMAGES')
-        mosaic = mosaic.set('BAP_USED_IMAGES', used_images)
-
-        return self.set_properties(mosaic, year)
+        return self.set_properties(mosaic, year, col)
 
     def build_composite_reduced(self, year, site, indices=None, **kwargs):
         """ Build the composite where
@@ -343,18 +340,28 @@ class Bap(object):
 
         return self.set_properties(mosaic, year)
 
-    def set_properties(self, mosaic, year):
+    def set_properties(self, mosaic, year, col):
         """ Set some BAP common properties to the given mosaic """
+        # USED IMAGES
+        used_images = col.get('BAP_USED_IMAGES')
+        mosaic = mosaic.set('BAP_USED_IMAGES', used_images)
+
         # DATE
         date = self.time_start(year).millis()
         mosaic = mosaic.set('system:time_start', date)
+
         # BAP Version
         mosaic = mosaic.set('BAP_VERSION', __version__)
         bap_params = {}
         for score in self.scores:
             bap_params = utils.serialize(score, score.name, bap_params)
 
+        # BAP Parameters
         mosaic = mosaic.set('BAP_PARAMETERS', bap_params)
+
+        # FOOTPRINT
+        geom = tools.imagecollection.mergeGeometries(col)
+        mosaic = mosaic.set('system:footprint', geom)
 
         # Seasons
         for year in self.year_range(year):
