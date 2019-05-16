@@ -4,6 +4,7 @@
 from geetools import collection, tools
 from . import scores, priority, functions, utils, __version__
 import ee
+import json
 
 
 class Bap(object):
@@ -374,6 +375,228 @@ class Bap(object):
             mosaic = mosaic.set(propname, string)
 
         return mosaic
+
+    def to_file(self, filename, path=None):
+        """ Make a configuration file (JSON) to be able to reconstruct the
+        object """
+        import os
+        def make_name(filename):
+            split = filename.split('.')
+            if len(split) == 1:
+                filename = '{}.json'.format(filename)
+            else:
+                ext = split[-1]
+                if ext != 'json':
+                    name = '.'.join(split[:-1])
+                    filename = '{}.json'.format(name)
+            return filename
+        filename = make_name(filename)
+        path = '' if path == None else path
+        path = os.path.join(os.getcwd(), path, filename)
+        serial = utils.serialize(self, 'config')['config (Bap)']
+        with open(path, 'w') as thefile:
+            json.dump(serial, thefile, indent=2)
+
+
+def load(filename, path=None):
+    """ Create a Bap object using a config file """
+    from . import season, masks, filters, scores
+    from geetools import collection
+    import os
+    if path is None:
+        path = os.getcwd()
+    split = filename.split('.')
+    if split[-1] != 'json':
+        filename = '{}.json'.format(filename)
+    obj = json.load(open(os.path.join(path, filename)))
+
+    # HELPER
+    def get_number(param_dict, name):
+        if name != '':
+            params = ['{} (int)', '{} (float)']
+        else:
+            params = ['{}(int)', '{}(float)']
+
+        for param in params:
+            result = param_dict.get(param.format(name))
+            if result is not None:
+                return result
+        return None
+
+    # SEASON
+    seas = obj['season (Season)']
+    start = seas['_start (SeasonDate)']['date (str)']
+    end = seas['_end (SeasonDate)']['date (str)']
+    season_param = season.Season(start, end)
+
+    # RANGE
+    ran = obj.get('range (tuple)') or obj.get('range (list)')
+    range_param = (ran[0]['(int)'], ran[1]['(int)'])
+
+    # MASKS
+    mask_list = []
+    for mask in obj.get('masks (tuple)') or obj.get('masks (list)') or []:
+        mask_class = list(mask.keys())[0]
+        params = mask[mask_class]
+        if mask_class == '(Mask)':
+            options = [opt['(str)'] for opt in params.get('options (list)') or params.get('options (tuple)')]
+            mask_param = masks.Mask(options)
+        elif mask_class == '(Hollstein)':
+            options = [opt['(str)'] for opt in params.get('options (list)') or params.get('options (tuple)')]
+            mask_param = masks.Hollstein(options)
+        else:
+            continue
+        mask_list.append(mask_param)
+
+    # FILTERS
+    filter_list = []
+    for filter in obj.get('filters (tuple)') or obj.get('filters (list)') or []:
+        filter_class = list(filter.keys())[0]
+        params = filter[filter_class]
+        if filter_class == '(CloudCover)':
+            percent = get_number(params, 'percent')
+            filter_param = filters.CloudCover(percent)
+        elif filter_class == 'MaskCover':
+            percent = get_number(params, 'percent')
+            filter_param = filters.MaskCover(percent)
+        else:
+            continue
+        filter_list.append(filter_param)
+
+    # COLGROUP
+    colgroup = obj.get('colgroup (CollectionGroup') or obj.get('colgroup (NoneType)')
+    if colgroup:
+        collections = []
+        collections_param = colgroup.get('collections (tuple)') or colgroup.get('collections (list)')
+        for col in collections_param:
+            sat = list(col.keys())[0]
+            params = col[sat]
+            satid = params['_id (str)']
+            instance = collection.fromId(satid)
+            collections.append(instance)
+        colgroup_param = collection.CollectionGroup(collections)
+    else:
+        colgroup_param = None
+
+
+    # TARGET COLLECTION
+    target_collection = obj.get('target_collection (Landsat)') or \
+                        obj.get('target_collection (Sentinel)')
+
+    target_id = target_collection.get('id (str)')
+    target_param = collection.fromId(target_id)
+
+    # SCORES
+    score_list = []
+    for score in obj.get('scores (list)') or obj.get('scores (tuple)') or []:
+        score_class = list(score.keys())[0]
+        params = score[score_class]
+        # RANGE OUT
+        range_out_param = params.get('range_out (tuple)') or params.get('range_out (list)')
+        if range_out_param:
+            range_out_0 = range_out_param[0]
+            range_out_1 = range_out_param[1]
+            range_out = (get_number(range_out_0, ''), get_number(range_out_1, ''))
+        else:
+            range_out = None
+
+        # RANGE IN
+        range_in_param = params.get('range_in (tuple)') or params.get('range_in (list)')
+        if range_in_param:
+            range_in_0 = range_in_param[0]
+            range_in_1 = range_in_param[1]
+            range_in = (get_number(range_in_0, ''), get_number(range_in_1, ''))
+        else:
+            range_in = None
+
+        # NAME
+        name = params.get('name (str)')
+        sleep = get_number(params, 'sleep')
+        if score_class == '(CloudScene)':
+            continue
+        if score_class == '(CloudDist)':
+            dmax = get_number(params, 'dmax')
+            dmin = get_number(params, 'dmin')
+            kernel = params.get('kernel (str)')
+            units = params.get('units (str)')
+            score_param = scores.CloudDist(dmin, dmax, name, kernel=kernel, units=units)
+        elif score_class == '(Doy)':
+            best_doy = params.get('best_doy (str)')
+            doy_season_param = params.get('season (Season)')
+            start = doy_season_param['_start (SeasonDate)']['date (str)']
+            end = doy_season_param['_end (SeasonDate)']['date (str)']
+            Season = season.Season(start, end)
+            function = params.get('function (str)')
+            stretch = get_number(params, 'stretch')
+            score_param = scores.Doy(best_doy, Season, name, function, stretch)
+        elif score_class == '(AtmosOpacity)':
+            continue
+        elif score_class == '(MaskPercent)':
+            band = params.get('band (str)')
+            maxPixels = params.get('maxPixels (int)')
+            count_zeros = params.get('count_zeros (bool)')
+            score_param = scores.MaskPercent(band, name, maxPixels, count_zeros)
+        elif score_class == '(MaskPercentKernel)':
+            kernel = params.get('kernel (str)')
+            distance = get_number(params, 'distance')
+            units = params.get('units (str)')
+            score_param = scores.MaskPercentKernel(kernel, distance, units, name)
+        elif score_class == '(Satellite)':
+            ratio = get_number(params, 'ratio')
+            score_param = scores.Satellite(ratio, name)
+        elif score_class == '(Outliers)':
+            bands = params.get('bands (tuple)') or params.get('bands (list)')
+            bandlist = [band['(str)'] for band in bands]
+            process = params.get('process (str)')
+            dist = get_number(params, 'dist')
+            score_param = scores.Outliers(bandlist, process, dist, name)
+        elif score_class == '(Index)':
+            index = params.get('index (str)')
+            target = get_number(params, 'target')
+            function = params.get('function (str)')
+            stretch = get_number(params, 'stretch')
+            score_param = scores.Index(index, target, name, function, stretch)
+        elif score_class == '(MultiYear)':
+            main_year = params.get('main_year (int)')
+            my_season_param = params.get('season (Season)')
+            start = my_season_param['_start (SeasonDate)']['date (str)']
+            end = my_season_param['_end (SeasonDate)']['date (str)']
+            Season = season.Season(start, end)
+            ratio = get_number(params, 'ratio')
+            function = params.get('function (str)')
+            stretch = get_number(params, 'stretch')
+            score_param = scores.MultiYear(main_year, Season, ratio, function, stretch, name)
+        elif score_class == '(Threshold)':
+            continue
+        elif score_class == '(Medoid)':
+            bands = params.get('bands (list)') or params.get('bands (tuple)')
+            discard_zeros = params.get('discard_zeros (bool)')
+            score_param = scores.Medoid(bands, discard_zeros, name)
+        elif score_class == '(Brightness)':
+            target = get_number(params, 'target')
+            bands = params.get('bands (list)') or params.get('bands (tuple)')
+            function = params.get('function (str)')
+            score_param = scores.Brightness(target, bands, name, function)
+        else:
+            continue
+
+        score_param.sleep = sleep
+        score_param.range_out = range_out
+        score_param.range_in = range_in
+        score_list.append(score_param)
+
+    # MISC
+    score_name_param = obj.get('score_name (str)')
+    bandname_date_param = obj.get('bandname_date (str)')
+    brdf_param = obj.get('brdf (bool)')
+    harmonize_param = obj.get('harmonize (bool)')
+    bandname_col_id_param = obj.get('bandname_col_id (str)')
+
+    return Bap(season_param, range_param, colgroup_param, score_list,
+               mask_list, filter_list, target_param, brdf_param,
+               harmonize_param, score_name=score_name_param,
+               bandname_date=bandname_date_param,
+               bandname_col_id=bandname_col_id_param)
 
 
 def reduce_collection(collection, set=5, reducer='mean',
