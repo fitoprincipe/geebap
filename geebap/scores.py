@@ -43,10 +43,19 @@ from uuid import uuid4
 __all__ = []
 factory = {}
 
-KERNELS = {
+KERNELS_DISTANCE = {
     "euclidean": ee.Kernel.euclidean,
     "manhattan": ee.Kernel.manhattan,
     "chebyshev": ee.Kernel.chebyshev
+}
+
+KERNELS_BOOL = {
+    "circle": ee.Kernel.circle,
+    "cross": ee.Kernel.cross,
+    "diamond": ee.Kernel.diamond,
+    "octagon": ee.Kernel.octagon,
+    "plus": ee.Kernel.plus,
+    "square": ee.Kernel.square
 }
 
 
@@ -208,7 +217,7 @@ class CloudDist(Score):
         return ee.Image.constant(self.dmin)
 
     def kernelEE(self, radius):
-        fkernel = KERNELS[self.kernel]
+        fkernel = KERNELS_DISTANCE[self.kernel]
         return fkernel(radius=radius, units=self.units)
 
     @staticmethod
@@ -309,7 +318,7 @@ class CloudDist(Score):
 
         params = dict(
             bandmask = first_band.name,
-            kernel = KERNELS[self.kernel],
+            kernel = KERNELS_DISTANCE[self.kernel],
             dmin = self.dmin,
             dmax = dmax,
             bandname = self.name,
@@ -588,22 +597,23 @@ class MaskPercent(Score):
 
 class MaskPercentKernel(Score):
     """ Mask percent score using a kernel """
-    def __init__(self, kernel=None, distance=255, units='pixels',
+    def __init__(self, kernel='square', distance=255, units='pixels',
                  name="score-maskper-kernel", **kwargs):
         """ Initialize score with kernel, distance and units """
         super(MaskPercentKernel, self).__init__(**kwargs)
 
-        if kernel is None:
-            self.kernel = ee.Kernel.square
-        else:
-            self.kernel = kernel
-
+        self.kernel = kernel
         self.distance = distance
         if self.distance > 255:
             self.distance = 255
 
         self.units = units
         self.name = name
+
+    @staticmethod
+    def _make_kernel(name, radius, units):
+        fkernel = KERNELS_BOOL[name]
+        return fkernel(radius=radius, units=units)
 
     @staticmethod
     def compute(img, **kwargs):
@@ -618,7 +628,7 @@ class MaskPercentKernel(Score):
         :param name: the name of the resulting band
         :type name: str
         """
-        kernel = kwargs.get('kernel', ee.Kernel.square)
+        kernel = kwargs.get('kernel', 'square')
         size = kwargs.get('size', 255)
         units = kwargs.get('units', 'pixels')
         count_zeros = kwargs.get('count_zeros', False)
@@ -629,7 +639,7 @@ class MaskPercentKernel(Score):
 
         distance = (size*2+1)**2
 
-        Kernel = kernel(size, units)
+        Kernel = MaskPercentKernel._make_kernel(kernel, size, units)
 
         maskband = img.select([0])
 
@@ -744,14 +754,12 @@ class Outliers(Score):
 
     :type dist: int
     """
-
     def __init__(self, bands, process="median", dist=0.7, name="score-outlier",
                  **kwargs):
         super(Outliers, self).__init__(**kwargs)
 
         # TODO: param bands is related to the collection used
         self.bands = bands
-        self.bands_ee = ee.List(bands)
         self.process = process
 
         # TODO: distribution
@@ -761,6 +769,10 @@ class Outliers(Score):
         self.sleep = kwargs.get("sleep", 10)
 
         # TODO: create `min` and `max` properties depending on the chosen process
+
+    @property
+    def bands_ee(self):
+        return ee.List(self.bands)
 
     @property
     def bandslength(self):
