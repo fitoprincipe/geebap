@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 import ee
 from geetools import collection
-import time
-import sys
-import traceback
 
 
 def get_id_col(id):
@@ -237,40 +234,6 @@ def replace_duplicate(list, separator="_"):
         list = new[:]
         new = wrap(new)
     return(new)
-
-
-RETRY_LIMIT = 100
-def get_size(col, sleep=0, step=5, limit=RETRY_LIMIT):
-    """ Obtain locally the size of a collection. If an error of 'too many
-    concurrent aggregations' occurs, it will retry adding a step of time each
-    time
-
-    :param col: collection to get the size of
-    :type col: ee.ImageCollection
-    :param sleep: time to sleep each time (seconds)
-    :type sleep: int
-    :param step: time to add each new iteration (seconds)
-    :type step: int
-    :param limit: limit of time in wich it will raise the error
-    :type limit: int
-    :return: size of the collection
-    :rtype: int
-    """
-    try:
-        s = col.size().getInfo()
-        return s
-    except Exception as e:
-        print(str(e))
-        # cond = str(e) in "Too many concurrent aggregations."
-        # if cond and sleep<limit:
-        if sleep<limit:
-            print("esperando {} segundos".format(sleep))
-            for r in range(sleep+1):
-                sys.stdout.write(str(r+1)+".")
-                time.sleep(1)
-            return get_size(col, sleep+step)
-        else:
-            raise e
 
 
 def select_match(col):
