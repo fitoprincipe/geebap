@@ -2,7 +2,7 @@
 import ee
 
 from . import expgen
-from .functions import drange, replace
+from .functions import drange
 from geetools import tools
 import math
 import simpleeval as sval
@@ -137,7 +137,6 @@ class Expression(object):
 
         return expgen.ExpGen.parse(expr)
 
-        # return sval.simple_eval("")
 
     @staticmethod
     def adjust(name, valor):
@@ -152,7 +151,6 @@ class Expression(object):
         """
         def wrap(img):
             band = img.select(name).multiply(valor)
-            # return replace(name, band)(img)
             return tools.image.replace(img, name, band)
 
         return wrap
