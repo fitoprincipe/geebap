@@ -305,3 +305,12 @@ def nirXred(nir="NIR", red="RED", output="nirXred"):
         return img.addBands(nirXred)
     return wrap
 
+
+def unmask_slc_off(image):
+    """ Unmask pixels that are masked in ALL bands """
+    mask = image.mask()
+    reduced = mask.reduce('sum')
+    slc_off = reduced.eq(0)
+    unmasked = image.unmask()
+    newmask = mask.where(slc_off, 1)
+    return unmasked.updateMask(newmask)

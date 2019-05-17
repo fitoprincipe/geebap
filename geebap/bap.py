@@ -181,7 +181,7 @@ class Bap(object):
                 if col.spacecraft == 'LANDSAT' and col.number == 7:
                     if year in priority.SeasonPriority.l7_slc_off:
                         # Convert masked values to zero
-                        col_ee = col_ee.map(lambda img: img.unmask())
+                        col_ee = col_ee.map(lambda img: functions.unmask_slc_off(img))
                         slcoff = True
 
                 # Apply masks
