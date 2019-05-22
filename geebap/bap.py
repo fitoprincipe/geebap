@@ -132,7 +132,7 @@ class Bap(object):
         empty_score = ee.Image.constant(0).rename(self.score_name).toUint8()
 
         # List to store all used images
-        used_images = []
+        used_images = dict()
 
         for col in colgroup.collections:
             col_ee_bounds = col.collection
@@ -140,6 +140,10 @@ class Bap(object):
             # Filter bounds
             if isinstance(site, ee.Feature): site = site.geometry()
             col_ee_bounds = col_ee_bounds.filterBounds(site)
+
+            # Collection ID
+            col_id = functions.get_col_id(col)
+            col_id_img = functions.get_col_id_image(col)
 
             for year in self.year_range(year):
                 daterange = self.season.add_year(year)
@@ -161,12 +165,6 @@ class Bap(object):
 
                 # Proxy in case size == 0
                 col_ee = self.make_proxy(col.collection.first(), col_ee, year)
-
-                # store used images
-                imlist = ee.List(col_ee.toList(col_ee.size()).map(
-                    lambda img:
-                    ee.String(col.id).cat('/').cat(ee.Image(img).id())))
-                used_images.append(imlist)
 
                 # clip with site
                 if buffer is not None:
@@ -236,11 +234,8 @@ class Bap(object):
                 # Add col_id band
                 # Add col_id to the image as a property
                 def addBandID(img):
-                    col_id = functions.get_col_id(col)
-                    col_id_img = functions.get_col_id_image(col)
                     return img.addBands(col_id_img).set(
-                        self.bandname_col_id.upper(),
-                        col_id)
+                        self.bandname_col_id.upper(), col_id)
                 col_ee = col_ee.map(addBandID)
 
                 # Add date band
@@ -279,17 +274,21 @@ class Bap(object):
                         col_ee = col_ee.map(
                             lambda img: col.harmonize(img, renamed=True))
 
-                col_ee_list = col_ee.toList(col_ee.size())
+                # store used images
+                # Property name for storing images as properties
+                prop_name = 'BAP_IMAGES_COLID_{}_YEAR_{}'.format(col_id, year)
+                # store used images
+                imlist = ee.List(col_ee.toList(col_ee.size()).map(
+                    lambda img:
+                    ee.String(col.id).cat('/').cat(ee.Image(img).id())))
+                used_images[prop_name] = imlist
 
+                col_ee_list = col_ee.toList(col_ee.size())
                 all_collections = all_collections.add(col_ee_list).flatten()
 
         all_collection = ee.ImageCollection.fromImages(all_collections)
 
-        # get all used images
-        used_images = ee.List(used_images).flatten()
-
         # Compute final score
-        # ftotal = tools.image.sumBands("score", scores)
         if self.scores:
             def compute_score(img):
                 score = img.select(self.score_names).reduce('sum') \
@@ -306,8 +305,7 @@ class Bap(object):
         final_collection = all_collection.map(
             lambda img: img.select(common_bands))
 
-        # set used images to the collection
-        final_collection = final_collection.set('BAP_USED_IMAGES', used_images)
+        self._used_images = used_images
 
         return final_collection
 
@@ -323,7 +321,7 @@ class Bap(object):
         col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = col.qualityMosaic(self.score_name)
 
-        return self.set_properties(mosaic, year, col)
+        return self._set_properties(mosaic, year, col)
 
     def build_composite_reduced(self, year, site, indices=None, **kwargs):
         """ Build the composite where
@@ -339,26 +337,42 @@ class Bap(object):
         col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = reduce_collection(col, nimages, reducer, self.score_name)
 
-        return self.set_properties(mosaic, year)
+        return self._set_properties(mosaic, year, col)
 
-    def set_properties(self, mosaic, year, col):
+    def _set_properties(self, mosaic, year, col):
         """ Set some BAP common properties to the given mosaic """
         # USED IMAGES
-        used_images = col.get('BAP_USED_IMAGES')
-        mosaic = mosaic.set('BAP_USED_IMAGES', used_images)
+        used_images = self._used_images
+        for prop, value in used_images.items():
+            mosaic = mosaic.set(prop, str(value))
 
+        # SCORES
+        bap_scores = []
+        for score in self.scores:
+            pattern = utils.object_init(score)
+            bap_scores.append(pattern)
+        mosaic = mosaic.set('BAP_SCORES', str(bap_scores))
+
+        # MASKS
+        bap_masks = []
+        for mask in self.masks:
+            pattern = utils.object_init(mask)
+            bap_masks.append(pattern)
+        mosaic = mosaic.set('BAP_MASKS', str(bap_masks))
+
+        # FILTERS
+        bap_filters = []
+        for filter in self.filters:
+            pattern = utils.object_init(filter)
+            bap_filters.append(pattern)
+        mosaic = mosaic.set('BAP_FILTERS', str(bap_filters))
+        
         # DATE
         date = self.time_start(year).millis()
         mosaic = mosaic.set('system:time_start', date)
 
         # BAP Version
         mosaic = mosaic.set('BAP_VERSION', __version__)
-        bap_params = {}
-        for score in self.scores:
-            bap_params = utils.serialize(score, score.name, bap_params)
-
-        # BAP Parameters
-        mosaic = mosaic.set('BAP_PARAMETERS', bap_params)
 
         # FOOTPRINT
         geom = tools.imagecollection.mergeGeometries(col)

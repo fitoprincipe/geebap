@@ -2,6 +2,17 @@
 """ Util functions """
 
 
+def get_init_params(obj):
+    init_params = obj.__init__.__code__.co_varnames
+    obj_params = obj.__dict__.items()
+    return {param: value for param, value in obj_params if param in init_params}
+
+
+def object_init(obj):
+    init_params = get_init_params(obj)
+    return '{}(**{})'.format(obj.__class__.__name__, init_params)
+
+
 def serialize(obj, name=None, result=None):
     """ Serialize an object to a dict """
     if result is None:
