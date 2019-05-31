@@ -93,6 +93,7 @@ class Bap(object):
         add_individual_scores = kwargs.get('add_individual_scores', False)
         buffer = kwargs.get('buffer', None)
 
+        # list to 'collect' collections
         all_collections = ee.List([])
 
         # TODO: get common bands for col of all years
@@ -341,10 +342,10 @@ class Bap(object):
 
     def _set_properties(self, mosaic, year, col):
         """ Set some BAP common properties to the given mosaic """
-        # USED IMAGES
-        used_images = self._used_images
-        for prop, value in used_images.items():
-            mosaic = mosaic.set(prop, str(value))
+        # # USED IMAGES
+        # used_images = self._used_images
+        # for prop, value in used_images.items():
+        #     mosaic = mosaic.set(prop, str(value))
 
         # SCORES
         bap_scores = []
