@@ -5,11 +5,6 @@ import ee
 from geetools import tools
 from . import date, functions
 
-try:
-    from ipywidgets import HTML, Accordion
-except:
-    print('Cannot use ipytools without ipywidgets installed\n'
-          'ipywidgets.readthedocs.io')
 
 def information():
     pass
@@ -23,6 +18,12 @@ def info2map(map):
     :type map: geetools.ipymap.Map
     :return:
     """
+    try:
+        from ipywidgets import Accordion
+    except:
+        print('Cannot use ipytools without ipywidgets installed\n'
+              'ipywidgets.readthedocs.io')
+
     map.addTab('BAP Inspector', info_handler, Accordion())
 
 
@@ -32,6 +33,12 @@ def info_handler(**kwargs):
     :param change:
     :return:
     """
+    try:
+        from ipywidgets import HTML
+    except:
+        print('Cannot use ipytools without ipywidgets installed\n'
+              'ipywidgets.readthedocs.io')
+
     themap = kwargs['map']
     widget = kwargs['widget']
     # Get click coordinates
