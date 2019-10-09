@@ -294,7 +294,7 @@ class CloudDist(Score):
 
     @staticmethod
     def apply(collection, **kwargs):
-        return collection.map(lambda img: CloudDist.compute(img, **kwargs))
+        return collection.map(lambda img: img.addBands(CloudDist.compute(img, **kwargs)))
 
     def map(self, collection, **kwargs):
         """ Map function to use in BAP
@@ -990,7 +990,7 @@ class MultiYear(Score):
     :type ration: float
     """
 
-    def __init__(self, main_year, season, ratio=0.05, function='linear',
+    def __init__(self, season, ratio=0.05, main_year=None, function='linear',
                  stretch=1, name="score-multi", **kwargs):
         super(MultiYear, self).__init__(**kwargs)
         self.main_year = main_year
@@ -1091,7 +1091,7 @@ class MultiYear(Score):
         :param years: the list of all years
         :type years: list
         """
-        year = self.main_year
+        year = self.main_year or kwargs.get('year')
         range_out = self.range_out
 
         # Use YEAR_BAP property that is set in the BAP process
