@@ -13,8 +13,8 @@ class Bap(object):
                  harmonize=True, **kwargs):
         self.range = range
         self.scores = scores
-        self.masks = masks
-        self.filters = filters
+        self.masks = masks or ()
+        self.filters = filters or ()
         self.season = season
         self.colgroup = colgroup
         self.brdf = brdf
