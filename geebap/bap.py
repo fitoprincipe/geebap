@@ -381,12 +381,13 @@ class Bap(object):
 
         # Seasons
         for year in self.year_range(year):
-            yearstr = ee.Number(year).format()
+            # yearstr = ee.Number(year).format()
             daterange = self.season.add_year(year)
             start = daterange.start().format('yyyy-MM-dd')
             end = daterange.end().format('yyyy-MM-dd')
             string = start.cat(' to ').cat(end)
-            propname = ee.String('BAP_SEASON_').cat(yearstr)
+            # propname = ee.String('BAP_SEASON_').cat(yearstr)
+            propname = ee.String('BAP_SEASON')
             mosaic = mosaic.set(propname, string)
 
         return mosaic
