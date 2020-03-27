@@ -17,9 +17,8 @@ def _get_function(col, band, option, renamed=False):
 class Mask(object):
     """ Compute common masks regarding the given collection. Looks for
     pixel_qa, BQA, sr_cloud_qa and QA60 bands in that order """
-    def __init__(self, options=('cloud', 'shadow', 'snow')):
+    def __init__(self, options=None):
         self.options = options
-        self.bands = ['pixel_qa', 'BQA', 'sr_cloud_qa', 'QA60']
 
     def map(self, collection, **kwargs):
         """ Map the mask function over a collection
@@ -35,10 +34,11 @@ class Mask(object):
         """
         col = kwargs.get('col')
         renamed = kwargs.get('renamed', False)
-        for opt in self.options:
-            for band in self.bands:
-                f = _get_function(col, band, opt, renamed)
-                collection = collection.map(f)
+        f = col.common_masks[0]
+        if self.options:
+            collection = collection.map(lambda i: f(i, self.options, renamed))
+        else:
+            collection = collection.map(lambda i: f(i, renamed=renamed))
 
         return collection
 
