@@ -202,6 +202,8 @@ class CloudDist(Score):
     """
     def __init__(self, dmin=0, dmax=None, name="score-cld-dist", **kwargs):
         super(CloudDist, self).__init__(**kwargs)
+        if not dmax or dmax > 255:
+            dmax = 255
         self.dmax = dmax
         self.dmin = dmin
         self.name = name
@@ -209,7 +211,7 @@ class CloudDist(Score):
         # Extra params
         self.sleep = kwargs.get("sleep", 10)
         self.kernel = kwargs.get("kernel", "euclidean")
-        self.units = kwargs.get('units', 'meters')
+        self.units = kwargs.get('units', 'pixels')
 
     # GEE
     @property
@@ -241,12 +243,13 @@ class CloudDist(Score):
         :type units: str
         """
         kernel = kwargs.get('kernel')
-        dmax = ee.Number(kwargs.get('dmax'))
+        dmax = ee.Number(kwargs.get('dmax', 255))
         dmin = ee.Number(kwargs.get('dmin'))
         bandmask = kwargs.get('bandmask', 0)
         bandname = kwargs.get('bandname', 'cloud_dist')
-        units = kwargs.get('units', 'meters')
+        units = kwargs.get('units', 'pixels')
         factor = kwargs.get('factor', 0.2)
+        projection = kwargs.get('projection')
 
         if not kernel:
             kernel = ee.Kernel.euclidean(radius=dmax, units=units)
@@ -290,6 +293,10 @@ class CloudDist(Score):
         # Apply the original mask
         pjeDist = pjeDist.updateMask(cloud_mask)
 
+        # Reproject if needed
+        if projection:
+            pjeDist = pjeDist.reproject(projection)
+
         return pjeDist.rename(bandname)
 
     @staticmethod
@@ -303,6 +310,7 @@ class CloudDist(Score):
         :type col: geetools.collection.Collection
         """
         col = kwargs.get('col')
+        projection = kwargs.get('projection')
         first_band = col.bands[0]
         scale = min([band.scale for band in col.bands])
 
@@ -322,7 +330,8 @@ class CloudDist(Score):
             dmin = self.dmin,
             dmax = dmax,
             bandname = self.name,
-            units = self.units
+            units = self.units,
+            projection = projection
         )
 
         def wrap(img):
