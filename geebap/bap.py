@@ -10,7 +10,7 @@ import json
 class Bap(object):
     def __init__(self, season, range=(0, 0), colgroup=None, scores=None,
                  masks=None, filters=None, target_collection=None, brdf=False,
-                 harmonize=True, **kwargs):
+                 harmonize=True, projection=None, **kwargs):
         self.range = range
         self.scores = scores
         self.masks = masks or ()
@@ -19,6 +19,7 @@ class Bap(object):
         self.colgroup = colgroup
         self.brdf = brdf
         self.harmonize = harmonize
+        self.projection = projection or ee.Projection('EPSG:3857')
 
         if target_collection is None:
             target_collection = collection.Landsat8SR()
@@ -264,6 +265,7 @@ class Bap(object):
                     newdate = ee.Number.parse(date_str)
                     newdate_img = ee.Image.constant(newdate) \
                         .rename(self.bandname_date).toUint32()
+
                     return img.addBands(newdate_img)
                 col_ee = col_ee.map(addDateBand)
 
@@ -322,6 +324,8 @@ class Bap(object):
         col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = col.qualityMosaic(self.score_name)
 
+        # reproject
+        mosaic = mosaic.reproject(self.projection)
         return self._set_properties(mosaic, year, col)
 
     def build_composite_reduced(self, year, site, indices=None, **kwargs):
