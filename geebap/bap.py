@@ -324,8 +324,6 @@ class Bap(object):
         col = self.compute_scores(year, site, indices, **kwargs)
         mosaic = col.qualityMosaic(self.score_name)
 
-        # reproject
-        mosaic = mosaic.reproject(self.projection)
         return self._set_properties(mosaic, year, col)
 
     def build_composite_reduced(self, year, site, indices=None, **kwargs):
