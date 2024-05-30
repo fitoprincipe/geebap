@@ -13,13 +13,10 @@ License and Copyright
 
 2017 Rodrigo E. Principe - geebap - https://github.com/fitoprincipe/geebap
 
-This work thanks to: "Dirección de Bosques - SAyDS" (Argentine Nation) and CIEFAP (Centro
-de Investigación y Extensión Forestal Andino Patagónico)
-
 Contact
 -------
 
-Rodrigo E. Principe: rprincipe@ciefap.org.ar
+Rodrigo E. Principe: fitoprincipe82@gmail.com
 
 Installation
 ------------
